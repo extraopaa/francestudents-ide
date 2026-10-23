@@ -88,7 +88,3 @@ Télécharge les installateurs depuis les releases de ce fork. Windows et macOS 
 - [Contribuer](CONTRIBUTING.md) · [Nouveautés](CHANGELOG.md) · [Crédits](CREDITS.md).
 
 Pour reprendre le développement avec n’importe quel assistant IA, commence par [AGENTS.md](AGENTS.md) et [le contexte du projet](docs/AI_CONTEXT.md).
-
-## Origine du projet
-
-**FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** Ce dépôt est un fork d’amélioration maintenu par [extraopaa](https://github.com/extraopaa), et non une version officielle du dépôt d’origine. Le crédit de la création revient à EsteG7 et aux contributeurs du projet original.
