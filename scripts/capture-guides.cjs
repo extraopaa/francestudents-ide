@@ -38,4 +38,3 @@ async function main(){
     }finally{await app.close();fs.rmSync(dir,{recursive:true,force:true});}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
-
