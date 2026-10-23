@@ -40,7 +40,7 @@ Ouvre une pull request dans ce fork. Décris le problème, le comportement obten
 1. Mettre à jour la version, le changelog et le résumé de nouveautés dans `desktop/release-highlights.js`.
 2. Vérifier le code, construire les exécutables et contrôler leur démarrage.
 3. Créer une release sur un tag correspondant aux sources construites.
-4. Joindre uniquement l’installateur, `.blockmap`, `latest.yml` et les empreintes SHA-256.
+4. Joindre l’installateur Windows, `.blockmap`, `latest.yml`, les DMG/ZIP Mac ARM64 et Intel, et les empreintes SHA-256. Les portables Windows restent locaux.
 
 Les exécutables vont dans GitHub Releases, jamais dans Git. Les notes de version rappellent que le projet est de EsteG7 et que ce dépôt est un fork d’amélioration.
 
@@ -63,3 +63,11 @@ Le tag doit correspondre à la version exacte du paquet. Après publication expl
 Pour une publication manuelle avec `gh`, préciser `-R extraopaa/francestudents-ide`, calculer `SHA256SUMS.txt`, puis joindre uniquement les quatre assets prévus. Ne jamais déplacer un tag déjà public pour y ajouter des modifications. Une demande de contribution ou de test ne demande pas implicitement un push ou une release.
 
 Les versions portables restent exclusivement locales et ne doivent jamais accompagner une nouvelle release GitHub.
+
+## Validation Mac et Windows
+
+Le workflow `security-validation.yml` peut être lancé manuellement. Il prépare Electron avant les tests parallèles, construit EffectCraft avant les parcours Windows et vérifie les applications empaquetées. Le workflow Mac construit sur chaque architecture native et contrôle aussi la signature de l’application dans le DMG. Publier les artefacts du commit validé ; une modification du code embarqué exige une nouvelle construction.
+
+Depuis Electron 45, macOS 13 est requis. `build.mac.identity` vaut `-` pour une signature ad hoc : `null` supprimerait cette signature. Sans compte Apple Developer, le paquet n’est pas notarisé et Gatekeeper peut le bloquer après téléchargement. Ne pas présenter la réussite de `codesign --verify` comme une notarisation ou une garantie d’ouverture sur un M5 physique.
+
+Une release commune contient les fichiers Windows et les deux architectures Mac. `latest.yml` concerne la mise à jour automatique Windows ; sur Mac, l’application propose le téléchargement de l’installateur correspondant. Conserver les assets existants lorsqu’un workflow complète une release. Calculer les empreintes de tous les fichiers distribués et vérifier les tailles et SHA-256 après téléversement avant de publier le brouillon.

@@ -8,12 +8,12 @@ FranceStudent IDE associe un éditeur de code, un agent de programmation et un s
 
 Le projet original appartient à [EsteG7](https://github.com/EsteG7/francestudents-ide). Le fork de publication est [extraopaa/francestudents-ide](https://github.com/extraopaa/francestudents-ide). Conserver cette distinction, les crédits et les licences tierces.
 
-## État de référence, daté du 23 octobre 2026
+## État de référence, daté du 24 octobre 2026
 
-- Version de référence de ce contexte : **1.3.3**. Vérifier sur GitHub le statut de publication effectif et les éventuelles versions plus récentes ; la version du paquet ne suffit pas à le prouver.
+- Version de référence de ce contexte : **1.3.4**. Vérifier sur GitHub le statut de publication effectif et les éventuelles versions plus récentes ; la version du paquet ne suffit pas à le prouver.
 - Le tag v1.3.1 existe, mais aucune release v1.3.1 n’était publiée lors de la vérification. Ne pas déplacer ou réutiliser un tag public.
 - Nom d’application : **FranceStudent IDE** ; les anciens noms « FranceStudent Code » restent parfois nécessaires pour préserver les données ou désigner une version historique.
-- Validation locale : 678 tests unitaires, dont 675 réussis et 3 hooks Unix ignorés sous Windows ; 25 parcours Electron réussis. Consulter le [rapport de validation](validation-v1.3.3.md) pour les limites, puis relancer les contrôles adaptés aux nouveaux changements.
+- Validation locale : 689 tests unitaires, dont 686 réussis et 3 hooks Unix ignorés sous Windows ; 28 parcours Electron réussis. Consulter le [rapport de validation](validation-v1.3.4.md) pour les limites, puis relancer les contrôles adaptés aux nouveaux changements.
 - Les API distantes et mutations GitHub sont simulées dans les scénarios automatisés. Le vrai moteur EffectCraft, le terminal PTY et les serveurs locaux ont été exécutés. Roblox Studio réel et l’installation par-dessus l’application principale n’ont pas été validés.
 
 Cet état est un instantané. Vérifier le dépôt et les releases avant de s’appuyer sur ces numéros ; mettre cette section à jour après publication.
@@ -77,9 +77,11 @@ Le mode Full accès est une fonctionnalité volontaire. Il conserve des actions 
 
 Le produit a changé de nom, mais son `build.appId` et le nom interne du paquet (`project-frstcli`) restent stables pour la continuité des mises à jour et des profils. Electron déduit son dossier de profil de ce nom interne : ne pas le remplacer par un dossier nommé selon le nouveau nom commercial. `FS_DATA_DIR`, `FS_STATE_DIR` et `FS_SKILLS_DIR` permettent d’isoler les essais. Ne pas partager de données d’authentification entre tests et environnement réel.
 
+Depuis la version 1.3.4, `src/secret-storage.js` chiffre les cookies FranceStudent et le jeton GitHub avec DPAPI sous Windows ou le coffre Electron sur les autres systèmes. Les fichiers anciens sont migrés sans changer les dossiers de profil. Sans coffre disponible, conserver les secrets uniquement en mémoire et avertir l’utilisateur ; ne pas réintroduire de stockage en clair ou de clé à côté des secrets. `desktop/ipc-security.js` vérifie la fenêtre, le frame principal et l’URL exacte pour tous les appels IPC.
+
 ## Développer et vérifier
 
-Prérequis : Node.js >= 22.13, npm et Git. Les tests Electron ont besoin d’un environnement graphique. La validation locale de référence utilisait Node 24.21.0 et Electron 38.8.6 sous Windows ; la CI déclare d’autres plateformes, sans constituer une preuve que chaque version y a été testée.
+Prérequis : Node.js >= 22.13, npm et Git. Les tests Electron ont besoin d’un environnement graphique. La version 1.3.4 utilise Electron 45.0.0 et exige macOS 13 minimum. Lancer `npm run prepare:electron` avant les tests parallèles : la première résolution du paquet Electron peut télécharger son binaire. La présence d’un workflow ne constitue pas une preuve de réussite ; consulter les résultats du commit concerné.
 
 ```sh
 npm install
