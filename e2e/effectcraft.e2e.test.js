@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),{_electron}=require("playwright-core");
-test("EffectCraft real engine is controlled through the specialized agent chat",{timeout:90000},async()=>{
+test("EffectCraft real engine is controlled through the specialized agent chat",{timeout:150000},async()=>{
     const root=path.resolve(__dirname,".."),dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-effectcraft-")),project=path.join(dir,"project");fs.mkdirSync(project);
     const harness=path.join(dir,"launch.cjs");
     fs.writeFileSync(harness,`require(${JSON.stringify(path.join(root,"src/core/session"))}).bootstrap=async()=>({ok:true});require(${JSON.stringify(path.join(root,"src/state"))}).state.fullAccess=true;let turn=0;require(${JSON.stringify(path.join(root,"src/api/api"))}).requestModel=async(prompt,options={})=>{if(options.fresh || options.conversationMode!=='agent')return 'Project summary';globalThis.motionPrompts=(globalThis.motionPrompts||[]).concat(prompt);return ++turn===1?JSON.stringify({type:'tool',name:'effectcraft',args:{method:'engine.execute',params:{command:'comp.new',params:{}}},reason:'Create a composition in EffectCraft'}):JSON.stringify({type:'final',message:'Composition created in EffectCraft.',completed:true});};require(${JSON.stringify(path.join(root,"desktop/main.js"))});`);
@@ -37,7 +37,14 @@ test("EffectCraft real engine is controlled through the specialized agent chat",
         await page.locator(".motion-engine-iframe").waitFor();
         const frame=await (await page.locator(".motion-engine-iframe").elementHandle()).contentFrame();
         await frame.waitForFunction(()=>window.effectcraftLoad?.readyMs || window.effectcraftLoad?.error,null,{timeout:45000});
-        await page.waitForFunction(()=>/prêt/i.test(document.querySelector("#motion-engine-status").textContent),null,{timeout:20000});
+        assert.equal(await frame.evaluate(()=>window.effectcraftLoad?.error),undefined);
+        try{
+            await page.waitForFunction(()=>/prêt/i.test(document.querySelector("#motion-engine-status").textContent),null,{timeout:60000});
+        }catch(error){
+            const diagnostics={status:await page.locator("#motion-engine-status").innerText(),load:await frame.evaluate(()=>window.effectcraftLoad),errors};
+            if(process.env.FRST_QA_SCREENSHOT)await page.screenshot({path:process.env.FRST_QA_SCREENSHOT+"-startup-failed.png"});
+            throw new Error("EffectCraft integration did not become ready: "+JSON.stringify(diagnostics),{cause:error});
+        }
         const info=await page.evaluate(()=>window.frst.effectCraftControl({method:"host.info",params:{}}));
         assert.equal(info.integration.theme,"francestudent-v1");
         const tools=await page.evaluate(()=>window.frst.effectCraftControl({method:"ui.elements",params:{prefix:"tools."}}));

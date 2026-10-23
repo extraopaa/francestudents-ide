@@ -35,7 +35,7 @@ test("Codex context resumes with the chosen model in the existing project only a
         await page.waitForFunction(() => !document.querySelector(".attachment-chip"));
         const calls = await app.evaluate(() => globalThis.importCalls);
         assert.equal(calls.length, 1);
-        assert.equal(calls[0].workspace, project);
+        assert.equal(fs.realpathSync.native(calls[0].workspace), fs.realpathSync.native(project));
         assert.match(Buffer.from(calls[0].files[0].dataUrl.split(",")[1], "base64").toString("utf8"), /Ajoute un menu/);
         assert.equal(fs.readFileSync(path.join(project, "index.html"), "utf8"), "<h1>Existing project</h1>");
     } finally { await app.close(); fs.rmSync(dir, { recursive: true, force: true }); }

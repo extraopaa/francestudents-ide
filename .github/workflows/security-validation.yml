@@ -32,5 +32,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Windows-security-validation
-          path: release/*-setup.exe
+          path: |
+            release/*-setup.exe
+            release/*-setup.exe.blockmap
+            release/latest.yml
           if-no-files-found: error
