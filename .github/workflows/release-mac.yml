@@ -44,6 +44,7 @@ jobs:
         env:
           FRST_PACKAGED_EXE: ${{ github.workspace }}/${{ matrix.app }}/Contents/MacOS/FranceStudent IDE
           FRST_QA_SCREENSHOT: ${{ github.workspace }}/release/qa-mac-${{ matrix.arch }}
+          FRST_E2E_SOFTWARE_WEBGL: ${{ matrix.arch == 'x64' && '1' || '0' }}
       - name: Verify application signature and DMG contents
         shell: bash
         env:

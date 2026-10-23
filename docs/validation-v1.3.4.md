@@ -19,6 +19,8 @@ La validation multiplateforme est exécutée par le workflow [Security and upgra
 
 Sur Mac, les vérifications portent sur les architectures ARM64 et Intel, le terminal, le moteur EffectCraft empaqueté, les offres de mise à jour et la migration des connexions. La signature est contrôlée sur l’application construite et sur celle contenue dans le DMG.
 
+Le runner Mac Intel n’expose pas WebGL matériel. Son test EffectCraft utilise explicitement SwiftShader, uniquement via les arguments de lancement du test ; l’application distribuée n’active pas ce mode. Le runner ARM64 conserve son rendu par défaut.
+
 ## Limites
 
 - macOS 13 minimum. La version Mac reste en bêta.

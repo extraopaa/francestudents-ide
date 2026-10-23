@@ -5,7 +5,10 @@ test("EffectCraft real engine is controlled through the specialized agent chat",
     const harness=path.join(dir,"launch.cjs");
     fs.writeFileSync(harness,`require(${JSON.stringify(path.join(root,"src/core/session"))}).bootstrap=async()=>({ok:true});require(${JSON.stringify(path.join(root,"src/state"))}).state.fullAccess=true;let turn=0;require(${JSON.stringify(path.join(root,"src/api/api"))}).requestModel=async(prompt,options={})=>{if(options.fresh || options.conversationMode!=='agent')return 'Project summary';globalThis.motionPrompts=(globalThis.motionPrompts||[]).concat(prompt);return ++turn===1?JSON.stringify({type:'tool',name:'effectcraft',args:{method:'engine.execute',params:{command:'comp.new',params:{}}},reason:'Create a composition in EffectCraft'}):JSON.stringify({type:'final',message:'Composition created in EffectCraft.',completed:true});};require(${JSON.stringify(path.join(root,"desktop/main.js"))});`);
     const env={...process.env,FS_DATA_DIR:dir,FS_STATE_DIR:dir,FS_SKILLS_DIR:path.join(dir,"skills")};delete env.ELECTRON_RUN_AS_NODE;
-    const app=await _electron.launch({executablePath:process.env.FRST_PACKAGED_EXE || require("electron"),args:process.env.FRST_PACKAGED_EXE?["--user-data-dir="+path.join(dir,"electron")]:[harness,"--user-data-dir="+path.join(dir,"electron")],cwd:root,env});
+    const args=process.env.FRST_PACKAGED_EXE?["--user-data-dir="+path.join(dir,"electron")]:[harness,"--user-data-dir="+path.join(dir,"electron")];
+    // GPU-less CI only: never enable this fallback in the shipped application.
+    if(process.env.FRST_E2E_SOFTWARE_WEBGL==="1")args.push("--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader");
+    const app=await _electron.launch({executablePath:process.env.FRST_PACKAGED_EXE || require("electron"),args,cwd:root,env});
     try{
         const page=await app.firstWindow(),errors=[];page.on("pageerror",e=>errors.push(e.message));
         if(process.platform==="darwin"){
