@@ -18,4 +18,6 @@ La version utilise une signature locale ad hoc, vérifiée dans le DMG, mais ell
 
 Le workflow `release-mac.yml` construit chaque architecture sur un runner natif, lance les tests unitaires puis vérifie le terminal, le vrai moteur EffectCraft, le rendu d’image, la sauvegarde, les modes Simple/Avancé et le chat plein écran dans l’application empaquetée. Les captures et empreintes accompagnent les artefacts Actions.
 
+**Validation 1.3.4 :** le parcours complet réussit sur Apple Silicon. Sur Intel, le démarrage, le terminal et les signatures sont vérifiés, mais le runner ne fournit pas de contexte WebGL, même avec les configurations de rendu logiciel essayées. EffectCraft reste donc à vérifier sur un Mac Intel physique. Voir le [rapport et les résultats des workflows](validation-v1.3.4.md).
+
 Les préversions dont le numéro contient `-mac.` ne déclenchent pas la publication Windows. Les fichiers Windows déjà publiés restent inchangés.

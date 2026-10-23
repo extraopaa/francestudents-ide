@@ -19,12 +19,15 @@ La validation multiplateforme est exécutée par le workflow [Security and upgra
 
 Sur Mac, les vérifications portent sur les architectures ARM64 et Intel, le terminal, le moteur EffectCraft empaqueté, les offres de mise à jour et la migration des connexions. La signature est contrôlée sur l’application construite et sur celle contenue dans le DMG.
 
-Le runner Mac Intel n’expose pas WebGL matériel. Son test EffectCraft utilise explicitement SwiftShader, uniquement via les arguments de lancement du test ; l’application distribuée n’active pas ce mode. Le runner ARM64 conserve son rendu par défaut.
+Résultats des [validations natives](https://github.com/extraopaa/francestudents-ide/actions/runs/40036401333) : Windows et Mac ARM64 réussissent l’ensemble de leurs étapes, notamment EffectCraft empaqueté. Les tests unitaires, de migration et du pont IPC passent aussi sur Mac Intel. Le paquet Intel démarre et son terminal fonctionne, mais le test EffectCraft échoue sur la création du contexte WebGL.
+
+Une [vérification séparée du même paquet Intel](https://github.com/extraopaa/francestudents-ide/actions/runs/40037461713) confirme la validité des signatures du bundle ZIP et de l’application dans le DMG. SwiftShader, OpenGL et Metal ne fournissent aucun contexte WebGL dans ce runner ; les trois tentatives de rendu échouent. Ces options sont limitées au test. Le rendu EffectCraft Intel reste à vérifier sur un Mac physique ; cette publication ne constitue pas une validation de cette fonction sur Intel.
 
 ## Limites
 
 - macOS 13 minimum. La version Mac reste en bêta.
 - Signature ad hoc, sans certificat Developer ID ni notarisation Apple : Gatekeeper peut encore refuser l’ouverture après téléchargement. Un contrôle de signature réussi ne signifie pas une autorisation Gatekeeper.
+- Le contrôle Gatekeeper du runner ARM64 rejette effectivement le paquet non notarisé.
 - Aucun essai sur un Mac M5 physique après téléchargement Safari.
 - L’installation interactive par-dessus le profil personnel n’est pas automatisée ; la migration est testée sur des profils représentatifs isolés.
 - Si le coffre système est indisponible, la connexion reste en mémoire et doit être renouvelée au prochain démarrage.
