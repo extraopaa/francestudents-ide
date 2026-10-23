@@ -1,4 +1,8 @@
-﻿<div align="center">
+> [!IMPORTANT]
+> **Ce dépôt est un fork du projet [FranceStudent IDE créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
+> La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
+
+<div align="center">
 
 <img src="desktop/icon.png" width="80" alt="Logo FranceStudent IDE" />
 
