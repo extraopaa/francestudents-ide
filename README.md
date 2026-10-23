@@ -6,7 +6,7 @@
 
 **Du code aux animations, crée tes projets avec un assistant IA en français.**
 
-[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) · [Guide d’utilisation](docs/guide-utilisation.md)
+[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) · [Les guides illustrés](docs/README.md)
 
 Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 
@@ -82,7 +82,8 @@ Télécharge les installateurs depuis les releases de ce fork. Windows et macOS 
 
 ## Pour aller plus loin
 
-- [Guide d’utilisation](docs/guide-utilisation.md) : connexion, interface et premiers pas.
+- [Les guides illustrés](docs/README.md) : installation, connexion, Code, Motion et fonctions principales.
+- [Connexion pas à pas](docs/connexion.md) · [Premiers pas](docs/guide-utilisation.md) · [Dépannage](docs/depannage.md).
 - [Guide avancé](docs/avance.md) : installation depuis les sources, réglages, formats et extensions.
 - [Signaler un problème](https://github.com/extraopaa/francestudents-ide/issues) : indique ta version, ton système et les étapes pour reproduire le souci, sans identifiants.
 - [Contribuer](CONTRIBUTING.md) · [Nouveautés](CHANGELOG.md) · [Crédits](CREDITS.md).
