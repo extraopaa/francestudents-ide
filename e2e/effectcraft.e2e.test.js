@@ -7,7 +7,7 @@ test("EffectCraft real engine is controlled through the specialized agent chat",
     const env={...process.env,FS_DATA_DIR:dir,FS_STATE_DIR:dir,FS_SKILLS_DIR:path.join(dir,"skills")};delete env.ELECTRON_RUN_AS_NODE;
     const args=process.env.FRST_PACKAGED_EXE?["--user-data-dir="+path.join(dir,"electron")]:[harness,"--user-data-dir="+path.join(dir,"electron")];
     // GPU-less CI only: never enable this fallback in the shipped application.
-    if(process.env.FRST_E2E_SOFTWARE_WEBGL==="1")args.push("--use-gl=angle","--use-angle=swiftshader-webgl","--enable-unsafe-swiftshader");
+    if(process.env.FRST_E2E_SOFTWARE_WEBGL==="1")args.push("--use-gl=angle","--use-angle="+(process.env.FRST_E2E_ANGLE_BACKEND || "swiftshader"),"--enable-unsafe-swiftshader","--ignore-gpu-blocklist");
     const app=await _electron.launch({executablePath:process.env.FRST_PACKAGED_EXE || require("electron"),args,cwd:root,env});
     try{
         const page=await app.firstWindow(),errors=[];page.on("pageerror",e=>errors.push(e.message));
