@@ -22,8 +22,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build:renderer
-      - run: node --test --test-concurrency=4 e2e/*.e2e.test.js
       - uses: ./.github/actions/build-effectcraft
+      - run: node --test --test-concurrency=4 e2e/*.e2e.test.js
       - run: npx electron-builder --win nsis --publish never --config.npmRebuild=false
       - name: Test packaged terminal and EffectCraft
         run: node --test e2e/effectcraft.e2e.test.js

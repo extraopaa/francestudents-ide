@@ -37,6 +37,7 @@ test("local browser renders frame-blocked apps with storage, fetch, websockets a
         await page.locator("#local-browser-tab").click();
         await page.locator("#local-browser-panel").waitFor({state:"visible"});
         const capture=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage()).toDataURL());
+        fs.mkdirSync(path.join(root,"release"),{recursive:true});
         fs.writeFileSync(path.join(root,"release/local-browser-preview.png"),Buffer.from(capture.split(",")[1],"base64"));
         await page.locator("#local-browser-address").fill(url+"two");await page.locator("#local-browser-form").press("Enter");
         await page.waitForFunction(()=>document.getElementById("local-browser-tab").textContent.includes("Second page"));
