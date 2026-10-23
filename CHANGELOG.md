@@ -2,6 +2,16 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.3.4] — Sécurité et migration des profils
+
+- Sécurité : Electron 45.0.0, retrait des dépendances vulnérables et audit complet bloquant dans les workflows.
+- Chiffrement système des connexions GitHub et des cookies FranceStudent, avec migration automatique des anciens profils.
+- Vérification de la fenêtre et du frame émetteurs de tous les appels IPC natifs.
+- Compatibilité : macOS 13 minimum ; signature ad hoc et vérification des signatures jusque dans les DMG.
+- Migration testée des anciens identifiants, réglages et historiques, sans modification de l’identité de mise à jour.
+
+- Carte rouge « Conversation verrouillée » pour CHAT_LOCKED et les signalements du fournisseur, avec explication, indication d’ouvrir un nouveau chat et bouton « J’ai bien compris ». Aucun nouveau chat ni renvoi de demande n’est déclenché par ce bouton.
+
 ## [1.3.3-mac.2] — Mises à jour Mac
 
 - Détection des nouvelles versions Mac au démarrage et toutes les quatre heures, selon la préférence de mise à jour.
@@ -14,9 +24,6 @@ Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est u
 - Message bêta à chaque démarrage sur Mac.
 - Publication Mac séparée ; les fichiers Windows v1.3.3 restent inchangés.
 
-## À publier
-
-- Carte rouge « Conversation verrouillée » pour CHAT_LOCKED et les signalements du fournisseur, avec explication, indication d’ouvrir un nouveau chat et bouton « J’ai bien compris ». Aucun nouveau chat ni renvoi de demande n’est déclenché par ce bouton.
 
 ## [1.3.3] — 23 octobre 2026 · FranceStudent IDE et interface simplifiée
 

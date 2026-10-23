@@ -232,7 +232,12 @@ test("connexion e-mail / mot de passe : formulaire lu dynamiquement, cookie de s
 
     const saved = fs.readFileSync(path.join(dataDir, "session.json"), "utf8");
 
-    assert.ok(saved.includes(SESSION));
+    assert.ok(!saved.includes(SESSION));
+    const stored=JSON.parse(saved);
+    if(stored.protectedCookies){
+        const cookies=JSON.parse(require("../src/secret-storage").unprotect(stored.protectedCookies));
+        assert.equal(cookies[authModule.SESSION_COOKIE],SESSION);
+    }else assert.equal(stored.sessionOnly,true);
     assert.ok(!saved.includes(PASSWORD));
     assert.ok(!saved.includes(EMAIL));
 });

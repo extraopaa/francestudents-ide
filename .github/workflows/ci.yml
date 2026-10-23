@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm install
+      - run: npm run prepare:electron
+      - run: npm audit --audit-level=low
       - run: npm run build:renderer
       - run: npm run lint
       - run: npm run check:renderer

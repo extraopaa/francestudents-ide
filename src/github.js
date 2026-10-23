@@ -5,7 +5,7 @@
  *
  * - Authentification : token personnel (PAT, scope "repo") ou Device Flow OAuth
  *   si FS_GITHUB_CLIENT_ID est défini (OAuth App avec Device Flow activé).
- * - Le token est stocké dans CONFIG.dataDir/github.json (mode 0o600, écriture
+ * - Le token est chiffré par le système dans CONFIG.dataDir/github.json (mode 0o600, écriture
  *   atomique). Il n'est jamais affiché ni passé en argument de commande :
  *   git le reçoit par variables d'environnement (GIT_CONFIG_*), en en-tête HTTP.
  * - Repli : variables GITHUB_TOKEN / GH_TOKEN si aucun token n'est enregistré.
@@ -14,7 +14,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFile } = require("node:child_process");
+const { randomUUID } = require("node:crypto");
 const { CONFIG } = require("./config");
+const secretStorage = require("./secret-storage");
+let sessionAuth = null;
 
 const API = "https://api.github.com";
 const DEVICE_CODE_URL = "https://github.com/login/device/code";
@@ -32,7 +35,9 @@ function file() {
 function loadAuth() {
     try {
         const raw = JSON.parse(fs.readFileSync(file(), "utf8"));
-        if (raw && typeof raw.token === "string" && raw.token) return raw;
+        if (raw && typeof raw.token === "string" && raw.token) return saveAuth(raw);
+        if(raw?.secret){const token=secretStorage.unprotect(raw.secret);if(token){const {secret:_secret,...metadata}=raw;return {...metadata,token};}}
+        if(raw?.sessionOnly&&sessionAuth)return sessionAuth;
     } catch {
         // absent ou illisible
     }
@@ -40,25 +45,32 @@ function loadAuth() {
 }
 
 function saveAuth(auth) {
+    if(!auth||typeof auth.token!=="string"||!auth.token)throw new Error("Identifiants GitHub invalides.");
+    const {token,sessionOnly:_sessionOnly,...metadata}=auth;
+    let secret=null;
+    try{secret=secretStorage.protect(token);}catch{/* Keep login in memory if the OS vault is temporarily locked. */}
+    const stored=secret?{...metadata,secret}:{...metadata,sessionOnly:true};
     const target = file();
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    const tmp = `${target}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
+    const tmp = `${target}.${process.pid}.${randomUUID()}.tmp`;
+    fs.writeFileSync(tmp, `${JSON.stringify(stored, null, 2)}\n`, { mode: 0o600,flag:"wx" });
     fs.renameSync(tmp, target);
     try {
         fs.chmodSync(target, 0o600);
     } catch {
         // Windows : sans effet
     }
-    return auth;
+    sessionAuth={...auth,...(!secret?{sessionOnly:true}:{})};
+    return {...sessionAuth};
 }
 
 function clearAuth() {
+    const hadSession=Boolean(sessionAuth);sessionAuth=null;
     try {
         fs.unlinkSync(file());
         return true;
     } catch (error) {
-        if (error.code === "ENOENT") return false;
+        if (error.code === "ENOENT") return hadSession;
         throw error;
     }
 }
@@ -155,7 +167,7 @@ async function status({ fetchImpl, check = true } = {}) {
     const saved = loadAuth();
     const token = getToken();
     if (!token) return { connected: false };
-    const source = saved ? "enregistré" : "variable d'environnement";
+    const source = saved ? (saved.sessionOnly?"session temporaire":"enregistré et chiffré") : "variable d'environnement";
     if (!check) return { connected: true, source, login: (saved && saved.login) || null, masked: maskToken(token) };
     try {
         const user = await verifyToken(token, { fetchImpl });

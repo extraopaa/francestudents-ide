@@ -10,7 +10,7 @@ Utilise les mêmes identifiants que sur le site : adresse e-mail et mot de passe
 
 ![Formulaire de connexion sans identifiants saisis](images/connexion-compte.png)
 
-Le mot de passe n’est pas conservé par l’application ni ajouté à la conversation. Seule la session est enregistrée localement. Le formulaire ne prend pas en charge une étape supplémentaire de captcha ou de double authentification.
+Le mot de passe n’est pas conservé par l’application ni ajouté à la conversation. La session est enregistrée localement avec le coffre système. Sans coffre utilisable, elle reste temporaire et n’est pas écrite en clair. Le formulaire ne prend pas en charge une étape supplémentaire de captcha ou de double authentification.
 
 En cas d’erreur, vérifie tes identifiants et Internet. Le champ mot de passe est vidé après la tentative : saisis-le à nouveau. Ne colle jamais ton mot de passe dans le chat.
 

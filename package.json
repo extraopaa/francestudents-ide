@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "1.3.3-mac.2",
+  "version": "1.3.4",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -32,7 +32,7 @@
     "pretest": "npm run build:tui",
     "test": "node --require ./test/helpers/isolate-env.cjs --test test/*.test.js",
     "bench:search": "node scripts/bench-search.js",
-    "pretest:e2e": "npm run build:renderer",
+    "pretest:e2e": "npm run prepare:electron && npm run build:renderer",
     "test:e2e": "node --test e2e/*.e2e.test.js",
     "predesktop": "npm run build:renderer",
     "desktop": "electron desktop/main.js",
@@ -41,7 +41,8 @@
     "dist:win": "electron-builder --win portable nsis --publish never",
     "dist:mac": "electron-builder --mac dmg zip --publish never",
     "vendor:effectcraft:upstream": "node scripts/fetch-effectcraft.js",
-    "check:effectcraft": "node scripts/build-effectcraft.js --check"
+    "check:effectcraft": "node scripts/build-effectcraft.js --check",
+    "prepare:electron": "node -e \"require('electron')\""
   },
   "keywords": [
     "cli",
@@ -104,7 +105,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "codemirror": "^6.0.2",
-    "electron": "^38.8.6",
+    "electron": "45.0.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
@@ -170,11 +171,11 @@
           ]
         }
       ],
-      "identity": null,
+      "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "artifactName": "FranceStudentIDE-${version}-mac-${arch}.${ext}",
-      "minimumSystemVersion": "12.0.0"
+      "minimumSystemVersion": "13.0.0"
     },
     "dmg": {
       "title": "FranceStudent IDE ${version}",

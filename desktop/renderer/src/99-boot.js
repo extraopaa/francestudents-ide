@@ -11,6 +11,7 @@
     try {
         const result = await api.bootstrap();
         if (result.origin) connectionOrigin = result.origin;
+        if(result.credentialWarning)studioFeedback(result.credentialWarning);
         if (!result.ok) {
             openConnectionGuide(1);
             if (!result.needsLogin) guideError(result.reason);

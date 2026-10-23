@@ -954,7 +954,7 @@ ui.info(
               break;
             }
             const user = await github.loginWithToken(token);
-            ui.info(`Connecté à GitHub en tant que ${user.login}. Token enregistré dans ${github.file()} (0600).`);
+            ui.info(`Connecté à GitHub en tant que ${user.login}. ${require("../secret-storage").available()?"Token protégé par le coffre système.":"Connexion temporaire : aucun coffre système disponible, le token ne sera pas conservé."}`);
             break;
           }
 

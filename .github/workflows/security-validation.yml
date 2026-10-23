@@ -1,0 +1,36 @@
+name: Security and upgrade validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/security-hardening]
+permissions:
+  contents: read
+jobs:
+  mac:
+    uses: ./.github/workflows/release-mac.yml
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run prepare:electron
+      - run: npm audit --audit-level=low
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:renderer
+      - run: node --test --test-concurrency=4 e2e/*.e2e.test.js
+      - uses: ./.github/actions/build-effectcraft
+      - run: npx electron-builder --win nsis --publish never --config.npmRebuild=false
+      - name: Test packaged terminal and EffectCraft
+        run: node --test e2e/effectcraft.e2e.test.js
+        env:
+          FRST_PACKAGED_EXE: ${{ github.workspace }}/release/win-unpacked/FranceStudent IDE.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-security-validation
+          path: release/*-setup.exe
+          if-no-files-found: error

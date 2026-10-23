@@ -5,6 +5,7 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
 const { CONFIG } = require("../config");
+const secretStorage = require("../secret-storage");
 const { ui } = require("../ui-bridge");
 
 /*
@@ -38,7 +39,8 @@ const auth = {
     expiresAt: 0,
     pending: null,
     signedOut: false,
-    lastSaved: ""
+    lastSaved: "",
+    sessionOnly: false
 };
 
 class AuthError extends Error {
@@ -63,12 +65,17 @@ async function loadSession() {
         const saved = JSON.parse(await fs.readFile(SESSION_FILE, "utf8"));
         auth.signedOut = saved.signedOut === true;
 
-        for (const [name, value] of Object.entries(saved.cookies || {})) {
+        const decrypted=saved.protectedCookies?secretStorage.unprotect(saved.protectedCookies):null;
+        const cookies=decrypted?JSON.parse(decrypted):saved.cookies||{};
+        for (const [name, value] of Object.entries(cookies)) {
             if (typeof value === "string" && value) auth.jar.set(name, value);
         }
 
         auth.deviceId ??= saved.deviceId || null;
         auth.lastSaved = serializeSession();
+        // Migrate older plaintext cookie jars before continuing. Without a
+        // usable OS vault, keep the cookies in memory and strip them from disk.
+        if(saved.cookies){auth.lastSaved="";await saveSession({strict:true});}
     } catch {
         // première utilisation ou fichier illisible
     }
@@ -88,12 +95,16 @@ async function saveSession({ strict = false } = {}) {
     try {
         await fs.mkdir(path.dirname(SESSION_FILE), { recursive: true, mode: 0o700 });
 
-        const tmp = `${SESSION_FILE}.${process.pid}.tmp`;
+        const tmp = `${SESSION_FILE}.${process.pid}.${randomUUID()}.tmp`;
 
-        await fs.writeFile(tmp, data, { mode: 0o600 });
+        const {cookies,...metadata}=JSON.parse(data);
+        let protectedCookies=null;
+        try{protectedCookies=Object.keys(cookies).length?secretStorage.protect(JSON.stringify(cookies)):null;}catch{/* A locked vault must not break the current session or leave legacy plaintext on disk. */}
+        await fs.writeFile(tmp, JSON.stringify({...metadata,...(protectedCookies?{protectedCookies}:{sessionOnly:true})}), { mode: 0o600,flag:"wx" });
         await fs.rename(tmp, SESSION_FILE);
 
-        auth.lastSaved = data;
+        auth.sessionOnly=!protectedCookies&&Boolean(cookies[SESSION_COOKIE]);
+        auth.lastSaved = auth.sessionOnly?"":data;
     } catch (error) {
         if (strict) throw error;
         ui.debug(`Session non sauvegardée : ${error.message}`);

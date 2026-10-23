@@ -6,14 +6,14 @@
 
 **Du code aux animations, crée tes projets avec un assistant IA en français.**
 
-[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) · [Guide d’utilisation](docs/guide-utilisation.md)
+[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) · [Les guides illustrés](docs/README.md)
 
 Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 
 </div>
 
 > [!IMPORTANT]
-> **Ce dépôt est un fork du projet [FranceStudent IDE créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
+> **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
 
 ## Le mode Code
@@ -35,8 +35,8 @@ Les conversations Code et Motion sont séparées : l’assistant motion travaill
 | Ton ordinateur | Fichier à télécharger |
 | --- | --- |
 | **Windows 64 bits** | [Dernière version stable](https://github.com/extraopaa/francestudents-ide/releases/latest) → `setup.exe` |
-| **Mac Apple Silicon** — M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) → `mac-arm64.dmg` |
-| **Mac Intel** | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) → `mac-x64.dmg` |
+| **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) → `mac-arm64.dmg` |
+| **Mac Intel** — macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) → `mac-x64.dmg` |
 
 1. Sur Windows, ouvre l’installateur. Sur Mac, ouvre le DMG et déplace l’application dans **Applications**.
 2. Lance FranceStudent IDE et suis le guide de connexion à ton **compte FranceStudent**.
@@ -89,7 +89,3 @@ Télécharge les installateurs depuis les releases de ce fork. Windows et macOS 
 - [Contribuer](CONTRIBUTING.md) · [Nouveautés](CHANGELOG.md) · [Crédits](CREDITS.md).
 
 Pour reprendre le développement avec n’importe quel assistant IA, commence par [AGENTS.md](AGENTS.md) et [le contexte du projet](docs/AI_CONTEXT.md).
-
-## Origine du projet
-
-**FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** Ce dépôt est un fork d’amélioration maintenu par [extraopaa](https://github.com/extraopaa), et non une version officielle du dépôt d’origine. Le crédit de la création revient à EsteG7 et aux contributeurs du projet original.

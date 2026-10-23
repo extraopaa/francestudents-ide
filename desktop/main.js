@@ -142,7 +142,7 @@ async function bootstrapSession() {
     if (!result.ok && !result.needsLogin) backend.error(result.reason);
     pushStatus();
     taskQueue.kick();
-    return { ...result, origin: require("../src/config").CONFIG.origin };
+    return { ...result, origin: require("../src/config").CONFIG.origin,credentialWarning:require("../src/api/auth").auth.sessionOnly?"Le coffre système est indisponible. Ta connexion reste active pour cette session, mais tu devras te reconnecter au prochain lancement.":null };
 }
 
 /** Rouvre le dernier projet connu s'il existe encore sur le disque. */
@@ -753,8 +753,9 @@ async function skillsCreate(name, scope) {
 }
 
 function handle(name, fn) {
-    ipcMain.handle(`frst:${name}`, async (_event, ...args) => {
+    ipcMain.handle(`frst:${name}`, async (event, ...args) => {
         try {
+            if(!require("./ipc-security").isTrustedIpcSender(event,win,path.join(__dirname,"renderer","index.html")))throw new Error("Origine de l’appel non autorisée.");
             return { ok: true, value: await fn(...args) };
         } catch (error) {
             return { ok: false, error: error && error.message ? error.message : String(error) };
@@ -902,7 +903,8 @@ function registerIpc() {
             await require("../src/api/login").loginWithPassword({ email, password });
             await require("../src/api/auth").getAccessToken(true);
             booted = false;
-            return await bootstrap();
+            const result=await bootstrap();
+            return {...result,credentialWarning:require("../src/api/auth").auth.sessionOnly?"Le coffre système est indisponible. Ta connexion reste active pour cette session, mais tu devras te reconnecter au prochain lancement.":null};
         } finally { loginBusy = false; }
     });
     handle("submit", submit);
@@ -917,7 +919,7 @@ function registerIpc() {
         return taskQueue.action(action, payload);
     });
     handle("agentActivity", () => backend.activity());
-    handle("copyText", text => { clipboard.writeText(String(text ?? "").slice(0, 2000000)); return true; });
+    handle("copyText", async text => { await clipboard.writeText(String(text ?? "").slice(0, 2000000)); return true; });
     handle("exportConversation", async text => {
         const chosen = await dialog.showSaveDialog(win, { title: "Exporter la conversation", defaultPath: "conversation-francestudent.md", filters: [{ name: "Markdown", extensions: ["md"] }] });
         if (chosen.canceled || !chosen.filePath) return { canceled: true };
@@ -1302,6 +1304,7 @@ if (!gotLock) {
 
     app.whenReady().then(() => {
         prepareDataPaths();
+        require("../src/secret-storage").configure({safeStorage});
         if (process.platform === "darwin") {
             // Sur macOS, sans menu d'application, Cmd+C / Cmd+V / Cmd+Q ne fonctionnent pas.
             Menu.setApplicationMenu(Menu.buildFromTemplate([

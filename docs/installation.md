@@ -7,8 +7,8 @@
 | Ton ordinateur | Téléchargement |
 | --- | --- |
 | Windows 64 bits | [Release stable](https://github.com/extraopaa/francestudents-ide/releases/latest) : `setup.exe` |
-| Mac M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) : `mac-arm64.dmg` |
-| Mac Intel | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.3-mac.2) : `mac-x64.dmg` |
+| Mac M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) : `mac-arm64.dmg` |
+| Mac Intel | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) : `mac-x64.dmg` |
 
 Sur Mac, **À propos de ce Mac** indique le type de puce. Pour commencer, choisis le DMG ; le ZIP est une archive alternative.
 
@@ -17,6 +17,8 @@ Sur Mac, **À propos de ce Mac** indique le type de puce. Pour commencer, choisi
 Ouvre l’installateur, choisis son emplacement et lance FranceStudent IDE. Windows peut afficher un avertissement pour cet exécutable sans signature d’éditeur reconnue. Vérifie sa provenance : les releases de ce dépôt.
 
 ## Mac · Bêta
+
+La version 1.3.4 requiert **macOS 13 ou plus récent**. Les anciennes bêtas ci-dessus ont été construites avec le moteur précédent.
 
 Ouvre le DMG et déplace **FranceStudent IDE** dans **Applications**. Lance l’application depuis ce dossier. Un message rappelle son statut bêta.
 

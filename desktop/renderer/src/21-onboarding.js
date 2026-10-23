@@ -63,6 +63,7 @@ $("guide-login-form").onsubmit = async event => {
         if (!result?.ok) throw new Error(result?.reason || "Connexion impossible.");
         applyStatus(await api.status());
         setGuideStep(2);
+        if(result.credentialWarning)$("guide-message").textContent=result.credentialWarning;
     } catch (error) { guideError(error); }
     finally {
         $("guide-password").value = "";

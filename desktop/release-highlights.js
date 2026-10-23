@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.3.4":{headline:"Tes connexions, mieux protegees.",items:[
+        {icon:"tools",title:"Moteur mis a jour",text:"Electron 45 corrige des vulnerabilites connues. Sur Mac, macOS 13 minimum est requis."},
+        {icon:"chat",title:"Connexions protegees",text:"Les anciennes sessions et connexions GitHub sont migrees vers le coffre systeme disponible."},
+        {icon:"spark",title:"Version Mac verifiee",text:"Signature locale et controle de l’integrite du DMG. La version Mac reste en beta, sans notarisation Apple."}
+    ]},
     "1.3.3-mac.2":{headline:"Les nouvelles versions Mac, plus faciles a trouver.",items:[
         {icon:"clock",title:"Verification automatique",text:"L’IDE recherche les nouvelles versions Mac au demarrage et toutes les quatre heures."},
         {icon:"tools",title:"Le bon installateur",text:"Un bouton ouvre le telechargement Intel ou Apple Silicon. L’installation reste manuelle."}

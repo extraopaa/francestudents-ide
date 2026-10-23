@@ -1,5 +1,6 @@
 name: Build and test macOS
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     tags:
@@ -28,9 +29,11 @@ jobs:
       - name: Verify native architecture
         run: node -e "if(process.arch!=='${{ matrix.arch }}')process.exit(1)"
       - run: npm install
+      - run: npm run prepare:electron
+      - run: npm audit --audit-level=low
       - run: npm test
       - name: Test update offers in the Mac interface
-        run: npm run build:renderer && node --test e2e/startup-update-offer.e2e.test.js
+        run: npm run build:renderer && node --test e2e/startup-update-offer.e2e.test.js e2e/ipc-security.e2e.test.js e2e/credential-migration.e2e.test.js
       - uses: ./.github/actions/build-effectcraft
       - name: Build native installers
         run: npm run dist:mac -- --${{ matrix.arch }}
@@ -41,6 +44,21 @@ jobs:
         env:
           FRST_PACKAGED_EXE: ${{ github.workspace }}/${{ matrix.app }}/Contents/MacOS/FranceStudent IDE
           FRST_QA_SCREENSHOT: ${{ github.workspace }}/release/qa-mac-${{ matrix.arch }}
+      - name: Verify application signature and DMG contents
+        shell: bash
+        env:
+          MAC_APP: ${{ matrix.app }}
+          MAC_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          codesign --verify --deep --strict --verbose=2 "$MAC_APP"
+          codesign --display --verbose=4 "$MAC_APP" 2> "release/signature-mac-$MAC_ARCH.txt"
+          image=$(find release -maxdepth 1 -name "*-mac-$MAC_ARCH.dmg" -print -quit)
+          mountpoint=$(mktemp -d)
+          trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true; rmdir "$mountpoint" || true' EXIT
+          hdiutil attach "$image" -mountpoint "$mountpoint" -nobrowse -readonly
+          codesign --verify --deep --strict --verbose=2 "$mountpoint/FranceStudent IDE.app"
+          spctl --assess --type execute --verbose=4 "$mountpoint/FranceStudent IDE.app" > "release/gatekeeper-mac-$MAC_ARCH.txt" 2>&1 || true
       - name: Checksums
         run: shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS-mac-${{ matrix.arch }}.txt
       - uses: actions/upload-artifact@v4
@@ -52,4 +70,6 @@ jobs:
             release/*.zip
             release/SHA256SUMS-mac-*.txt
             release/qa-mac-*.png
+            release/signature-mac-*.txt
+            release/gatekeeper-mac-*.txt
           if-no-files-found: warn

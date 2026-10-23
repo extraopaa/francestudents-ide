@@ -6360,6 +6360,7 @@ $("guide-login-form").onsubmit = async event => {
         if (!result?.ok) throw new Error(result?.reason || "Connexion impossible.");
         applyStatus(await api.status());
         setGuideStep(2);
+        if(result.credentialWarning)$("guide-message").textContent=result.credentialWarning;
     } catch (error) { guideError(error); }
     finally {
         $("guide-password").value = "";
@@ -8371,6 +8372,7 @@ if(api.platform==="darwin"){
     try {
         const result = await api.bootstrap();
         if (result.origin) connectionOrigin = result.origin;
+        if(result.credentialWarning)studioFeedback(result.credentialWarning);
         if (!result.ok) {
             openConnectionGuide(1);
             if (!result.needsLogin) guideError(result.reason);
