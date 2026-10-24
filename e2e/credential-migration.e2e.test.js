@@ -10,13 +10,15 @@ test("A legacy profile keeps its connections and preferences across a real Elect
     const env={...process.env,FS_DATA_DIR:dir,FS_STATE_DIR:dir};delete env.ELECTRON_RUN_AS_NODE;
     const launch=()=>_electron.launch({executablePath:require("electron"),args:[harness,"--user-data-dir="+path.join(dir,"electron")],env,cwd:root});
     let app;
+    async function phase(label, operation) { console.log("Migration QA: " + label); let timer; try { return await Promise.race([operation, new Promise((_, reject) => { timer=setTimeout(()=>reject(new Error("Migration stage timed out: " + label)),20000); })]); } finally { clearTimeout(timer); } }
+    async function closeTestApp(){ if(!app)return; const child=app.process(); let timer=setTimeout(()=>{try{child.kill("SIGKILL");}catch{}},5000);try{await app.close();}finally{clearTimeout(timer);} }
     try{
-        app=await launch();let page=await app.firstWindow();await page.evaluate(()=>window.frst.bootstrap());await page.waitForFunction(async()=>(await window.frst.status()).booted);
-        const first=await app.evaluate(()=>globalThis.migrationState());assert.equal(first.cookie,true,JSON.stringify(first));assert.equal(first.token,true,JSON.stringify(first));assert.equal(first.device,"unchanged-device");
+        app=await phase("first launch",launch());let page=await phase("first window",app.firstWindow());await phase("first bootstrap",page.evaluate(()=>window.frst.bootstrap()));await phase("first ready",page.waitForFunction(async()=>(await window.frst.status()).booted));
+        const first=await phase("first credential read",app.evaluate(()=>globalThis.migrationState()));assert.equal(first.cookie,true,JSON.stringify(first));assert.equal(first.token,true,JSON.stringify(first));assert.equal(first.device,"unchanged-device");
         assert.ok(!fs.readFileSync(path.join(dir,"session.json"),"utf8").includes(cookie));assert.ok(!fs.readFileSync(path.join(dir,"github.json"),"utf8").includes(token));
         if(!first.secure){t.skip("Le runner ne fournit pas de coffre système : fonctionnement temporaire vérifié, persistance non disponible.");return;}
-        await app.close();app=await launch();page=await app.firstWindow();await page.evaluate(()=>window.frst.bootstrap());await page.waitForFunction(async()=>(await window.frst.status()).booted);
-        const restored=await app.evaluate(()=>globalThis.migrationState());assert.equal(restored.cookie,true);assert.equal(restored.token,true);assert.equal(restored.device,"unchanged-device");
+        await phase("first close",closeTestApp());app=await phase("second launch",launch());page=await phase("second window",app.firstWindow());await phase("second bootstrap",page.evaluate(()=>window.frst.bootstrap()));await phase("second ready",page.waitForFunction(async()=>(await window.frst.status()).booted));
+        const restored=await phase("restored credential read",app.evaluate(()=>globalThis.migrationState()));assert.equal(restored.cookie,true);assert.equal(restored.token,true);assert.equal(restored.device,"unchanged-device");
         const settings=JSON.parse(fs.readFileSync(path.join(dir,"settings.json")));assert.equal(settings.automaticUpdates,false);assert.equal(settings.editorFontSize,15);assert.equal(fs.readFileSync(path.join(dir,"history.json"),"utf8"),history);
-    }finally{if(app)await app.close();fs.rmSync(dir,{recursive:true,force:true});}
+    }finally{if(app)await closeTestApp();fs.rmSync(dir,{recursive:true,force:true});}
 });
