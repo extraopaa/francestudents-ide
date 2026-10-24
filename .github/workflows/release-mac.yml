@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-latest
             arch: arm64
             app: release/mac-arm64/FranceStudent IDE.app
     runs-on: ${{ matrix.runner }}
