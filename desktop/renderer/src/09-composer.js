@@ -88,10 +88,13 @@ function readAsDataUrl(file) {
 
 function renderAttachments() {
     const box = $("attachments");
-    const manyFiles = pendingAttachments.length >= ATTACHMENT_QUOTA_WARNING_COUNT;
+    const fileCount=pendingAttachments.reduce((sum,item)=>sum+(item.selectedPaths?.length??1),0);
+    const manyFiles = fileCount >= ATTACHMENT_QUOTA_WARNING_COUNT;
     attachmentQuotaWarning.classList.toggle("hidden", !manyFiles);
     attachmentQuotaWarning.textContent = manyFiles
-        ? `⚠ ${pendingAttachments.length} fichiers joints : leur analyse risque de consommer énormément de quota, notamment si les documents contiennent beaucoup de pages ou nécessitent plusieurs envois. Retire les fichiers inutiles avant d’envoyer.`
+        ? pendingAttachments.some(item=>item.selectedPaths)
+            ? `⚠ ${fileCount} fichiers sélectionnés : leur analyse peut consommer beaucoup de quota. Le traitement local évite les envois inutiles ; les contenus effectivement lus par l’IA restent comptabilisés.`
+            : `⚠ ${pendingAttachments.length} fichiers joints : leur analyse risque de consommer énormément de quota, notamment si les documents contiennent beaucoup de pages ou nécessitent plusieurs envois. Retire les fichiers inutiles avant d’envoyer.`
         : "";
     box.replaceChildren();
     box.classList.toggle("hidden", pendingAttachments.length === 0);
@@ -113,7 +116,7 @@ function renderAttachments() {
         }
         const label = document.createElement("span");
         label.className = "attachment-name";
-        label.textContent = item.name;
+        label.textContent = item.selectedPaths?`${item.name} · ${item.selectedPaths.length} fichier(s)` : item.name;
         chip.appendChild(label);
         if(item.readabilityWarning){const warning=document.createElement("span");warning.className="attachment-readability-warning";warning.textContent="⚠ Lisibilité réduite";warning.title=item.readabilityWarning;chip.append(warning);chip.title+=" · "+item.readabilityWarning;}
         const remove = document.createElement("button");
@@ -196,6 +199,11 @@ async function addAttachments(fileList) {
         if (pendingAttachments.some((a) => a.name === name && a.size === file.size)) continue;
         try {
             if (file.size === 0) throw new Error("fichier vide");
+            if((/\.zip$/i.test(name)||["application/zip","application/x-zip-compressed"].includes(file.type))&&(await api.preferences()).localAttachmentsExperimental===true){
+                const selection=await chooseZipFiles(await prepareFile(file,name));
+                if(selection)pendingAttachments.push(selection);
+                continue;
+            }
             // Keep SVG source as well as its raster preview. Decode document
             // encodings in the backend instead of losing bytes with File.text().
             if (file.type.startsWith("image/") && !["image/svg+xml", "image/gif", "image/tiff"].includes(file.type) && !["svg", "gif", "tif", "tiff"].includes(fileExtension(name))) {

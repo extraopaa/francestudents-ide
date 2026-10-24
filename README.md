@@ -16,7 +16,7 @@ Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 > **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
 
-**Nouveautés 1.4.1 :** vrai chat plein écran, plan plus clair sans doublon, moins de consignes répétées, lecture des ZIP et accès MCP améliorés. Le modèle, les accès et la réflexion GPT restent intégrés au chat ; la jauge de contexte a été retirée. [Comment les utiliser](docs/guide-utilisation.md).
+**Nouveautés 1.4.2 :** une bêta expérimentale de préparation locale des pièces jointes : choix des fichiers d’un ZIP, lecture ciblée et PDF page par page. Elle est **désactivée par défaut** dans les paramètres IA ; les autres utilisateurs gardent le fonctionnement habituel. [Découvrir la bêta](docs/attachments.md).
 
 ## Le mode Code
 

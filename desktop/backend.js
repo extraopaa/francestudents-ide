@@ -140,7 +140,7 @@ function createDesktopBackend(send) {
                 if (run.actions.length > 300) run.actions.shift();
                 pendingTools.push(action);
                 if (name === "run_command") run.commands++;
-                if (["read_file", "search_files", "list_directory", "semantic_search"].includes(name)) run.reads++;
+                if (["read_file", "read_attachment", "search_files", "list_directory", "semantic_search"].includes(name)) run.reads++;
                 if (["edit_file", "write_file", "delete_path", "move_path", "copy_path", "create_directory"].includes(name)) run.writes++;
                 publishActivity();
             }

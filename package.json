@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -30,7 +30,7 @@
     "build:desktop": "electron-builder --dir --publish never",
     "prepare": "npm run build:tui",
     "pretest": "npm run build:tui",
-    "test": "node --require ./test/helpers/isolate-env.cjs --test test/*.test.js",
+    "test": "node --require ./test/helpers/isolate-env.cjs --test --test-concurrency=4 test/*.test.js",
     "bench:search": "node scripts/bench-search.js",
     "pretest:e2e": "npm run prepare:electron && npm run build:renderer",
     "test:e2e": "node --test e2e/*.e2e.test.js",

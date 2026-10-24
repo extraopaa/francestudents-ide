@@ -661,7 +661,8 @@ async function runAgent(task, options = {}) {
                     workspace:state.motionDesign?null:state.workspace,model:state.model,motion:!!state.motionDesign,
                     env,instructions,preprompt,mcpCatalog,skillsCatalog,
                     fullAccess:state.fullAccess,autoApprove:state.autoApprove,autoApproveCommands:state.autoApproveCommands,
-                    eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb
+                    eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb,
+                    localAttachmentsExperimental:require("../settings").load().localAttachmentsExperimental===true
                 });
                 const originalChat=state.chatIds.agent;
                 const reuseInstructions=promptCache.has(originalChat,signature);
@@ -870,7 +871,7 @@ async function runAgent(task, options = {}) {
         }
 
         // Mode plan (/plan) : lecture seule, toute autre action est refusée sans être exécutée.
-        if (options.readOnly && !["list_directory", "read_file", "search_files", "task", "semantic_search", "web_search", "web_search_result", "web_fetch", "update_plan", "ask_user"].includes(action.name)) {
+        if (options.readOnly && !["list_directory", "read_file", "read_attachment", "search_files", "task", "semantic_search", "web_search", "web_search_result", "web_fetch", "update_plan", "ask_user"].includes(action.name)) {
             ui.result(`Mode plan : ${action.name} refusé (lecture seule)`, { tone: "error" });
             observations.push({
                 tool: action.name,

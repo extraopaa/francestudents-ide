@@ -28,6 +28,7 @@ async function convertAttachment(file, context = { depth: 0, budget: { bytes: 0 
         if (result.text.length > MAX_TEXT_CHARS) throw new Error("Texte extrait trop volumineux (2 millions de caractères maximum).");
         return result;
     } catch (error) {
+        if(context.selectedPaths!==undefined)return {images:[],partial:true,text:documentText(name,`Lecture de la sélection impossible : ${String(error.message).slice(0,500)}. Aucun aperçu binaire global n’est transmis afin de préserver les fichiers non sélectionnés.`)};
         return binaryFallback(name, bytes, type, error.message);
     }
 }
@@ -35,6 +36,7 @@ async function convertAttachment(file, context = { depth: 0, budget: { bytes: 0 
 async function convertBytes(bytes, name, ext, type, context) {
     const tarMagic = bytes.subarray(257, 262).toString() === "ustar";
     if (isPdf(bytes) || ext === "pdf" || type === "application/pdf") {
+        if(context.localIndex)return require("./local-attachments").registerArchive(name,[{name,size:bytes.length,bytes}]);
         const images = await renderPdf(bytes);
         return { images, text: `Fichier joint : ${name}. Les ${images.length} images suivantes correspondent à ses pages, dans l’ordre.` };
     }
@@ -81,7 +83,9 @@ async function convertBytes(bytes, name, ext, type, context) {
         }
         const { readZip, readTar, readSevenZip } = require("./archive-input");
         const zipArchive = !tarMagic && archiveExt !== "tar" && (archiveExt === "zip" || bytes.subarray(0, 2).toString() === "PK");
-        let entries = tarMagic || archiveExt === "tar" ? await readTar(archive) : zipArchive ? await readZip(archive, { allowPartial: true }) : await readSevenZip(archive);
+        const selected=context.selectedPaths===undefined?null:new Set(context.selectedPaths);
+        let entries = tarMagic || archiveExt === "tar" ? await readTar(archive) : zipArchive ? await readZip(archive, { allowPartial: true,include:selected?name=>selected.has(name):null }) : await readSevenZip(archive);
+        if(selected)entries=entries.filter(entry=>selected.has(entry.name));
         if (zipArchive && entries.some(entry => /unsupported compression method/i.test(entry.error || ""))) {
             try {
                 const recovered = await readSevenZip(archive);
@@ -139,10 +143,20 @@ function binaryFallback(name, bytes, type, reason) {
 async function convertChild(name, bytes, type, context) {
     context.budget.bytes += bytes.length;
     if (context.depth >= 3 || context.budget.bytes > 100 * 1024 * 1024) return binaryFallback(name, bytes, type, "Limite d’imbrication ou de décompression atteinte.");
-    return convertAttachment({ name, dataUrl: `data:${type};base64,${bytes.toString("base64")}` }, { depth: context.depth + 1, budget: context.budget });
+    return convertAttachment({ name, dataUrl: `data:${type};base64,${bytes.toString("base64")}` }, { depth: context.depth + 1, budget: context.budget,localIndex:context.localIndex });
 }
 
 async function withMedia(name, document, context) {
+    if(context.localIndex&&document.media?.length){
+        const entries=[{name:`${name}.texte.txt`,text:document.text||"",size:Buffer.byteLength(document.text||"")}];
+        for(const [index,media] of document.media.entries()){
+            const match=/^data:([^;,]+);base64,(.*)$/s.exec(media.dataUrl);
+            if(match){const bytes=Buffer.from(match[2],"base64");entries.push({name:`medias/${index+1}-${media.name||"image"}`,bytes,size:bytes.length});}
+        }
+        const result=require("./local-attachments").registerArchive(name,entries);
+        if(document.partial)result.partial=true;
+        return result;
+    }
     const results = [];
     for (const media of document.media || []) {
         const match = /^data:([^;,]+);base64,(.*)$/s.exec(media.dataUrl);
@@ -158,6 +172,7 @@ function joinResults(name, text, results) {
 }
 
 async function convertArchiveContents(entries, name, context) {
+    if(context.localIndex)return require("./local-attachments").registerArchive(name,entries);
     const manifest = ["Archive ouverte localement : inventaire puis contenus lisibles ci-dessous. Ces chemins sont internes au ZIP, pas des fichiers à rechercher ou à décompresser sur le PC :"];
     let manifestSize = manifest[0].length, omittedNames = 0;
     for (const entry of entries) {

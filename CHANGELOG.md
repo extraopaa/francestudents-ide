@@ -2,6 +2,13 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.2] — Pièces jointes locales en bêta expérimentale
+
+- Fonction proposée uniquement via une option « Bêta expérimentale » dans les paramètres, désactivée par défaut et réversible ; traitement habituel conservé pour les autres utilisateurs.
+- Choix des fichiers d’un ZIP avant l’envoi : inventaire local, recherche, cases à cocher et sélection globale ; aucun fichier non sélectionné transmis à l’agent.
+- Archives et gros textes conservés dans un index local en mode agent : seuls l’inventaire et les passages demandés sont envoyés. Extraction, recherche et pagination sans appel IA ; images des archives envoyées sur demande seulement.
+- Lecture complète toujours possible par blocs via `read_attachment`, avec séparation Code/Motion. Aucun modèle local à télécharger ni commande fournie par le document à exécuter.
+
 ## [1.4.1] — Un chat plus clair, des échanges plus légers
 
 - Suppression de la jauge de contexte du chat et de son actualisation périodique ; la compaction automatique et le suivi du quota dans Usage restent disponibles.

@@ -4,6 +4,20 @@
 
 ## Joindre un fichier
 
+### Bêta expérimentale facultative
+
+Le nouveau traitement décrit ci-dessous est **désactivé par défaut**. Pour le tester, active **Pièces jointes locales — Bêta expérimentale** dans les paramètres IA. Une confirmation présente ses limites. Sans activation, la sélection des ZIP et l’index local ne sont pas utilisés : les pièces jointes suivent le traitement habituel. La désactivation s’applique aux prochains envois.
+
+Pour un ZIP, une fenêtre propose les fichiers contenus avant l’envoi : recherche, cases à cocher, Tout sélectionner ou Tout décocher. Rien n’est envoyé à l’IA pendant cet inventaire local. Seuls les éléments choisis sont accessibles à l’agent.
+
+En mode agent, les archives et textes volumineux sont indexés sur l’ordinateur. L’IA reçoit l’inventaire, puis les passages ou images qu’elle demande ; elle peut poursuivre une lecture jusqu’à la fin sans transmettre tout le ZIP à chaque appel. Extraction, recherche et pagination n’utilisent pas de modèle IA. Le contenu demandé et son analyse par l’IA restent comptabilisés par le service.
+
+L’index est en mémoire : il expire après deux heures sans utilisation, au redémarrage ou si sa limite de mémoire est atteinte (128 Mo, sans plafond de nombre ajouté). Un contenu expiré nécessite un nouvel envoi ; l’agent ne cherche jamais l’original sur le PC. Les limites de sécurité et de conversion restent applicables.
+
+Les PDF sont consultés page par page en mode agent : texte extrait localement, puis rendu de la page uniquement si nécessaire. Une page scannée sans texte est envoyée à la vision du modèle ; l’extraction locale n’est pas présentée comme une analyse visuelle. Toutes les pages restent accessibles dans les limites de sécurité.
+
+Pour les documents bureautiques contenant des médias, le texte et les images embarquées sont inventoriés séparément : l’agent peut lire le texte sans envoyer automatiquement toutes les images.
+
 1. Ouvre une conversation et précise ce que l’IA doit examiner.
 2. Clique sur le trombone ou glisse les fichiers dans le chat.
 3. Vérifie les pièces jointes du brouillon et les éventuels avertissements.

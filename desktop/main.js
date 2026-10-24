@@ -208,7 +208,8 @@ function normalizeAttachments(list) {
         } else if (item.kind === "file") {
             if (!/^data:[^,]*;base64,/i.test(item.data)) continue;
             if (item.data.length > MAX_FILE_DATA_URL_CHARS) continue;
-            files.push({ name, dataUrl: item.data });
+            if(item.selectedPaths!==undefined&&(!Array.isArray(item.selectedPaths)||item.selectedPaths.length>10000||item.selectedPaths.some(value=>typeof value!=="string"||value.length>65536)))throw new Error("Sélection ZIP invalide.");
+            files.push({ name, dataUrl: item.data,...(item.selectedPaths!==undefined?{selectedPaths:item.selectedPaths}:{}) });
             names.push(name);
         } else {
             let content = item.data;
@@ -875,6 +876,7 @@ function registerIpc() {
         if(action === "url")return {url:require("./preview-server").localPreviewUrl(payload.url)};
         return previewServer.start(require("../src/state").state.workspace,String(payload.file||"index.html"));
     });
+    handle("zipPreview",file=>require("./zip-selection").preview(file));
     handle("editorPreferences", (action,payload={})=>{
         const settings=require("../src/settings");
         const defaults={fontSize:13,tabSize:4,wordWrap:false,autoSave:false,formatOnSave:false,reducedMotion:false,theme:"original"};

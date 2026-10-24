@@ -186,13 +186,16 @@ async function uploadFile(file) {
 }
 
 /** Convertit localement les documents et conserve les UUID pour les relances. */
-async function resolvePendingFiles() {
+async function resolvePendingFiles({localIndex=false}={}) {
     const list = Array.isArray(state.pendingFiles) ? state.pendingFiles : [];
     const blocks = [];
     for (const item of list) {
         if (typeof item === "string") continue;
         if (!item.converted) {
-            item.converted = await convertAttachment(item);
+            item.converted = await convertAttachment(item,{depth:0,budget:{bytes:0},localIndex,selectedPaths:item.selectedPaths});
+            if(localIndex&&item.converted.text.length>12000){
+                item.converted.text=require("./local-attachments").registerText(String(item.name||"fichier"),item.converted.text);
+            }
             if (item.converted.partial && /\.zip$/i.test(String(item.name || ""))) {
                 ui.warn(`Lecture partielle du ZIP « ${String(item.name).replace(/[\r\n]/g, " ").slice(0, 200)} » : les contenus lisibles sont conservés. Les fichiers non lus et leurs motifs sont indiqués dans les données jointes à la demande.`);
             }
@@ -250,7 +253,7 @@ async function requestModel(message, options = {}) {
     if (!options.fresh) {
         if (state.pendingImages?.length || state.pendingFiles?.length) message += "\n\n" + require("../attachment-policy").ATTACHMENT_POLICY;
         await resolvePendingImages();
-        const fileText = await resolvePendingFiles();
+        const fileText = await resolvePendingFiles({localIndex:options.conversationMode==="agent"&&require("../settings").load().localAttachmentsExperimental===true});
         const files = state.pendingFiles.filter(item => typeof item === "string");
         if (state.pendingImages.length || files.length > API_ATTACHMENT_LIMIT ||
             message.length + FILE_TEXT_HEADER.length + fileText.length > CONFIG.maxMessageChars) {

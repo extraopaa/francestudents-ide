@@ -1,6 +1,12 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.2":{headline:"Teste des pièces jointes plus légères.",items:[
+        {icon:"spark",title:"Une bêta au choix",text:"Active Pièces jointes locales dans les paramètres IA pour la tester. Désactivée par défaut : le fonctionnement habituel reste disponible."},
+        {icon:"tools",title:"Choisis dans ton ZIP",text:"Recherche et coche les fichiers utiles avant l’envoi. L’inventaire se fait sur ton ordinateur, sans requête IA."},
+        {icon:"chat",title:"Le contenu utile, au bon moment",text:"Archives et gros textes restent dans un index local. L’agent peut lire les passages nécessaires et poursuivre jusqu’à la fin."},
+        {icon:"clock",title:"PDF page par page",text:"Le texte est extrait localement. Les pages scannées ou demandées visuellement passent par la vision du modèle. Le gain de quota dépend de la tâche."}
+    ]},
     "1.4.1":{headline:"Plus de place, moins de répétitions.",items:[
         {icon:"chat",title:"Un vrai chat plein écran",text:"Tout l’espace disponible, un en-tête simplifié et les outils secondaires regroupés dans un menu."},
         {icon:"spark",title:"Un plan unique et lisible",text:"Les étapes, leur état et leur progression restent dans une seule carte, sans doublon dans le fil."},

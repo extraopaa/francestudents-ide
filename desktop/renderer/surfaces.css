@@ -194,3 +194,13 @@ body:has(#app.view-motion) .chat-mode-setting {display:none;}
 @media (max-width:760px) { #app.focus-agent .starter-prompts {grid-template-columns:1fr;} }
 
 .chat-model-row #chat-dictation {margin-left:auto;}
+.zip-selection-dialog {width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;}
+.zip-selection-dialog > input {width:100%;margin:8px 0;}
+.zip-selection-toolbar {display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+.zip-selection-toolbar > span {margin-left:auto;color:var(--fg-dim);font-variant-numeric:tabular-nums;}
+.zip-selection-list {max-height:42vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px;}
+.zip-selection-list > label {display:flex;align-items:center;gap:10px;padding:9px;border-radius:6px;}
+.zip-selection-list > label:hover {background:var(--hover-bg,rgba(128,128,128,.1));}
+.zip-selection-list input {flex-shrink:0;}
+.zip-selection-name {flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px;}
+.zip-selection-list label > span:last-child {color:var(--fg-dim);font-size:11px;max-width:35%;}

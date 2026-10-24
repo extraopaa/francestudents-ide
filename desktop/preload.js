@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("frst", {
     captureWebPage: payload=>call("captureWebPage",payload||{}),
     browserPermission: (action,value)=>call("browserPermission",String(action||"get"),String(value||"")),
     submit: (text, attachments) => call("submit", String(text ?? ""), Array.isArray(attachments) ? attachments : []),
+    zipPreview: file=>call("zipPreview",file),
     taskQueue: (action, payload) => call("taskQueue", String(action || "list"), payload || {}),
     agentActivity: () => call("agentActivity"),
     copyText: text => call("copyText", String(text ?? "")),

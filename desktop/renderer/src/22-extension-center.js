@@ -228,6 +228,7 @@ $("mcp-editor-form").onsubmit = async event => {
 /* ---------- Paramètres recherchables et contexte ---------- */
 const preferenceFields = { contextMaxFiles:"context-max-files", contextBudgetChars:"context-budget", contextFileChars:"context-file-chars", agentContextChars:"context-agent-chars" };
 function showPreferences(data) {
+    $("set-local-attachments-experimental").checked=data.localAttachmentsExperimental===true;
     for (const [key, id] of Object.entries(preferenceFields)) $(id).value = data[key];
     $("settings-default-model").value = data.defaultModel == null ? "" : String(data.defaultModel);
     renderContextEstimate();
@@ -269,6 +270,16 @@ $("preferences-save").onclick = async () => {
     catch (error) { $("settings-message").textContent = error.message; }
 };
 const defaultModelStatus = document.createElement("p");
+$("set-local-attachments-experimental").onchange=async event=>{
+    const control=event.target,next=control.checked;control.disabled=true;
+    try{
+        if(next&&!await confirmStudioAction("Cette bêta change la préparation des ZIP, PDF et gros documents. L’index est temporaire et l’économie réelle de quota n’est pas garantie. Tu peux la désactiver pour les prochains envois.",{title:"Tester les pièces jointes locales ?",confirmLabel:"Activer la bêta",danger:false})){control.checked=false;return;}
+        const values=await api.preferences("save",{localAttachmentsExperimental:next});
+        control.checked=values.localAttachmentsExperimental===true;
+        $("local-attachments-experimental-status").textContent=next?"Bêta activée pour les prochains envois.":"Bêta désactivée : fonctionnement habituel pour les prochains envois.";
+    }catch(error){control.checked=!next;$("local-attachments-experimental-status").textContent=error.message;}
+    finally{control.disabled=false;}
+};
 defaultModelStatus.id = "settings-default-model-status";
 defaultModelStatus.className = "settings-help";
 defaultModelStatus.setAttribute("role", "status");
