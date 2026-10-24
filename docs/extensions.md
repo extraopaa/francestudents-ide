@@ -39,3 +39,5 @@ Les serveurs et leurs dépendances doivent être compatibles avec ton système. 
 ## Skills téléchargés sur ton ordinateur
 
 Dans **Mes skills**, utilise **Importer un fichier** (`SKILL.md` ou ZIP) ou **Importer un dossier**. L’aperçu montre les instructions et ressources incluses ; choisis le nom et la destination puis importe. Le skill reste désactivé jusqu’à ton activation dans Mes skills. Les scripts et références sont copiés pour un dossier/bundle mais ne sont jamais exécutés pendant l’import. Un fichier Markdown seul importe ses instructions uniquement. [Formats et limites](guide-utilisation.md#importer-un-skill-téléchargé).
+
+Les exclusions `.git`, `node_modules`, `__pycache__`, `.DS_Store`, `__MACOSX` et fichiers AppleDouble `._*` s’appliquent également aux ZIP de skills. Ces éléments ne sont pas copiés ; les limites de ressources portent sur les fichiers utiles retenus.

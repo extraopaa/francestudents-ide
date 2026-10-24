@@ -76,3 +76,7 @@ Vérifications :
 node --test test/document-conversion.test.js test/file-conversion.test.js test/api-files.test.js test/pdf-text.test.js test/attachment-batches.test.js
 node --test e2e/attachment-drop.e2e.test.js e2e/queue-attachments.e2e.test.js
 ```
+
+### Archives ZIP jointes au chat
+
+Le contenu est ouvert localement puis transmis à l’IA sous forme de texte et d’images, avec les chemins internes à l’archive. Une entrée trop lourde, chiffrée ou illisible est signalée ; les autres fichiers lisibles restent disponibles. Pour certaines compressions ZIP particulières, un second lecteur local 7-Zip est utilisé. Si la lecture reste partielle, un avertissement apparaît et l’IA reçoit les limites précises. L’archive ne doit pas être recherchée ailleurs sur le PC et n’est pas extraite automatiquement dans le projet.

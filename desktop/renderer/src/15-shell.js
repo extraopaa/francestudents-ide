@@ -191,6 +191,7 @@ api.onEvent((channel, data) => {
             appendOutput(data);
             break;
         case "clear":
+            renderWorkPlan([]);
             studioEntries.length = 0;
             transcript.innerHTML = "";
             $("agent-starter").classList.remove("hidden");

@@ -38,7 +38,7 @@ require(${modulePath("desktop/main.js")});`);
         assert.equal((await page.evaluate(() => window.frst.status())).autoApproveCommands, true);
         await app.evaluate(() => globalThis.setComposerTestChat());
         await page.evaluate(async () => applyStatus(await window.frst.status()));
-        await page.waitForFunction(() => document.querySelector("#chat-context-gauge").textContent.includes("62"));
+        assert.equal(await page.locator("#chat-context-gauge").count(), 0);
         await page.locator("#input").fill("Brouillon conservé.");
         await page.locator("#chat-dictation").click(); await page.locator('[data-confirm="accept"]').click();
         await page.waitForFunction(() => document.querySelector("#chat-dictation").getAttribute("aria-pressed") === "true");

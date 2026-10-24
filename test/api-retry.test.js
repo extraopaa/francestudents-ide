@@ -40,6 +40,33 @@ test.after(() => {
     global.fetch = originalFetch;
 });
 
+test("visual receipt repairs formatting once in the same chat without sending the image twice",async()=>{
+    prepareAuth();const image="11111111-2222-3333-4444-123456789012",bodies=[];
+    state.chatIds.agent=null;state.pendingImages=[image];state.pendingFiles=[];
+    const answers=["Je vois un panneau bleu au centre.",JSON.stringify({images:[{index:1,status:"seen",description:"Un panneau bleu au centre sur fond sombre."}]}),"Tâche poursuivie."];
+    global.fetch=async(url,init)=>{
+        if(String(url).endsWith("/usage"))return Response.json({contextUsagePercent:10});
+        bodies.push(JSON.parse(init.body));
+        return new Response('event: response.output_text.delta\ndata: '+JSON.stringify({chat_id:"receipt-repair",delta:answers.shift()})+'\n\ndata: [DONE]\n\n');
+    };
+    try{
+        assert.equal(await requestModel("Analyse la capture MCP",{conversationMode:"agent"}),"Tâche poursuivie.");
+        assert.equal(bodies.length,3);assert.deepEqual(bodies[0].images,[image]);
+        for(const body of bodies.slice(1))assert.deepEqual(body.images,[]);
+        assert.match(bodies[1].initialContent,/Reformate uniquement/);
+    }finally{global.fetch=originalFetch;state.pendingImages=[];state.pendingFiles=[];state.chatIds.agent=null;}
+});
+
+test("invalid visual receipt stops after a single format repair and never runs the user task",async()=>{
+    prepareAuth();state.chatIds.agent=null;state.pendingImages=["11111111-2222-3333-4444-123456789012"];let calls=0;
+    global.fetch=async()=>{
+        calls++;
+        return new Response('event: response.output_text.delta\ndata: '+JSON.stringify({chat_id:"receipt-repair-failure",delta:"Je vais regarder."})+'\n\ndata: [DONE]\n\n');
+    };
+    try{await assert.rejects(requestModel("Modifie la scène",{conversationMode:"agent"}),/description visuelle/);assert.equal(calls,2);}
+    finally{global.fetch=originalFetch;state.pendingImages=[];state.chatIds.agent=null;}
+});
+
 test("requestModel additionne les tokens fournis par response.completed", { concurrency: false }, async () => {
     prepareAuth();
     const { usage } = require("../src/api/api");

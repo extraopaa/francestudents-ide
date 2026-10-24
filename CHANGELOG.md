@@ -2,8 +2,15 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
-## À venir — Un chat plein écran et mieux rangé
+## [1.4.1] — Un chat plus clair, des échanges plus légers
 
+- Suppression de la jauge de contexte du chat et de son actualisation périodique ; la compaction automatique et le suivi du quota dans Usage restent disponibles.
+- MCP et modèles OpenAI : rappel que les connecteurs sont exécutés par l’IDE, et une reprise unique lorsqu’un modèle déclare ne pas avoir accès à une application du catalogue sans avoir essayé MCP. Aucun contournement d’un refus ou d’un échec réel ; pas de reprise supplémentaire en mode Éco.
+- Quota : nouvelles demandes allégées dans une conversation déjà initialisée, sans répéter le catalogue d’outils et les consignes inchangées. Réinitialisation au changement de configuration ou de conversation ; plus de relecture automatique du fichier actif ni de listing racine à chaque suivi. La demande utilisateur reste intégrale.
+- Captures MCP : lecture du JSON visuel entouré de texte, une seule reformulation automatique sans renvoyer l’image si le format est incorrect, et suppression du double affichage des erreurs de soumission. Un accès visuel non confirmé reste signalé.
+- ZIP joints au chat : conservation des fichiers lisibles lorsqu’une entrée est trop grosse ou illisible, avertissement explicite de lecture partielle et repli local sur 7-Zip pour les compressions ZIP non prises en charge par le premier lecteur.
+- Plan de travail unique : compteur, progression et étapes mieux présentés, sans copie supplémentaire dans le fil ; les mises à jour conservent l’état ouvert/replié et le plan reste disponible dans l’historique/export.
+- Import de skills ZIP : mêmes exclusions que les dossiers pour les dépendances, `.git` et métadonnées macOS, avant lecture des ressources et calcul de leurs limites.
 - Plein écran Code/Motion sur toute la largeur et la hauteur utiles, sans centrage étroit ni barres latérales superflues.
 - Un seul en-tête de conversation ; suppression du libellé Agent et de la barre projet/accès en doublon. L’accès reste réglable près de la saisie.
 - Favoris, export, import Codex, mode Éco et options secondaires regroupés dans le menu Outils du chat ; informations de session repliables, sans perte d’historique.

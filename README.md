@@ -16,7 +16,7 @@ Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 > **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
 
-**Nouveautés 1.4 :** contrôles du chat intégrés (modèle, accès, réflexion GPT et contexte), dictée vocale en bêta, questions interactives de l’agent, environnement WSL par projet et import de skills téléchargés. [Comment les utiliser](docs/guide-utilisation.md).
+**Nouveautés 1.4.1 :** vrai chat plein écran, plan plus clair sans doublon, moins de consignes répétées, lecture des ZIP et accès MCP améliorés. Le modèle, les accès et la réflexion GPT restent intégrés au chat ; la jauge de contexte a été retirée. [Comment les utiliser](docs/guide-utilisation.md).
 
 ## Le mode Code
 

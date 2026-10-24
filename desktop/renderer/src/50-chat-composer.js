@@ -1,4 +1,4 @@
-/* Model selection, current-chat context and explicit, opt-in dictation. */
+/* Model selection and explicit, opt-in dictation. */
 const composerTools = document.createElement("div");
 composerTools.className = "chat-composer-tools";
 const composerModelRow = document.createElement("div"), composerSettingsRow = document.createElement("div");
@@ -8,10 +8,7 @@ function chatControlContent(button, icon, label) {
     button.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span class="chat-control-label"></span><svg class="chat-control-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>`;
     button.querySelector(".chat-control-label").textContent = label;
 }
-const contextGauge = document.createElement("button");
-contextGauge.type = "button"; contextGauge.id = "chat-context-gauge";
-contextGauge.innerHTML = '<span class="chat-context-ring" aria-hidden="true"></span><span class="chat-context-label">Contexte —</span>';
-composerModelRow.append($("btn-model"), contextGauge);
+composerModelRow.append($("btn-model"));
 const dictationButton = document.createElement("button");
 dictationButton.type = "button"; dictationButton.id = "chat-dictation";
 dictationButton.title = "Dicter un message · Bêta"; dictationButton.setAttribute("aria-label", dictationButton.title);
@@ -19,37 +16,14 @@ dictationButton.setAttribute("aria-pressed", "false");
 dictationButton.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span class="dictation-beta" aria-hidden="true">β</span>';
 composerModelRow.append(dictationButton);
 $("composer").querySelector(".composer-actions").before(composerTools);
-let composerContextKey = null, composerContextSerial = 0, composerContextAt = 0, composerContextPending = false;
-let composerContextDetail = "Le contexte du chat sera affiché après sa première requête.";
-function paintComposerContext(percent, detail) {
-    const known = typeof percent === "number" && Number.isFinite(percent) && percent >= 0 && percent <= 100;
-    contextGauge.style.setProperty("--context-progress", `${known ? percent * 3.6 : 0}deg`);
-    contextGauge.classList.toggle("context-warning", known && percent >= 80);
-    contextGauge.querySelector(".chat-context-label").textContent = known ? `${Math.round(percent)} %` : "—";
-    composerContextDetail = detail; contextGauge.title = detail; contextGauge.setAttribute("aria-label", detail);
-}
-async function refreshComposerContext(force = false) {
-    if (!ui.status.booted || composerContextPending || !force && Date.now() - composerContextAt < 15000) return;
-    const serial = composerContextSerial; composerContextPending = true; composerContextAt = Date.now();
-    try {
-        const value = await api.chatContext();
-        if (serial !== composerContextSerial || value?.identity !== composerContextKey) return;
-        paintComposerContext(value.percent, value.empty ? "Nouvelle conversation · contexte vide." :
-            typeof value.percent === "number" ? `Contexte du chat : ${Math.round(value.percent)} % utilisés${value.tokens == null ? "" : ` · ${Number(value.tokens).toLocaleString("fr-FR")} tokens cumulés`}. La compaction conserve l’historique visible.` : "L’API ne fournit pas le contexte de ce chat.");
-    } catch { if (serial === composerContextSerial) paintComposerContext(null, "Contexte temporairement indisponible. Clique pour actualiser."); }
-    finally { composerContextPending = false; if (serial !== composerContextSerial) refreshComposerContext(true); }
-}
+let composerContextKey = null;
 function updateComposerContext(status) {
     const key = status.booted ? status.chatContextKey : null;
     if (key !== composerContextKey) {
-        composerContextKey = key; composerContextSerial++; composerContextAt = 0;
-        paintComposerContext(null, "Chargement du contexte de la conversation…");
+        composerContextKey = key;
         cancelChatDictation();
     }
-    refreshComposerContext();
 }
-contextGauge.onclick = () => { studioFeedback(composerContextDetail); refreshComposerContext(true); };
-setInterval(() => { if (!document.hidden) refreshComposerContext(); }, 30000);
 
 let chatDictation = null;
 function cancelChatDictation() {

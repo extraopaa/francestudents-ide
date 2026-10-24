@@ -191,7 +191,12 @@ async function resolvePendingFiles() {
     const blocks = [];
     for (const item of list) {
         if (typeof item === "string") continue;
-        if (!item.converted) item.converted = await convertAttachment(item);
+        if (!item.converted) {
+            item.converted = await convertAttachment(item);
+            if (item.converted.partial && /\.zip$/i.test(String(item.name || ""))) {
+                ui.warn(`Lecture partielle du ZIP « ${String(item.name).replace(/[\r\n]/g, " ").slice(0, 200)} » : les contenus lisibles sont conservés. Les fichiers non lus et leurs motifs sont indiqués dans les données jointes à la demande.`);
+            }
+        }
         const converted = item.converted;
         if (!converted.ids) converted.ids = [];
         for (let i = converted.ids.length; i < converted.images.length; i++) {
@@ -290,13 +295,29 @@ async function requestModel(message, options = {}) {
                             ...options, onDelta: undefined, attachmentBatch: batch, receivingAttachments: true,
                             onUsage: value => { measured = value; }
                         });
+                        let receiptRecorded=false;
                         if(batch.images.length){
-                            const descriptions=require("./visual-receipt").readReceipt(answer,batch.images.length);
+                            let descriptions;
+                            try{descriptions=require("./visual-receipt").readReceipt(answer,batch.images.length);}
+                            catch(error){
+                                if(!error.receiptFormat)throw error;
+                                // Repair only the protocol, in the same conversation. Never upload the capture twice.
+                                compactor.record(mode,state.chatIds[mode],prompt,answer,measured);
+                                receiptRecorded=true;
+                                const repair=`Reformate uniquement ta description des ${batch.images.length} image(s) du message précédent en JSON : {"images":[{"index":1,"status":"seen","description":"Description factuelle du contenu réellement visible"}]}. Une entrée par image, dans leur ordre. Si tu ne vois pas les pixels, utilise status "unavailable". N’invente aucune observation, n’appelle aucun outil et ne réalise pas la tâche utilisateur.`;
+                                let repairUsage=null;
+                                const repaired=await requestModelOnce(repair,{
+                                    ...options,onDelta:undefined,attachmentBatch:{images:[],files:[]},receivingAttachments:true,
+                                    onUsage:value=>{repairUsage=value;}
+                                });
+                                compactor.record(mode,state.chatIds[mode],repair,repaired,repairUsage);
+                                descriptions=require("./visual-receipt").readReceipt(repaired,batch.images.length);
+                            }
                             const key=visualKey(mode,state.chatIds[mode]);visualContexts.set(key,[...(visualContexts.get(key) || []),...descriptions]);
                             while(visualContexts.size>20)visualContexts.delete(visualContexts.keys().next().value);
                             ui.info(`${descriptions.length} image(s) reçue(s) et décrite(s) par le modèle. Elles ne seront pas renvoyées automatiquement.`);
                         }
-                        compactor.record(mode, state.chatIds[mode], prompt, answer, measured);
+                        if(!receiptRecorded)compactor.record(mode, state.chatIds[mode], prompt, answer, measured);
                         return answer;
                     });
             }

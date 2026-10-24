@@ -9,7 +9,8 @@ const profile = require("../project/profile");
 const conversations = require("../project/conversations");
 const projectContext = require("../project/project-context");
 const { loadInstructions, INSTRUCTIONS_FILES } = require("../project/instructions");
-const { buildAgentPrompt, buildFollowUpPrompt } = require("./prompt");
+const { buildAgentPrompt, buildFollowUpPrompt, buildResumePrompt } = require("./prompt");
+const promptCache = require("./prompt-cache");
 const { validateProgress, applyProgress } = require("./plan-progress");
 const { updatePlan } = require("../tools/update-plan");
 const {
@@ -382,7 +383,7 @@ async function preloadContext(task, observations) {
 
     // Le fichier affiché dans l'éditeur est relu en premier : c'est la cible la
     // plus probable quand l'utilisateur dit « ce fichier » sans le nommer.
-    if (state.activeFile && !mentioned.includes(state.activeFile)) {
+    if (!state.chatIds.agent && state.activeFile && !mentioned.includes(state.activeFile)) {
         mentioned.unshift(state.activeFile);
     }
 
@@ -400,7 +401,7 @@ async function preloadContext(task, observations) {
         }
     }
 
-    if (!observations.length) {
+    if (!observations.length && !state.chatIds.agent) {
         try {
             const result = await require("../tools/action-control").run("list_directory", ".", () => listDirectory({ path: "." }));
 
@@ -601,6 +602,7 @@ async function runAgent(task, options = {}) {
     const maxTurns = state.ecoMode ? 4 : 0;
     let deferredSteering = [];
     let requestNumber = 0;
+    let recoveredMcpDenial = false;
 
     for (let turn = 1; ; turn++) {
         if (maxTurns && turn > maxTurns) {
@@ -655,7 +657,15 @@ async function runAgent(task, options = {}) {
                 // et les tours 2 et suivants n'envoient que le dernier résultat d'outil.
                 // Sans conversation (aucun identifiant reçu), on renvoie tout, projet compris.
                 const hasConversation = Boolean(state.chatIds.agent);
-                const prompt = turn > 1 && hasConversation
+                const signature=promptCache.fingerprint({
+                    workspace:state.motionDesign?null:state.workspace,model:state.model,motion:!!state.motionDesign,
+                    env,instructions,preprompt,mcpCatalog,skillsCatalog,
+                    fullAccess:state.fullAccess,autoApprove:state.autoApprove,autoApproveCommands:state.autoApproveCommands,
+                    eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb
+                });
+                const originalChat=state.chatIds.agent;
+                const reuseInstructions=promptCache.has(originalChat,signature);
+                const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
                         lastObservation: observations[observations.length - 1],
                         turn,
@@ -665,7 +675,10 @@ async function runAgent(task, options = {}) {
                         plan: state.agentPlan,
                         requestNumber
                     })
-                    : fullPrompt(!hasConversation);
+                    : reuseInstructions
+                        ? buildResumePrompt({task,observations,activeFile:state.motionDesign?null:state.activeFile,
+                            editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction})
+                        : fullPrompt(!hasConversation);
 
                 lastResponse = await api.requestModel(prompt, {
                     conversationMode: "agent",
@@ -673,6 +686,10 @@ async function runAgent(task, options = {}) {
                     // on renvoie le message complet, projet compris.
                     freshMessage: () => fullPrompt(true)
                 });
+                // Only cache a known full bootstrap; a compacted/replaced conversation must bootstrap again.
+                if(!reuseInstructions&&(!originalChat||originalChat===state.chatIds.agent)){
+                    promptCache.remember(state.chatIds.agent,signature);
+                }
 
                 try {
                     action = parseAgentResponse(lastResponse);
@@ -719,6 +736,13 @@ async function runAgent(task, options = {}) {
         }
 
         if (action.type === "final") {
+            if(!state.motionDesign&&!recoveredMcpDenial&&!state.ecoMode&&
+                require("./mcp-access").untestedMcpDenial(action.message,mcpCatalog,observations)){
+                recoveredMcpDenial=true;
+                observations.push({tool:"local_mcp_protocol",ok:false,error:
+                    "Tu déclares manquer d’accès à une application présente dans le catalogue MCP, sans appel MCP local dans cette tâche. Les connecteurs sont exécutés par FranceStudent IDE, indépendamment du fournisseur IA. Vérifie avec mcp_call : describe:true découvre le schéma sans exécution, puis utilise un outil pertinent sous les permissions existantes. Ne déduis pas l’absence de connexion de ton environnement natif. Respecte les refus/annulations. Si le connecteur échoue réellement, explique son résultat exact sans inventer de réussite. Cette correction n’est envoyée qu’une fois."});
+                continue;
+            }
             if (!recoveredUnsupportedTool && /Unsupported tool ignored by the backend/i.test(action.message) &&
                 !observations.some(o => ["write_file", "run_command"].includes(o.tool) && (!o.ok || o.result?.denied))) {
                 recoveredUnsupportedTool = true;

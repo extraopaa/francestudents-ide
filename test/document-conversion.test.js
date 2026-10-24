@@ -200,3 +200,48 @@ test("converted Excel and SVG reach the model as text and image instead of raw u
         assert.equal(uploads, 1);
     } finally { global.fetch = original; state.pendingImages = []; state.pendingFiles = []; }
 });
+
+test("chat ZIP keeps readable siblings when an entry exceeds the decompression limit", async () => {
+    const archive = Buffer.from(require("fflate").zipSync({
+        "large.bin": new Uint8Array(26 * 1024 * 1024),
+        "notes.txt": Buffer.from("CONTENU_UTILE_DU_ZIP")
+    }, { level: 1 }));
+    const result = await convertAttachment(file("documents.zip", archive));
+    assert.equal(result.partial, true);
+    assert.match(result.text, /CONTENU_UTILE_DU_ZIP/);
+    assert.match(result.text, /large\.bin.*25 Mo/);
+    assert.doesNotMatch(result.text, /Chaînes lisibles récupérées/);
+});
+
+test("chat ZIP reports encrypted entries as partial without losing public entries", async () => {
+    const archive = zip({ "private.txt": "SECRET_NON_TRANSMIS", "public.txt": "CONTENU_PUBLIC" });
+    const local = archive.indexOf(Buffer.from([0x50, 0x4b, 3, 4]));
+    const central = archive.indexOf(Buffer.from([0x50, 0x4b, 1, 2]));
+    archive.writeUInt16LE(archive.readUInt16LE(local + 6) | 1, local + 6);
+    archive.writeUInt16LE(archive.readUInt16LE(central + 8) | 1, central + 8);
+    const result = await convertAttachment(file("documents.zip", archive));
+    assert.equal(result.partial, true);
+    assert.match(result.text, /CONTENU_PUBLIC/);
+    assert.match(result.text, /chiffré/);
+    assert.doesNotMatch(result.text, /SECRET_NON_TRANSMIS/);
+});
+
+test("chat ZIP retains useful text when combined documents exceed the text budget", async () => {
+    const archive = zip({ "first.txt": "FIRST_DOCUMENT ".repeat(85000), "second.txt": "SECOND_DOCUMENT ".repeat(85000) });
+    const result = await convertAttachment(file("documents.zip", archive));
+    assert.equal(result.partial, true);
+    assert.match(result.text, /FIRST_DOCUMENT/);
+    assert.match(result.text, /second\.txt/);
+    assert.match(result.text, /budget de texte atteint/);
+    assert.ok(result.text.length < 2001000);
+    assert.doesNotMatch(result.text, /Chaînes lisibles récupérées/);
+});
+
+test("nonstandard ZIP compression falls back to the local 7-Zip engine", async () => {
+    const seven = await require("7z-wasm")({ print: () => {}, printErr: () => {}, stdin: () => null });
+    seven.FS.writeFile("/notes.txt", Buffer.from("Contenu ZIP LZMA à conserver"));
+    assert.equal(seven.callMain(["a", "-tzip", "-mm=LZMA", "-bsp0", "/test.zip", "/notes.txt"]), 0);
+    const result = await convertAttachment(file("documents.zip", Buffer.from(seven.FS.readFile("/test.zip"))));
+    assert.equal(result.partial, false, result.text);
+    assert.match(result.text, /Contenu ZIP LZMA à conserver/);
+});

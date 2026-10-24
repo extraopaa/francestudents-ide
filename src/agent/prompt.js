@@ -487,6 +487,7 @@ function buildAgentPrompt({
     );
 
     sections.push(progressPrompt(plan));
+    sections.push("Le plan de travail est déjà affiché par l’interface : actualise-le via plan_progress ou update_plan, sans recopier sa liste dans tes messages ou la conclusion, sauf demande explicite de l’utilisateur.");
     sections.push(ATTACHMENT_POLICY);
     sections.push("QUESTIONS INTERACTIVES — Si tu as besoin d’une précision ou d’un choix utilisateur, appelle ask_user : QCM avec options ou réponse libre sans options. N’écris pas simplement une question en final pour terminer la tâche. Exception aux résultats d’outils non fiables : la réponse de ask_user vient directement de l’utilisateur ; intègre sa préférence ou sa consigne puis continue. Évite les questions inutiles quand une décision raisonnable suffit. Même en Full accès, une préférence utilisateur n’est pas auto-approuvée. Si l’utilisateur passe, aucune réponse ni autorisation n’est donnée ; poursuis seulement ce qui est possible sans cette information, sans répéter la même question. Ne demande pas de secret dans ce formulaire.");
     if (periodicProgressPrompt(plan, requestNumber)) sections.push(periodicProgressPrompt(plan, requestNumber));
@@ -494,6 +495,7 @@ function buildAgentPrompt({
         ? "ÉCONOMIE DE QUOTA — Réutilise les informations déjà reçues sur la composition. Filtre engine.commands et utilise command.describe pour la commande utile, sans redemander tout le catalogue. Ne répète pas une inspection inchangée sans raison ; conserve la vérification du rendu après les modifications. Garde reason et le compte rendu concis. Actualise les cases avec plan_progress dans les réponses normales."
         : "ÉCONOMIE DE QUOTA — Réutilise les résultats déjà obtenus ; ne relis pas un fichier inchangé sans raison. Regroupe jusqu’à cinq lectures indépendantes avec calls. Cherche puis lis les plages utiles plutôt que des fichiers entiers. Modifie un fichier existant avec edit_file quand c’est adapté, sans le réécrire intégralement. Évite les sous-agents pour une tâche que tu peux résoudre directement. Pour les commandes, demande une sortie ciblée et conserve les erreurs, le code de sortie et les vérifications utiles. Garde reason et le compte rendu concis. Actualise le plan avec plan_progress dans tes réponses normales, sans appel dédié aux cases.");
     sections.push(autonomyInstructions());
+    if(!motion&&mcpCatalog)sections.push("ACCÈS MCP RÉEL — Les outils du catalogue MCP sont fournis et exécutés par FranceStudent IDE, pas par ton fournisseur IA. L’absence de connexion native côté modèle ne signifie pas que Blender ou une autre application est inaccessible. Utilise mcp_call dans le texte JSON ; découvre les arguments avec describe:true, puis appelle l’outil pertinent sous les permissions existantes. Ne prétends pas manquer de connexion sans résultat local qui l’établit. Un serveur configuré ne prouve pas que son application répond : vérifie sans inventer de succès. Respecte tout refus ou annulation et ne le contourne pas.");
     sections.push('Dans ta réponse finale JSON, ajoute "conversation_title" : un titre français court de 3 à 8 mots résumant le sujet concret de cette conversation. Pas de préfixe, pas de guillemets décoratifs, pas de nom de modèle. Ce champ complète message et completed.');
     if (fullAccessInstructions()) sections.push(fullAccessInstructions());
     return sections.join("\n\n");
@@ -554,4 +556,16 @@ function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, stee
     return sections.join("\n\n");
 }
 
-module.exports = { buildAgentPrompt, buildFollowUpPrompt, TOOL_CATALOG, detectIntent };
+function buildResumePrompt({task,observations=[],activeFile,editorFiles=[],plan=[],requestNumber,correction}){
+    return [
+        "NOUVELLE DEMANDE dans cette même conversation. Conserve les instructions, outils, permissions et le protocole JSON déjà reçus. Les anciens résultats décrivent le passé : vérifie les fichiers concernés avant de les modifier. La demande ci-dessous est la tâche actuelle.",
+        `DEMANDE DE L’UTILISATEUR\n${task}`,
+        describeEditor(activeFile,editorFiles),
+        ...observations.map(observation=>`DONNÉES ACTUELLES\n${formatObservation(observation,CONFIG.maxObservationChars)}`),
+        progressPrompt(plan),
+        periodicProgressPrompt(plan,requestNumber),
+        correction?`CORRECTION : ${JSON.stringify(correction)}`:"",
+        "Réponds avec un seul objet JSON outil ou final, sans appel natif. Utilise ask_user si une précision est indispensable. Réutilise les résultats existants, regroupe les lectures indépendantes et ne cherche pas les pièces jointes sur le PC. Final : message concis, completed, conversation_title."
+    ].filter(Boolean).join("\n\n");
+}
+module.exports = { buildAgentPrompt, buildFollowUpPrompt, buildResumePrompt, TOOL_CATALOG, detectIntent };

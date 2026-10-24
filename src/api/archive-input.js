@@ -9,22 +9,29 @@ function validName(name) {
 }
 
 // Never extract attachments onto the filesystem or follow archive links.
-function readZip(bytes, { contents = true } = {}) {
+function readZip(bytes, { contents = true, include = null, allowPartial = false } = {}) {
     return new Promise((resolve, reject) => {
         require("yauzl").fromBuffer(bytes, { lazyEntries: true, autoClose: true }, (error, zip) => {
             if (error) return reject(error);
             const entries = [];
-            let total = 0, settled = false;
+            let total = 0, visited = 0, settled = false;
             const fail = error => { if (!settled) { settled = true; zip.close(); reject(error); } };
             zip.on("error", fail);
             zip.on("end", () => { if (!settled) { settled = true; resolve(entries); } });
             zip.on("entry", entry => {
                 if (!validName(entry.fileName)) return fail(new Error("Chemin non autorisé dans l’archive."));
-                if (entries.length >= MAX_ENTRIES || total + entry.uncompressedSize > MAX_EXPANDED || entry.uncompressedSize > MAX_ENTRY) {
-                    return fail(new Error("Archive trop volumineuse après décompression."));
+                if (++visited > MAX_ENTRIES) return fail(new Error("L’archive contient trop d’entrées."));
+                if (include) {
+                    try { if (!include(entry.fileName)) return zip.readEntry(); }
+                    catch (error) { return fail(error); }
+                }
+                const item = { name: entry.fileName, size: entry.uncompressedSize, directory: entry.fileName.endsWith("/") };
+                if (total + entry.uncompressedSize > MAX_EXPANDED || entry.uncompressedSize > MAX_ENTRY) {
+                    if (!allowPartial) return fail(new Error("Archive trop volumineuse après décompression."));
+                    item.error = entry.uncompressedSize > MAX_ENTRY ? "Fichier non lu : plus de 25 Mo après décompression." : "Fichier non lu : budget de décompression de 100 Mo atteint.";
+                    entries.push(item); return zip.readEntry();
                 }
                 total += entry.uncompressedSize;
-                const item = { name: entry.fileName, size: entry.uncompressedSize, directory: entry.fileName.endsWith("/") };
                 entries.push(item);
                 if (!contents || item.directory) return zip.readEntry();
                 if (entry.generalPurposeBitFlag & 1) {
@@ -32,10 +39,20 @@ function readZip(bytes, { contents = true } = {}) {
                     return zip.readEntry();
                 }
                 zip.openReadStream(entry, (error, stream) => {
-                    if (error) return fail(error);
+                    let entryFinished = false;
+                    const finishEntry = error => {
+                        if (entryFinished || settled) return;
+                        entryFinished = true;
+                        if (error) {
+                            if (!allowPartial) return fail(error);
+                            item.error = `Fichier non lu : ${String(error.message || error).slice(0, 300)}`;
+                        }
+                        zip.readEntry();
+                    };
+                    if (error) return finishEntry(error);
                     const chunks = [];
                     let size = 0;
-                    stream.on("error", fail);
+                    stream.on("error", finishEntry);
                     stream.on("data", chunk => {
                         size += chunk.length;
                         if (size > MAX_ENTRY || size > entry.uncompressedSize) {
@@ -44,7 +61,7 @@ function readZip(bytes, { contents = true } = {}) {
                         }
                         chunks.push(chunk);
                     });
-                    stream.on("end", () => { if (!settled) { item.bytes = Buffer.concat(chunks); zip.readEntry(); } });
+                    stream.on("end", () => { if (!settled && !entryFinished) { item.bytes = Buffer.concat(chunks); finishEntry(); } });
                 });
             });
             zip.readEntry();

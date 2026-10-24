@@ -82,23 +82,8 @@ function renderAgentActivity(run) {
     const motion=typeof isMotionOpen==="function" && isMotionOpen();
     if(run && (!!run.motionDesign!==motion || !motion && run.workspace!==ui.workspace))run=null;
     studioRun = run;
-    const livePlan = $("agent-live-plan");
-    livePlan.replaceChildren();
     const steps = run?.steps || [];
-    livePlan.classList.toggle("hidden", !steps.length);
-    if (steps.length) {
-        const done = steps.filter(step => step.status === "completed").length;
-        const detail = document.createElement("details"); detail.open = run.status === "running";
-        const summary = document.createElement("summary"); summary.textContent = `Plan de travail · ${done}/${steps.length}`;
-        const progress = document.createElement("progress"); progress.max = steps.length; progress.value = done;
-        progress.setAttribute("aria-label", "Étapes du plan terminées");
-        const list = document.createElement("ol");
-        for (const step of steps) {
-            const li = document.createElement("li"); li.dataset.status = step.status;
-            li.textContent = `${step.status === "completed" ? "✓" : step.status === "in_progress" ? "◉" : "○"} ${step.step}`; list.appendChild(li);
-        }
-        detail.append(summary, progress, list); livePlan.appendChild(detail);
-    }
+    if (!ui.replayingConversation) renderWorkPlan(steps, { status: run?.status || "idle" });
     const overview = $("activity-overview"); overview.replaceChildren();
     const timeline = $("activity-timeline"); timeline.replaceChildren();
     const sources = $("activity-sources"); sources.replaceChildren();

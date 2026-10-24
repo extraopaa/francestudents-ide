@@ -96,13 +96,31 @@
 .message-actions button { border: 0; color: var(--fg-dim); background: transparent; padding: 2px 4px; font-size: 10px; border-radius: 3px; }
 .message-actions button:hover { color: var(--link); background: var(--bg-hover); }
 .transcript a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
-.agent-live-plan { flex-shrink: 0; max-height: 165px; overflow: auto; margin: 0 14px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-panel); padding: 8px 10px; font-size: 11px; }
-.agent-live-plan summary { cursor: pointer; font-weight: 500; }
-.agent-live-plan progress { display: block; width: 100%; height: 3px; accent-color: var(--accent); margin: 8px 0; }
-.agent-live-plan ol { list-style: none; padding: 0; margin: 0; }
-.agent-live-plan li { padding: 3px 0; color: var(--fg-dim); }
-.agent-live-plan li[data-status="completed"] { color: var(--ok); }
-.agent-live-plan li[data-status="in_progress"] { color: var(--link); }
+.agent-live-plan {flex-shrink:0;max-height:min(250px,36vh);overflow:hidden;margin:10px 12px;border:1px solid var(--border-strong);border-radius:12px;background:var(--bg-panel);padding:12px;font-size:11px;box-shadow:0 3px 12px #0001;}
+.agent-live-plan summary {cursor:pointer;list-style:none;border-radius:5px;}
+.agent-live-plan summary::-webkit-details-marker {display:none;}
+.agent-live-plan summary:focus-visible {outline:2px solid var(--accent);outline-offset:4px;}
+.work-plan-heading {display:flex;align-items:center;gap:8px;min-width:0;}
+.work-plan-heading strong {font-weight:600;color:var(--fg-strong);}
+.work-plan-count {padding:2px 7px;border-radius:6px;background:var(--accent-soft);color:var(--link);font-size:10px;font-weight:600;font-variant-numeric:tabular-nums;}
+.work-plan-state {margin-left:auto;color:var(--fg-dim);font-size:10px;white-space:nowrap;}
+.work-plan-chevron {width:14px;height:14px;color:var(--fg-dim);transition:transform .15s;}
+.work-plan-chevron svg {width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.agent-live-plan details[open] .work-plan-chevron {transform:rotate(180deg);}
+.agent-live-plan progress {appearance:none;display:block;width:100%;height:4px;border:0;border-radius:6px;overflow:hidden;margin:10px 0 0;accent-color:var(--accent);background:var(--bg-active);}
+.agent-live-plan progress::-webkit-progress-bar {background:var(--bg-active);border-radius:6px;}
+.agent-live-plan progress::-webkit-progress-value {background:linear-gradient(90deg,var(--accent),var(--link));border-radius:6px;}
+.agent-live-plan[data-state="completed"] .work-plan-count {color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);}
+.agent-live-plan[data-state="completed"] progress::-webkit-progress-value {background:var(--ok);}
+.agent-live-plan ol {list-style:none;padding:6px 2px 0;margin:7px 0 0;max-height:min(175px,24vh);overflow:auto;}
+.agent-live-plan li {position:relative;display:flex;align-items:flex-start;gap:9px;padding:6px 7px;color:var(--fg-dim);border-radius:7px;line-height:1.5;}
+.work-plan-marker {display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;height:20px;border:1px solid var(--border-strong);border-radius:50%;font-size:9px;color:var(--fg-dim);background:var(--bg-panel);}
+.work-plan-marker svg {width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;}
+.work-plan-step-text {padding-top:2px;overflow-wrap:anywhere;}
+.agent-live-plan li[data-status="completed"] .work-plan-marker {color:var(--ok);border-color:color-mix(in srgb,var(--ok) 25%,transparent);background:color-mix(in srgb,var(--ok) 9%,transparent);}
+.agent-live-plan li[data-status="in_progress"] {background:var(--accent-soft);color:var(--fg-strong);font-weight:500;}
+.agent-live-plan li[data-status="in_progress"] .work-plan-marker {color:var(--link);border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);}
+.work-plan-sr-status {position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
 .agent-activity { flex: 1; min-height: 0; overflow: auto; padding: 14px; }
 .workspace-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .workspace-section-head h3 { font-size: 15px; color: var(--fg-strong); font-weight: 500; margin: 5px 0 0; }

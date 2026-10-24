@@ -3,6 +3,26 @@ const { test } = require("node:test"), assert = require("node:assert/strict"), f
 const { zipSync, strToU8 } = require("fflate");
 const { readLocalSkill, createLocalSkillImporter } = require("../desktop/local-skill-import");
 const content = "---\nname: local-qa\ndescription: Local skill QA\n---\n\nRead references/guide.md";
+test("local skill ZIP ignores dependency folders and Mac metadata before applying resource limits", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "frst-skill-zip-metadata-"));
+    try {
+        const file = path.join(dir, "download.zip");
+        await fs.writeFile(file, zipSync({
+            "skill/SKILL.md": strToU8(content),
+            "skill/references/guide.md": strToU8("Useful guide"),
+            "skill/node_modules/nested/SKILL.md": strToU8(content),
+            "skill/node_modules/large.dat": new Uint8Array(4100000),
+            "skill/.git/config": strToU8("Not a skill resource"),
+            "__MACOSX/skill/SKILL.md": strToU8(content),
+            "skill/._SKILL.md": strToU8("AppleDouble"),
+            "skill/.DS_Store": strToU8("Finder metadata")
+        }));
+        const bundle = await readLocalSkill(file);
+        assert.equal(bundle.files.length, 1);
+        assert.equal(bundle.files[0].path, "references/guide.md");
+        assert.equal(bundle.files[0].data.toString(), "Useful guide");
+    } finally { await fs.rm(dir, { recursive: true, force: true }); }
+});
 test("local skill imports a ZIP bundle with resources, disabled, without extracting beside the source", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "frst-skill-zip-"));
     try {

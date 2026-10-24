@@ -87,7 +87,7 @@ Un problème ? Consulte le [dépannage](depannage.md). Pour le terminal, les ré
 
 ## Saisie du chat : modèle, contexte et dictée
 
-Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. La petite jauge indique le pourcentage de contexte utilisé par la conversation courante, fourni par FranceStudent. Elle est distincte du quota du compte. Clique dessus pour obtenir le détail et actualiser. Une valeur indisponible est affichée « — », jamais inventée ; l’historique visible reste conservé après compaction.
+Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. La jauge de contexte du chat a été retirée. La compaction automatique fonctionne en arrière-plan et conserve l’historique visible. Le suivi du quota du compte reste disponible dans Usage.
 
 Le bouton micro **Bêta** permet de dicter un brouillon. À la première utilisation, confirme l’envoi de l’audio à FranceStudent et autorise le microphone dans ton système. Clique à nouveau pour terminer et transcrire (2 minutes maximum). Pendant la transcription, le bouton permet d’annuler. Le texte est ajouté au brouillon sans envoi automatique. La transcription nécessite une connexion et peut consommer son quota FranceStudent ; annuler après l’envoi ne supprime pas nécessairement le job distant. Les enregistrements ne sont pas sauvegardés localement. Sur Mac, vérifie Réglages Système → Confidentialité et sécurité → Microphone si l’accès est refusé.
 
@@ -128,3 +128,5 @@ Les dossiers et ZIP doivent contenir un seul skill (un unique `SKILL.md`), avec 
 Le bouton d’agrandissement du chat utilise toute la largeur et la hauteur utiles de la fenêtre, en Code et Motion. Il masque l’explorateur, la barre latérale et la barre d’état pendant ce mode ; le bouton de retour reste dans l’en-tête. Échap permet de revenir au projet hors tâche et hors menu ouvert.
 
 L’en-tête réunit Conversation, Activité et Usage avec les actions Historique, Nouvelle conversation et Agrandir. La barre en doublon affichant le projet et l’accès est retirée. Le niveau d’accès reste réglable dans la saisie. Les favoris, l’export, l’import Codex, le mode Éco, l’effacement d’affichage et le choix Agent/Discussion sont accessibles dans le bouton **… Outils du chat**, près des pièces jointes. Les informations de connexion/indexation et le rappel de transmission des données restent consultables dans un bloc de session repliable ; les autres avertissements et erreurs restent visibles.
+
+Le plan de travail apparaît dans une seule carte de suivi : compteur, jauge et étapes avec états distincts. Ses mises à jour remplacent son contenu sans ajouter une nouvelle liste dans le fil. Tu peux le replier ; ce choix est conservé pendant la tâche. Les plans de l’historique restent consultables, et un statut de tâche terminée ne coche pas automatiquement les étapes non vérifiées.

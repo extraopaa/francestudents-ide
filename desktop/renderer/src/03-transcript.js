@@ -117,7 +117,8 @@ function renderEntry(e) {
         case "print":
             return addEntry("print", `<pre>${escapeHtml((e.lines || []).join("\n"))}</pre>`);
         case "plan":
-            return addEntry("plan", `<b>Plan</b><ol>${(e.items || []).map((i) => `<li>${inline(i)}</li>`).join("")}</ol>`);
+            renderWorkPlan(Array.isArray(e.steps) ? e.steps : workPlanItems(e.items), { status: e.replayed ? "history" : "running" });
+            return null;
         case "tool":
             if (e.name === "run_command") appendOutput(`$ ${e.arg}`);
             if (QUIET_TOOLS.has(e.name)) return addQuietTool(e);

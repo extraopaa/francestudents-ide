@@ -1,6 +1,10 @@
 "use strict";
 const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
 const MAX_BYTES = 4000000, MAX_FILES = 200;
+function ignoredSkillPath(name) {
+    return String(name).replace(/\\/g, "/").split("/").some(part =>
+        [".git", "node_modules", "__pycache__", ".DS_Store", "__MACOSX"].includes(part) || part.startsWith("._"));
+}
 async function readLocalSkill(selected) {
     const info = await fs.lstat(selected); if (info.isSymbolicLink()) throw new Error("Choisis un fichier ou dossier réel, sans lien symbolique.");
     const entries = []; let total = 0, visited = 0;
@@ -14,7 +18,7 @@ async function readLocalSkill(selected) {
             if (depth > 12) throw new Error("Le dossier du skill contient trop de niveaux.");
             for (const item of await fs.readdir(dir, { withFileTypes: true })) {
                 if (++visited > 1000) throw new Error("Le dossier contient trop d’éléments. Choisis le dossier du skill uniquement.");
-                if ([".git", "node_modules", "__pycache__", ".DS_Store"].includes(item.name)) continue;
+                if (ignoredSkillPath(item.name)) continue;
                 if (item.isSymbolicLink()) throw new Error("Les liens symboliques ne sont pas importés. Choisis un dossier sans liens.");
                 const full = path.join(dir, item.name), name = prefix + item.name;
                 if (item.isDirectory()) await visit(full, name + "/", depth + 1);
@@ -26,9 +30,10 @@ async function readLocalSkill(selected) {
     } else if (info.isFile() && /\.zip$/i.test(selected)) {
         if (info.size > MAX_BYTES) throw new Error("L’archive dépasse 4 Mo.");
         const bytes = await fs.readFile(selected), { readZip } = require("../src/api/archive-input");
-        const index = await readZip(bytes, { contents: false });
+        const include = name => !ignoredSkillPath(name);
+        const index = await readZip(bytes, { contents: false, include });
         if (index.length > 250 || index.reduce((n, item) => n + item.size, 0) > MAX_BYTES) throw new Error("Archive trop volumineuse après décompression.");
-        for (const item of await readZip(bytes)) if (!item.directory) { if (!item.bytes) throw new Error("Une ressource est chiffrée ou illisible."); add(item.name, item.bytes); }
+        for (const item of await readZip(bytes, { include })) if (!item.directory) { if (!item.bytes) throw new Error("Une ressource est chiffrée ou illisible."); add(item.name, item.bytes); }
     } else if (info.isFile() && /\.md$/i.test(selected)) {
         if (info.size > 360000) throw new Error("Le SKILL.md est trop volumineux."); add("SKILL.md", await fs.readFile(selected));
     } else throw new Error("Choisis un SKILL.md, un dossier de skill ou une archive ZIP.");

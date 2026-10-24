@@ -313,7 +313,7 @@ async function submit(raw, attachments, { queued = false } = {}) {
     if (result && result.exit) {
         setTimeout(() => app.quit(), 200);
     }
-    return { exit: Boolean(result && result.exit), ok: !failure && !submissionInterrupted && result?.completed !== false, interrupted: submissionInterrupted, error: failure, message: result?.message };
+    return { exit: Boolean(result && result.exit), ok: !failure && !submissionInterrupted && result?.completed !== false, interrupted: submissionInterrupted, error: failure, errorReported: Boolean(failure), message: result?.message };
 }
 
 async function openProject(directory) {

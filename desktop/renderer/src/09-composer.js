@@ -272,7 +272,7 @@ async function send(text) {
             return;
         }
         const result = await api.submit(value, attachments);
-        if (result?.error) throw new Error(result.error);
+        if (result?.error) throw Object.assign(new Error(result.error),{reported:result.errorReported===true});
         if (result?.queued) studioFeedback("Prompt ajouté à la suite.");
     } catch (err) {
         if (text === undefined && !input.value) {
@@ -280,7 +280,7 @@ async function send(text) {
             if (withFiles) { pendingAttachments = attachments; renderAttachments(); }
             saveStudioDraft(); autosizeInput();
         }
-        renderEntry({ type: "error", text: err.message });
+        if(!err.reported)renderEntry({ type: "error", text: err.message });
     }
 }
 

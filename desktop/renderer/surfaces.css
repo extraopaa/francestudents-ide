@@ -106,11 +106,6 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .chat-composer-tools #model-label {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .chat-composer-tools .model-btn > .i:first-child {display:block;width:14px;height:14px;color:var(--link);flex-shrink:0;}
 .chat-composer-tools .model-btn .chev {width:12px;height:12px;flex-shrink:0;color:var(--fg-dim);}
-#chat-context-gauge {flex-shrink:0;font-size:10px;gap:5px;color:var(--fg-dim);font-variant-numeric:tabular-nums;padding:0 6px;}
-.chat-context-ring {width:15px;height:15px;flex-shrink:0;border-radius:50%;background:conic-gradient(var(--accent,#73a7f8) var(--context-progress,0deg),rgba(128,128,128,.28) 0);position:relative;}
-.chat-context-ring:after {content:"";position:absolute;inset:3px;border-radius:50%;background:var(--panel-bg,#202127);}
-#chat-context-gauge.context-warning {color:#e8b566;}
-#chat-context-gauge.context-warning .chat-context-ring {background:conic-gradient(#e8b566 var(--context-progress),rgba(128,128,128,.28) 0);}
 #chat-dictation {flex:0 0 32px;position:relative;justify-content:center;padding:0;border:1px solid var(--border);background:var(--bg-input);}
 #chat-dictation .i {width:16px;height:16px;}
 .dictation-beta {position:absolute;right:-3px;top:-5px;font-size:9px;line-height:12px;width:12px;text-align:center;border-radius:4px;background:var(--accent-soft);color:var(--link);border:1px solid var(--border);}
@@ -165,7 +160,6 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .agent-tabs button {font-size:11px;padding:7px 0;}
 .chat-settings-row > button {flex:0 1 auto;max-width:220px;}
 .chat-model-row .model-btn {flex:0 1 auto;}
-.chat-model-row #chat-context-gauge {margin-left:auto;}
 .chat-tools-menu .composer-topline {padding:0;}
 .chat-tools-menu .composer-utilities {display:grid;gap:3px;}
 .chat-tools-menu .composer-shortcuts,.chat-tools-menu .composer-options {display:contents;}
@@ -195,7 +189,8 @@ body:has(#app.view-motion) .chat-mode-setting {display:none;}
     #btn-model {order:1;}
     #chat-access-button {order:2;}
     #chat-reasoning {order:3;}
-    #chat-context-gauge {order:4;margin-left:auto;}
     #chat-dictation {order:5;}
 }
 @media (max-width:760px) { #app.focus-agent .starter-prompts {grid-template-columns:1fr;} }
+
+.chat-model-row #chat-dictation {margin-left:auto;}

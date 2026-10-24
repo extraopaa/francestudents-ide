@@ -80,13 +80,17 @@ async function convertBytes(bytes, name, ext, type, context) {
             if (archiveExt !== "tar") return joinResults(name, "Contenu décompressé :", [await convertChild(name.replace(/\.gz$/i, ""), archive, "application/octet-stream", context)]);
         }
         const { readZip, readTar, readSevenZip } = require("./archive-input");
-        const entries = tarMagic || archiveExt === "tar" ? await readTar(archive) : archiveExt === "zip" || bytes.subarray(0, 2).toString() === "PK" ? await readZip(archive) : await readSevenZip(archive);
-        const results = [];
-        for (const entry of entries) if (!entry.directory) {
-            results.push(entry.bytes?.length ? await convertChild(entry.name, entry.bytes, "application/octet-stream", context)
-                : { images: [], text: `${entry.name} : ${entry.error || "fichier vide"}` });
+        const zipArchive = !tarMagic && archiveExt !== "tar" && (archiveExt === "zip" || bytes.subarray(0, 2).toString() === "PK");
+        let entries = tarMagic || archiveExt === "tar" ? await readTar(archive) : zipArchive ? await readZip(archive, { allowPartial: true }) : await readSevenZip(archive);
+        if (zipArchive && entries.some(entry => /unsupported compression method/i.test(entry.error || ""))) {
+            try {
+                const recovered = await readSevenZip(archive);
+                const byName = new Map(recovered.filter(entry => entry.bytes && !entry.error).map(entry => [entry.name.replace(/\\/g, "/"), entry]));
+                entries = entries.map(entry => /unsupported compression method/i.test(entry.error || "") && byName.has(entry.name)
+                    ? { ...entry, bytes: byName.get(entry.name).bytes, error: undefined } : entry);
+            } catch { /* Keep the already-readable files and precise per-entry errors. */ }
         }
-        return joinResults(name, "Archive :\n" + entries.map(e => `${e.name} (${e.size} octets)`).join("\n"), results);
+        return convertArchiveContents(entries, name, context);
     }
     if (type.startsWith("image/") || /\.(?:png|jpe?g|jfif|pjp|pjpeg|webp|gif|bmp|tiff?|svg|avif|heic|heif)$/i.test(name)) {
         const sharp = require("sharp");
@@ -151,6 +155,41 @@ async function withMedia(name, document, context) {
 
 function joinResults(name, text, results) {
     return { images: results.flatMap(result => result.images), text: documentText(name, [text, ...results.map(result => result.text)].join("\n\n")), partial: results.some(result => result.partial) };
+}
+
+async function convertArchiveContents(entries, name, context) {
+    const manifest = ["Archive ouverte localement : inventaire puis contenus lisibles ci-dessous. Ces chemins sont internes au ZIP, pas des fichiers à rechercher ou à décompresser sur le PC :"];
+    let manifestSize = manifest[0].length, omittedNames = 0;
+    for (const entry of entries) {
+        const line = `${String(entry.name).replace(/[\r\n]/g, " ")} (${entry.size} octets)${entry.error ? ` — ${entry.error}` : ""}`;
+        if (manifestSize + line.length < 200000) { manifest.push(line); manifestSize += line.length + 1; }
+        else omittedNames++;
+    }
+    if (omittedNames) manifest.push(`${omittedNames} autre(s) entrée(s) : noms non affichés, inventaire partiel.`);
+    if (!entries.length) manifest.push("Archive vide : aucun fichier à lire.");
+    const parts = [manifest.join("\n")], images = [];
+    const textBudget = MAX_TEXT_CHARS - 4000;
+    let partial = omittedNames > 0, textSize = parts[0].length, omittedContents = 0;
+    const omittedFiles = [];
+    const omit = entry => { partial = true; omittedContents++; if (omittedFiles.length < 20) omittedFiles.push(String(entry.name).replace(/[\r\n]/g, " ").slice(0, 140)); };
+    for (const entry of entries) {
+        if (entry.directory) continue;
+        if (textSize >= textBudget) { omit(entry); continue; }
+        let result;
+        try {
+            result = entry.error ? { images: [], partial: true, text: `${entry.name} : ${entry.error}` }
+                : entry.bytes?.length ? await convertChild(entry.name, entry.bytes, "application/octet-stream", context)
+                    : { images: [], partial: false, text: `${entry.name} : fichier vide.` };
+        } catch (error) {
+            result = { images: [], partial: true, text: `${entry.name} : contenu non lu (${String(error.message || error).slice(0, 300)}).` };
+        }
+        if (textSize + result.text.length > textBudget) { omit(entry); continue; }
+        parts.push(result.text); textSize += result.text.length + 2;
+        images.push(...result.images); partial ||= Boolean(result.partial);
+    }
+    if (omittedContents) parts.push(`${omittedContents} fichier(s) non transmis : budget de texte atteint (${omittedFiles.join(", ")}${omittedContents > omittedFiles.length ? ", …" : ""}). Les contenus déjà lus ci-dessus restent disponibles.`);
+    if (partial) parts.unshift("LECTURE PARTIELLE DE L’ARCHIVE : utilise uniquement les contenus effectivement transmis ; ne prétends pas avoir lu les éléments signalés comme non lus.");
+    return { images, partial, text: documentText(name, parts.join("\n\n")) };
 }
 
 function documentText(name, text) {

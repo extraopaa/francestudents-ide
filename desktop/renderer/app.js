@@ -669,7 +669,8 @@ function renderEntry(e) {
         case "print":
             return addEntry("print", `<pre>${escapeHtml((e.lines || []).join("\n"))}</pre>`);
         case "plan":
-            return addEntry("plan", `<b>Plan</b><ol>${(e.items || []).map((i) => `<li>${inline(i)}</li>`).join("")}</ol>`);
+            renderWorkPlan(Array.isArray(e.steps) ? e.steps : workPlanItems(e.items), { status: e.replayed ? "history" : "running" });
+            return null;
         case "tool":
             if (e.name === "run_command") appendOutput(`$ ${e.arg}`);
             if (QUIET_TOOLS.has(e.name)) return addQuietTool(e);
@@ -2399,7 +2400,7 @@ async function send(text) {
             return;
         }
         const result = await api.submit(value, attachments);
-        if (result?.error) throw new Error(result.error);
+        if (result?.error) throw Object.assign(new Error(result.error),{reported:result.errorReported===true});
         if (result?.queued) studioFeedback("Prompt ajouté à la suite.");
     } catch (err) {
         if (text === undefined && !input.value) {
@@ -2407,7 +2408,7 @@ async function send(text) {
             if (withFiles) { pendingAttachments = attachments; renderAttachments(); }
             saveStudioDraft(); autosizeInput();
         }
-        renderEntry({ type: "error", text: err.message });
+        if(!err.reported)renderEntry({ type: "error", text: err.message });
     }
 }
 
@@ -4747,6 +4748,7 @@ api.onEvent((channel, data) => {
             appendOutput(data);
             break;
         case "clear":
+            renderWorkPlan([]);
             studioEntries.length = 0;
             transcript.innerHTML = "";
             $("agent-starter").classList.remove("hidden");
@@ -6192,23 +6194,8 @@ function renderAgentActivity(run) {
     const motion=typeof isMotionOpen==="function" && isMotionOpen();
     if(run && (!!run.motionDesign!==motion || !motion && run.workspace!==ui.workspace))run=null;
     studioRun = run;
-    const livePlan = $("agent-live-plan");
-    livePlan.replaceChildren();
     const steps = run?.steps || [];
-    livePlan.classList.toggle("hidden", !steps.length);
-    if (steps.length) {
-        const done = steps.filter(step => step.status === "completed").length;
-        const detail = document.createElement("details"); detail.open = run.status === "running";
-        const summary = document.createElement("summary"); summary.textContent = `Plan de travail · ${done}/${steps.length}`;
-        const progress = document.createElement("progress"); progress.max = steps.length; progress.value = done;
-        progress.setAttribute("aria-label", "Étapes du plan terminées");
-        const list = document.createElement("ol");
-        for (const step of steps) {
-            const li = document.createElement("li"); li.dataset.status = step.status;
-            li.textContent = `${step.status === "completed" ? "✓" : step.status === "in_progress" ? "◉" : "○"} ${step.step}`; list.appendChild(li);
-        }
-        detail.append(summary, progress, list); livePlan.appendChild(detail);
-    }
+    if (!ui.replayingConversation) renderWorkPlan(steps, { status: run?.status || "idle" });
     const overview = $("activity-overview"); overview.replaceChildren();
     const timeline = $("activity-timeline"); timeline.replaceChildren();
     const sources = $("activity-sources"); sources.replaceChildren();
@@ -8494,7 +8481,7 @@ function renderAgentQuestion(prompt, zone) {
     footer.append(skip, submit); card.append(error, footer); zone.append(card); refresh();
     setTimeout(() => { if (card.isConnected) (inputs[0] || text).focus({ preventScroll: true }); }, 0);
 }
-/* Model selection, current-chat context and explicit, opt-in dictation. */
+/* Model selection and explicit, opt-in dictation. */
 const composerTools = document.createElement("div");
 composerTools.className = "chat-composer-tools";
 const composerModelRow = document.createElement("div"), composerSettingsRow = document.createElement("div");
@@ -8504,10 +8491,7 @@ function chatControlContent(button, icon, label) {
     button.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span class="chat-control-label"></span><svg class="chat-control-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>`;
     button.querySelector(".chat-control-label").textContent = label;
 }
-const contextGauge = document.createElement("button");
-contextGauge.type = "button"; contextGauge.id = "chat-context-gauge";
-contextGauge.innerHTML = '<span class="chat-context-ring" aria-hidden="true"></span><span class="chat-context-label">Contexte —</span>';
-composerModelRow.append($("btn-model"), contextGauge);
+composerModelRow.append($("btn-model"));
 const dictationButton = document.createElement("button");
 dictationButton.type = "button"; dictationButton.id = "chat-dictation";
 dictationButton.title = "Dicter un message · Bêta"; dictationButton.setAttribute("aria-label", dictationButton.title);
@@ -8515,37 +8499,14 @@ dictationButton.setAttribute("aria-pressed", "false");
 dictationButton.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span class="dictation-beta" aria-hidden="true">β</span>';
 composerModelRow.append(dictationButton);
 $("composer").querySelector(".composer-actions").before(composerTools);
-let composerContextKey = null, composerContextSerial = 0, composerContextAt = 0, composerContextPending = false;
-let composerContextDetail = "Le contexte du chat sera affiché après sa première requête.";
-function paintComposerContext(percent, detail) {
-    const known = typeof percent === "number" && Number.isFinite(percent) && percent >= 0 && percent <= 100;
-    contextGauge.style.setProperty("--context-progress", `${known ? percent * 3.6 : 0}deg`);
-    contextGauge.classList.toggle("context-warning", known && percent >= 80);
-    contextGauge.querySelector(".chat-context-label").textContent = known ? `${Math.round(percent)} %` : "—";
-    composerContextDetail = detail; contextGauge.title = detail; contextGauge.setAttribute("aria-label", detail);
-}
-async function refreshComposerContext(force = false) {
-    if (!ui.status.booted || composerContextPending || !force && Date.now() - composerContextAt < 15000) return;
-    const serial = composerContextSerial; composerContextPending = true; composerContextAt = Date.now();
-    try {
-        const value = await api.chatContext();
-        if (serial !== composerContextSerial || value?.identity !== composerContextKey) return;
-        paintComposerContext(value.percent, value.empty ? "Nouvelle conversation · contexte vide." :
-            typeof value.percent === "number" ? `Contexte du chat : ${Math.round(value.percent)} % utilisés${value.tokens == null ? "" : ` · ${Number(value.tokens).toLocaleString("fr-FR")} tokens cumulés`}. La compaction conserve l’historique visible.` : "L’API ne fournit pas le contexte de ce chat.");
-    } catch { if (serial === composerContextSerial) paintComposerContext(null, "Contexte temporairement indisponible. Clique pour actualiser."); }
-    finally { composerContextPending = false; if (serial !== composerContextSerial) refreshComposerContext(true); }
-}
+let composerContextKey = null;
 function updateComposerContext(status) {
     const key = status.booted ? status.chatContextKey : null;
     if (key !== composerContextKey) {
-        composerContextKey = key; composerContextSerial++; composerContextAt = 0;
-        paintComposerContext(null, "Chargement du contexte de la conversation…");
+        composerContextKey = key;
         cancelChatDictation();
     }
-    refreshComposerContext();
 }
-contextGauge.onclick = () => { studioFeedback(composerContextDetail); refreshComposerContext(true); };
-setInterval(() => { if (!document.hidden) refreshComposerContext(); }, 30000);
 
 let chatDictation = null;
 function cancelChatDictation() {
@@ -8976,6 +8937,58 @@ window.addEventListener("keydown", event => {
     if (ui.status.busy || !$("slash-menu").classList.contains("hidden")) return;
     setAgentFocus(false); $("agent-focus").focus();
 });
+/* One plan surface, updated in place; transcript events remain in history/export. */
+function workPlanItems(items) {
+    return (Array.isArray(items) ? items : []).map(item => {
+        const value = String(item || "").trim();
+        const completed = /^(?:✓|✔|\[[xX]\])\s*/.test(value);
+        const current = /^(?:◉|●|\[~\])\s*/.test(value);
+        return { step: value.replace(/^(?:✓|✔|◉|●|○|\[[xX ~]?\])\s*/, ""), status: completed ? "completed" : current ? "in_progress" : "pending" };
+    });
+}
+function renderWorkPlan(items, { status = "idle" } = {}) {
+    const host = $("agent-live-plan"); if (!host) return;
+    const steps = (Array.isArray(items) ? items : []).filter(step => step && typeof step.step === "string" && step.step.trim()).map(step => ({
+        step: step.step.trim(), status: ["completed", "in_progress"].includes(step.status) ? step.status : "pending"
+    }));
+    const signature = JSON.stringify({ steps, status });
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    if (!steps.length) { host.replaceChildren(); host.classList.add("hidden"); return; }
+    const previous = host.querySelector("details"), wasFocused = previous?.querySelector("summary") === document.activeElement;
+    const previousScroll = host.querySelector("ol")?.scrollTop || 0;
+    const detail = document.createElement("details"); detail.open = previous ? previous.open : status !== "history";
+    const done = steps.filter(step => step.status === "completed").length;
+    const complete = done === steps.length;
+    const label = complete ? "Terminé" : status === "interrupted" ? "Interrompu" : ["done", "failed"].includes(status) ? "À poursuivre" : status === "history" ? "Historique" : "En cours";
+    host.dataset.state = complete ? "completed" : status;
+    const summary = document.createElement("summary");
+    const heading = document.createElement("span"); heading.className = "work-plan-heading";
+    const title = document.createElement("strong"); title.textContent = "Plan de travail";
+    const count = document.createElement("span"); count.className = "work-plan-count"; count.textContent = `${done}/${steps.length}`;
+    const state = document.createElement("span"); state.className = "work-plan-state"; state.textContent = label;
+    const chevron = document.createElement("span"); chevron.className = "work-plan-chevron";
+    chevron.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>';
+    heading.append(title, count, state, chevron);
+    const progress = document.createElement("progress"); progress.max = steps.length; progress.value = done;
+    progress.setAttribute("aria-label", `${done} étape${done > 1 ? "s" : ""} terminée${done > 1 ? "s" : ""} sur ${steps.length}`);
+    summary.append(heading, progress);
+    const list = document.createElement("ol"); list.className = "work-plan-steps";
+    steps.forEach((step, index) => {
+        const row = document.createElement("li"); row.dataset.status = step.status;
+        if (step.status === "in_progress") row.setAttribute("aria-current", "step");
+        const marker = document.createElement("span"); marker.className = "work-plan-marker"; marker.setAttribute("aria-hidden", "true");
+        if (step.status === "completed") marker.innerHTML = '<svg viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></svg>';
+        else marker.textContent = String(index + 1);
+        const text = document.createElement("span"); text.className = "work-plan-step-text"; text.textContent = step.step;
+        const accessibleStatus = document.createElement("span"); accessibleStatus.className = "work-plan-sr-status";
+        accessibleStatus.textContent = step.status === "completed" ? "Terminée : " : step.status === "in_progress" ? "En cours : " : "À venir : ";
+        row.append(marker, accessibleStatus, text); list.append(row);
+    });
+    detail.append(summary, list); host.replaceChildren(detail); host.classList.remove("hidden");
+    list.scrollTop = previousScroll;
+    if (wasFocused) summary.focus();
+}
 /* ---------- Démarrage ---------- */
 
 (async () => {

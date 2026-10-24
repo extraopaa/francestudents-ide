@@ -28,6 +28,34 @@ const baseContext = {
     correction: null
 };
 
+test("successive user tasks reuse bootstrap but a model switch restores the complete instructions", { concurrency:false }, async()=>{
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-quota-integration-"));
+    const previous={request:api.requestModel,workspace:state.workspace,model:state.model,log:console.log};
+    resetConversation();state.workspace=dir;state.autoApprove=true;
+    const sent=[];
+    api.requestModel=async(message,options)=>{
+        sent.push({message,options});state.chatIds.agent="quota-integration";state.chatId="quota-integration";
+        return JSON.stringify({type:"final",message:"Réponse courte.",completed:true});
+    };
+    console.log=()=>{};
+    try{
+        await runAgent("Explique le rôle du projet sans modification.");
+        await runAgent("Reformule ton explication en une phrase.");
+        assert.match(sent[0].message,/OUTILS — chemins relatifs/);
+        assert.match(sent[1].message,/NOUVELLE DEMANDE/);
+        assert.ok(sent[1].message.length<sent[0].message.length/3);
+        assert.ok(!sent[1].message.includes('"tool":"list_directory"'));
+        assert.match(sent[1].options.freshMessage(),/OUTILS — chemins relatifs/);
+        state.model=String(previous.model)+"-changed";
+        state.conversationSettings.agent.model=state.model;
+        await runAgent("Résume encore.");
+        assert.match(sent[2].message,/OUTILS — chemins relatifs/);
+    }finally{
+        console.log=previous.log;api.requestModel=previous.request;state.workspace=previous.workspace;state.model=previous.model;
+        resetConversation();fs.rmSync(dir,{recursive:true,force:true});
+    }
+});
+
 test("limites par défaut : contexte projet 30 000 et résultat d'outil 15 000 caractères", () => {
     assert.equal(CONFIG.agentContextChars, 30_000);
     assert.equal(CONFIG.maxObservationChars, 15_000);
