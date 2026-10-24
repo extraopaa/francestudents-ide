@@ -201,7 +201,7 @@ function renderResume(snap, summaries) {
     return [
         `<!-- empreinte: ${snap.fingerprint} -->`,
         "# RESUME DU PROJET",
-        `Généré le ${stamp}. Régénéré automatiquement quand des fichiers changent (/index pour forcer).`,
+        `Généré le ${stamp}. Index local actualisé au chargement ; résumé IA uniquement sur demande explicite (/index).`,
         "## Arborescence\n" + (lines.join("\n") || "- (vide)"),
         "## Résumé des fichiers\n" + (summaries || "_Aucun fichier lisible._")
     ].join("\n\n");
@@ -283,13 +283,25 @@ function splitSections(text, rels) {
 
 /**
  * Charge le projet : reprend le RESUME.md si rien n'a changé,
- * sinon le régénère avec l'IA (par lots), en ne renvoyant que les fichiers
- * dont le contenu a changé (cache par fichier). /index (force) refait tout.
+ * sinon prépare un index local sans appel IA. La génération IA exige une
+ * demande explicite (summarize:true) ; /index (force) refait tout.
  */
-async function load(workspace, { force = false } = {}) {
+async function load(workspace, { force = false, summarize = force } = {}) {
     const snap = await snapshot(workspace);
     let resume = force ? null : await readCache(snap.fingerprint);
     let status = "Résumé du projet repris (inchangé)";
+
+    if(!resume&&!summarize){
+        const cache=await readFileCache();
+        const summaries=snap.items.filter(item=>{
+            const entry=cache[item.rel];
+            return item.content!==undefined&&entry?.hash===item.hash&&entry.excerptHash===item.excerptHash&&typeof entry.summary==="string";
+        }).map(item=>cache[item.rel].summary);
+        resume=renderResume(snap,summaries.join("\n\n")||"_Index local prêt. Aucun résumé IA généré automatiquement ; lire les fichiers utiles avec les outils._");
+        // Do not overwrite an AI summary or mark a local index as a complete AI cache.
+        active={snap,resume};
+        return {status:"Index local du projet prêt (aucun appel IA ; /index pour demander un résumé IA)",files:snap.items.length,skipped:snap.items.filter(item=>item.skipped).length};
+    }
 
     if (!resume) {
         const readable = snap.items.filter(it => it.content !== undefined);

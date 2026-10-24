@@ -17,6 +17,8 @@ Sur Mac, **À propos de ce Mac** indique le type de puce. Pour commencer, choisi
 
 Ouvre l’installateur, choisis son emplacement et lance FranceStudent IDE. Windows peut afficher un avertissement pour cet exécutable sans signature d’éditeur reconnue. Vérifie sa provenance : les releases de ce dépôt.
 
+La version Windows 1.4.2 n’est pas signée avec un certificat d’éditeur reconnu. Le message « Une partie de cette application a été bloquée » peut correspondre à Smart App Control : certains composants de l’installation ou de la mise à jour peuvent être refusés. Les empreintes SHA-256 vérifient l’intégrité du téléchargement, mais ne remplacent pas la signature d’éditeur. Une correction durable nécessite la signature de confiance de l’installateur et de ses composants ; ce blocage n’est pas corrigé par un simple changement d’interface. [Documentation Microsoft](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/code-signing-for-smart-app-control).
+
 ## Mac · Bêta
 
 La version 1.3.4 requiert **macOS 13 ou plus récent**. Les anciennes bêtas ci-dessus ont été construites avec le moteur précédent.

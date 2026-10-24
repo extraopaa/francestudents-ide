@@ -50,7 +50,7 @@ function formatBudgetNotice(notice, now = new Date()) {
 }
 
 /** Carte intégrée au transcript, à la place du JSON brut. */
-function renderBudgetEntry(notice, rawText) {
+function renderBudgetEntry(notice, rawText, {projectSummary=false}={}) {
     const f = formatBudgetNotice(notice);
     const chips = [
         f.when ? `<span class="budget-chip"><b>Reprise</b> ${escapeHtml(f.when)}</span>` : "",
@@ -61,6 +61,7 @@ function renderBudgetEntry(notice, rawText) {
         `<div class="budget-icon" aria-hidden="true">${icon}</div>` +
         `<div class="budget-body"><div class="budget-title">${escapeHtml(f.title)}</div>` +
         `<div class="budget-detail">${escapeHtml(f.detail)}</div>` +
+        (projectSummary?'<p class="budget-context">Le résumé IA du projet n’a pas pu être généré. Un contexte local partiel reste disponible. Après le renouvellement du quota, tu pourras réindexer le projet si nécessaire.</p>':"")+
         (chips ? `<div class="budget-chips">${chips}</div>` : "") +
         `<details class="budget-tech"><summary>Détails techniques</summary><pre>${escapeHtml(String(rawText ?? ""))}</pre></details></div>`);
     el.setAttribute("role", "status");

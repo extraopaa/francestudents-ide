@@ -32,9 +32,13 @@ test("usage meter opens a live dashboard, distinguishes estimates and handles un
         await page.locator('[data-agent-tab="conversation"]').click();
         await app.evaluate(({BrowserWindow},resetAt)=>{
             const web=BrowserWindow.getAllWindows()[0].webContents;
-            for(const text of ['HTTP 503: {"message":"provider unavailable <script>bad()</script>"}',`HTTP 429: Chat budget exhausted. Reset at ${resetAt}`])web.send("frst:event",{channel:"entry",data:{type:"error",text}});
+            web.send("frst:event",{channel:"entry",data:{type:"error",text:'HTTP 503: {"message":"provider unavailable <script>bad()</script>"}'}});
+            web.send("frst:event",{channel:"entry",data:{type:"info",text:`Résumé IA indisponible (HTTP 429: Chat budget exhausted. Reset at ${resetAt}). Résumé partiel ; /index pour réessayer. | 500 fichier(s) indexé(s)`}});
         },resetAt);
         await page.locator(".api-error-notice").waitFor();await page.locator(".budget-notice .quota-countdown").waitFor();
+        assert.match(await page.locator(".budget-notice .budget-context").innerText(),/contexte local partiel/);
+        assert.equal(await page.locator(".budget-notice .budget-tech").getAttribute("open"),null);
+        assert.doesNotMatch(await page.locator(".budget-notice").innerText(),/HTTP 429|500 fichier/);
         assert.match(await page.locator(".api-error-notice").innerText(),/Service momentanément indisponible/);
         assert.equal(await page.locator(".api-error-notice svg").count(),1);
         assert.equal(await page.locator(".api-error-notice details").getAttribute("open"),null);

@@ -617,8 +617,15 @@ function appendOutput(text) {
 
 function renderEntry(e) {
     recordStudioEntry(e);
+    if(["info","warn","error"].includes(e.type)){
+        const budget=parseBudgetNotice(e.text);
+        if(budget){
+            if(e.type==="error")$("agent-starter").classList.add("hidden");
+            return renderBudgetEntry(budget,e.text,{projectSummary:/Résumé IA indisponible/i.test(String(e.text||""))});
+        }
+    }
     const sessionPrivacyNotice = e.type === "warn" && /^Le contenu du projet \(fichiers, RESUME\.md\) est envoyé à ton fournisseur API\./.test(String(e.text || ""));
-    if (sessionPrivacyNotice || e.type === "info" && /^(?:Connecté \(le token|Projet : |Projet FranceStudent : |Projet existant : |Mémoire : |Résumé du projet |R[ÉE]SUM[ÉE]\.md |Nouveau projet enregistré)/.test(String(e.text || ""))) {
+    if (sessionPrivacyNotice || e.type === "info" && /^(?:Connecté \(le token|Projet : |Projet FranceStudent : |Projet existant : |Mémoire : |Résumé du projet |Index local du projet |R[ÉE]SUM[ÉE]\.md |Nouveau projet enregistré)/.test(String(e.text || ""))) {
         let group = transcript.querySelector(".session-notices");
         if (!group) group = addEntry("session-notices", "<details><summary>Informations de session</summary><div class=\"chat-session-lines\"></div></details>");
         const line = document.createElement("div"); line.className = "chat-session-line"; line.textContent = e.text;
@@ -657,8 +664,6 @@ function renderEntry(e) {
         case "error": {
             if (e.type === "error") {
                 $("agent-starter").classList.add("hidden");
-                const budget = parseBudgetNotice(e.text);
-                if (budget) return renderBudgetEntry(budget, e.text);
                 const context=parseContextLimitNotice(e.text);
                 if(context)return renderContextLimitEntry(context,e.text);
                 const apiError=parseApiErrorNotice(e.text);
@@ -8065,7 +8070,7 @@ function formatBudgetNotice(notice, now = new Date()) {
 }
 
 /** Carte intégrée au transcript, à la place du JSON brut. */
-function renderBudgetEntry(notice, rawText) {
+function renderBudgetEntry(notice, rawText, {projectSummary=false}={}) {
     const f = formatBudgetNotice(notice);
     const chips = [
         f.when ? `<span class="budget-chip"><b>Reprise</b> ${escapeHtml(f.when)}</span>` : "",
@@ -8076,6 +8081,7 @@ function renderBudgetEntry(notice, rawText) {
         `<div class="budget-icon" aria-hidden="true">${icon}</div>` +
         `<div class="budget-body"><div class="budget-title">${escapeHtml(f.title)}</div>` +
         `<div class="budget-detail">${escapeHtml(f.detail)}</div>` +
+        (projectSummary?'<p class="budget-context">Le résumé IA du projet n’a pas pu être généré. Un contexte local partiel reste disponible. Après le renouvellement du quota, tu pourras réindexer le projet si nécessaire.</p>':"")+
         (chips ? `<div class="budget-chips">${chips}</div>` : "") +
         `<details class="budget-tech"><summary>Détails techniques</summary><pre>${escapeHtml(String(rawText ?? ""))}</pre></details></div>`);
     el.setAttribute("role", "status");

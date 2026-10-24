@@ -2,6 +2,11 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.3] — Ouvrir le projet sans consommer de quota IA
+
+- Ouverture du projet sans génération IA automatique de RESUME.md : index local et cache existant uniquement ; résumé IA sur demande explicite avec /index, hors bêta également.
+- Quota épuisé au démarrage : l’échec du résumé IA du projet est présenté dans la carte de quota, avec compte à rebours et vérification du reset. Le contexte partiel est expliqué ; le message technique reste replié.
+
 ## [1.4.2] — Pièces jointes locales en bêta expérimentale
 
 - Fonction proposée uniquement via une option « Bêta expérimentale » dans les paramètres, désactivée par défaut et réversible ; traitement habituel conservé pour les autres utilisateurs.

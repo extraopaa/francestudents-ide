@@ -16,6 +16,15 @@ function load(stubs = {}) {
 const RAW = 'Budget de chat épuisé jusqu\'au 23/10/2026 04:59:59. HTTP 429: {"timestamp":"2026-10-22T15:57:01","status":429,"error":"Too Many Requests","message":"Chat budget exhausted. Reset at 2026-10-23T02:59:59.999413228Z.","errorCode":"REQUEST_FAILED","path":"/chats/stream"}';
 const NOW = new Date('2026-10-22T13:57:01Z');
 
+test('startup project summary quota errors keep the existing reset date and get a clear project explanation',()=>{
+    let html="";
+    const {parseBudgetNotice,renderBudgetEntry}=load({addEntry:(_,value)=>{html=value;return {setAttribute(){}};}});
+    const raw=`Résumé IA indisponible (${RAW}). Résumé partiel ; /index pour réessayer. | 500 fichier(s) indexé(s), 371 ignoré(s)`;
+    const notice=parseBudgetNotice(raw);assert.equal(notice.resetAt.toISOString(),'2026-10-23T02:59:59.000Z');
+    renderBudgetEntry(notice,raw,{projectSummary:true});
+    assert.match(html,/budget-context/);assert.match(html,/contexte local partiel/);assert.match(html,/<details class="budget-tech">/);
+});
+
 test('parseBudgetNotice : reconnaît le 429 brut et extrait la reprise en UTC', () => {
     const { parseBudgetNotice } = load();
     const notice = parseBudgetNotice(RAW);

@@ -4,6 +4,8 @@
 
 Un dossier, une idée et une conversation : voici comment démarrer. Les captures utilisent le projet fictif **Aurora**, sans compte personnel.
 
+À partir de la 1.4.3, ouvrir un projet prépare un index local et reprend le cache disponible, sans appel IA pour générer un résumé. Une demande envoyée dans le chat utilise ensuite les fichiers nécessaires. Pour demander explicitement la génération d’un résumé IA du projet, saisis `/index` : cette commande peut consommer du quota.
+
 ## 1. Installer et se connecter
 
 Télécharge l’installateur adapté depuis le [guide d’installation](installation.md). L’application installée ne demande ni Node.js ni npm.

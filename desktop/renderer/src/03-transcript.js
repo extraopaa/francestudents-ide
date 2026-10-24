@@ -65,8 +65,15 @@ function appendOutput(text) {
 
 function renderEntry(e) {
     recordStudioEntry(e);
+    if(["info","warn","error"].includes(e.type)){
+        const budget=parseBudgetNotice(e.text);
+        if(budget){
+            if(e.type==="error")$("agent-starter").classList.add("hidden");
+            return renderBudgetEntry(budget,e.text,{projectSummary:/Résumé IA indisponible/i.test(String(e.text||""))});
+        }
+    }
     const sessionPrivacyNotice = e.type === "warn" && /^Le contenu du projet \(fichiers, RESUME\.md\) est envoyé à ton fournisseur API\./.test(String(e.text || ""));
-    if (sessionPrivacyNotice || e.type === "info" && /^(?:Connecté \(le token|Projet : |Projet FranceStudent : |Projet existant : |Mémoire : |Résumé du projet |R[ÉE]SUM[ÉE]\.md |Nouveau projet enregistré)/.test(String(e.text || ""))) {
+    if (sessionPrivacyNotice || e.type === "info" && /^(?:Connecté \(le token|Projet : |Projet FranceStudent : |Projet existant : |Mémoire : |Résumé du projet |Index local du projet |R[ÉE]SUM[ÉE]\.md |Nouveau projet enregistré)/.test(String(e.text || ""))) {
         let group = transcript.querySelector(".session-notices");
         if (!group) group = addEntry("session-notices", "<details><summary>Informations de session</summary><div class=\"chat-session-lines\"></div></details>");
         const line = document.createElement("div"); line.className = "chat-session-line"; line.textContent = e.text;
@@ -105,8 +112,6 @@ function renderEntry(e) {
         case "error": {
             if (e.type === "error") {
                 $("agent-starter").classList.add("hidden");
-                const budget = parseBudgetNotice(e.text);
-                if (budget) return renderBudgetEntry(budget, e.text);
                 const context=parseContextLimitNotice(e.text);
                 if(context)return renderContextLimitEntry(context,e.text);
                 const apiError=parseApiErrorNotice(e.text);

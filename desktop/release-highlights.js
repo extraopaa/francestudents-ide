@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.3":{headline:"Ouvre ton projet, garde ton quota.",items:[
+        {icon:"clock",title:"Aucun résumé IA lancé à l’ouverture",text:"L’IDE prépare un index local et reprend le cache disponible. La génération d’un résumé IA se demande explicitement avec /index."},
+        {icon:"chat",title:"Le quota expliqué clairement",text:"Les messages de quota pendant l’indexation affichent une carte lisible, l’heure de reprise et le bouton de vérification d’un reset."},
+        {icon:"tools",title:"La bêta reste facultative",text:"Le traitement local expérimental des pièces jointes reste désactivé par défaut. L’indexation sans appel IA à l’ouverture s’applique à tous."}
+    ]},
     "1.4.2":{headline:"Teste des pièces jointes plus légères.",items:[
         {icon:"spark",title:"Une bêta au choix",text:"Active Pièces jointes locales dans les paramètres IA pour la tester. Désactivée par défaut : le fonctionnement habituel reste disponible."},
         {icon:"tools",title:"Choisis dans ton ZIP",text:"Recherche et coche les fichiers utiles avant l’envoi. L’inventaire se fait sur ton ordinateur, sans requête IA."},

@@ -2675,6 +2675,7 @@ button.primary:active,
 .budget-body { min-width: 0; flex: 1; }
 .budget-title { font-size: 13px; font-weight: 600; color: var(--fg-strong, var(--fg, #e6e6e6)); }
 .budget-detail { margin-top: 2px; font-size: 12px; line-height: 1.5; color: var(--fg-dim); }
+.budget-context {margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--fg-dim);}
 .budget-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .budget-chip {
     padding: 2px 9px;
