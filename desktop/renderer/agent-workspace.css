@@ -164,9 +164,10 @@
 .favorite-row button { background: transparent; border: 0; text-align: left; font-size: 11px; padding: 8px 5px; border-radius: 3px; }
 .favorite-row button:first-child { flex: 1; }
 .favorite-row button:hover { background: var(--bg-hover); }
-#app.focus-agent { grid-template-columns: 48px 0 0 0 0 1fr; }
+#app.focus-agent { grid-template-columns: 0 0 0 0 0 minmax(0,1fr); grid-template-rows:var(--titlebar) minmax(0,1fr) 0; }
 #app.focus-agent #center, #app.focus-agent #sidebar, #app.focus-agent .resizer, #app.focus-agent #resizer-right { display: none; }
-#app.focus-agent #agent { display: flex !important; padding-left: max(0px, calc((100vw - 900px) / 2)); padding-right: max(0px, calc((100vw - 900px) / 2)); }
+#app.focus-agent #agent { display: flex !important; padding:0; }
+#app.focus-agent #activity-bar,#app.focus-agent #statusbar { display:none; }
 .hidden { display: none !important; }
 .startup-loading { position: fixed; inset: 36px 0 0; z-index: 10000; display: grid; place-items: center; background: #1f1f1f; color: #ccc; }
 .startup-loading[hidden] { display: none; }

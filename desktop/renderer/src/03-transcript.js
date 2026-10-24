@@ -65,6 +65,15 @@ function appendOutput(text) {
 
 function renderEntry(e) {
     recordStudioEntry(e);
+    const sessionPrivacyNotice = e.type === "warn" && /^Le contenu du projet \(fichiers, RESUME\.md\) est envoyé à ton fournisseur API\./.test(String(e.text || ""));
+    if (sessionPrivacyNotice || e.type === "info" && /^(?:Connecté \(le token|Projet : |Projet FranceStudent : |Projet existant : |Mémoire : |Résumé du projet |R[ÉE]SUM[ÉE]\.md |Nouveau projet enregistré)/.test(String(e.text || ""))) {
+        let group = transcript.querySelector(".session-notices");
+        if (!group) group = addEntry("session-notices", "<details><summary>Informations de session</summary><div class=\"chat-session-lines\"></div></details>");
+        const line = document.createElement("div"); line.className = "chat-session-line"; line.textContent = e.text;
+        if (sessionPrivacyNotice) { line.classList.add("session-privacy-line"); group.querySelector("summary").textContent = "Session et données transmises"; }
+        group.querySelector(".chat-session-lines").append(line);
+        return group;
+    }
     switch (e.type) {
         case "welcome":
             return null;

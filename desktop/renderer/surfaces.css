@@ -156,3 +156,46 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
     .composer-utilities .composer-icon-button {width:28px;min-height:28px;padding:6px;}
     .composer-options {gap:5px;}
 }
+.agent-header[hidden],.agent-context-bar[hidden] {display:none;}
+.chat-navigation-actions {display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.chat-navigation-actions > button {width:26px;height:28px;padding:4px;display:inline-flex;align-items:center;justify-content:center;}
+.chat-navigation-actions #mode-select {font-size:10px;max-width:78px;padding:4px;}
+.agent-navigation {gap:8px;padding:6px 10px;}
+.agent-tabs {gap:9px;min-width:0;}
+.agent-tabs button {font-size:11px;padding:7px 0;}
+.chat-settings-row > button {flex:0 1 auto;max-width:220px;}
+.chat-model-row .model-btn {flex:0 1 auto;}
+.chat-model-row #chat-context-gauge {margin-left:auto;}
+.chat-tools-menu .composer-topline {padding:0;}
+.chat-tools-menu .composer-utilities {display:grid;gap:3px;}
+.chat-tools-menu .composer-shortcuts,.chat-tools-menu .composer-options {display:contents;}
+.chat-tools-menu .composer-utilities button {width:100%;justify-content:flex-start;min-height:38px;border:0;background:transparent;box-shadow:none;}
+.chat-tools-menu .composer-icon-button {color:var(--fg);}
+.chat-tools-menu .composer-beta {margin-left:auto;}
+.chat-tools-menu .composer-icon-button span {font-size:12px;}
+.chat-mode-setting {display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:var(--fg-dim);padding:12px 8px 5px;margin-top:8px;border-top:1px solid var(--border);}
+#app.view-motion ~ .chat-tools-menu .chat-mode-setting {display:none;}
+body:has(#app.view-motion) .chat-mode-setting {display:none;}
+.chat-tools-menu #btn-clear {display:flex;gap:6px;align-items:center;padding:7px;border-radius:6px;}
+.entry.session-notices {font-size:11px;color:var(--fg-dim);padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:transparent;}
+.session-notices summary {cursor:pointer;}
+.chat-session-line {padding-top:7px;overflow-wrap:anywhere;}
+#app.focus-agent #transcript {padding:24px clamp(16px,3vw,48px);}
+#app.focus-agent #composer {padding:12px clamp(16px,3vw,48px) 18px;}
+#app.focus-agent .agent-navigation {padding-left:clamp(16px,3vw,48px);padding-right:clamp(16px,3vw,48px);}
+#app.focus-agent .agent-starter {padding-left:clamp(16px,3vw,48px);padding-right:clamp(16px,3vw,48px);}
+.session-privacy-line {color:var(--warn);}
+#agent[data-tab="conversation"] #transcript:has(>.session-notices):not(:has(.user,.assistant,.tool,.tool-group,.result,.error,.warn)) {flex:0 0 auto;max-height:140px;padding-top:4px;padding-bottom:8px;}
+#app.focus-agent .agent-starter:not(.hidden) {display:flex;flex-direction:column;justify-content:center;}
+#app.focus-agent .starter-context {display:none;}
+#app.focus-agent .starter-prompts {grid-template-columns:repeat(3,minmax(0,1fr));}
+@container chat-composer (min-width:700px) {
+    .chat-composer-tools {display:flex;align-items:center;gap:8px;}
+    .chat-model-row,.chat-settings-row {display:contents;}
+    #btn-model {order:1;}
+    #chat-access-button {order:2;}
+    #chat-reasoning {order:3;}
+    #chat-context-gauge {order:4;margin-left:auto;}
+    #chat-dictation {order:5;}
+}
+@media (max-width:760px) { #app.focus-agent .starter-prompts {grid-template-columns:1fr;} }

@@ -122,3 +122,9 @@ L’interface et l’éditeur restent sur Windows, ainsi que les connecteurs nat
 Dans **Extensions → Mes skills**, clique sur **Importer un fichier** pour choisir un `SKILL.md` ou une archive `.zip`, ou sur **Importer un dossier** pour reprendre ses références et scripts annexes. L’aperçu présente les instructions et la liste des ressources. Choisis le nom et la destination, puis clique sur **Importer**. Le skill est ajouté désactivé : active-le ensuite dans Mes skills quand tu es prêt. Aucun script n’est exécuté pendant l’import.
 
 Les dossiers et ZIP doivent contenir un seul skill (un unique `SKILL.md`), avec au maximum 200 ressources et 4 Mo au total. Une collection doit être importée dossier par dossier. Les liens de dossiers ne sont pas suivis ; `.git` et `node_modules` sont exclus. Un SKILL.md choisi seul importe uniquement ses instructions. Un skill existant n’est pas écrasé.
+
+## Chat en plein écran et interface allégée (prochaine mise à jour)
+
+Le bouton d’agrandissement du chat utilise toute la largeur et la hauteur utiles de la fenêtre, en Code et Motion. Il masque l’explorateur, la barre latérale et la barre d’état pendant ce mode ; le bouton de retour reste dans l’en-tête. Échap permet de revenir au projet hors tâche et hors menu ouvert.
+
+L’en-tête réunit Conversation, Activité et Usage avec les actions Historique, Nouvelle conversation et Agrandir. La barre en doublon affichant le projet et l’accès est retirée. Le niveau d’accès reste réglable dans la saisie. Les favoris, l’export, l’import Codex, le mode Éco, l’effacement d’affichage et le choix Agent/Discussion sont accessibles dans le bouton **… Outils du chat**, près des pièces jointes. Les informations de connexion/indexation et le rappel de transmission des données restent consultables dans un bloc de session repliable ; les autres avertissements et erreurs restent visibles.

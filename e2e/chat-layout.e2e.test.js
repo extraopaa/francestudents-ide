@@ -1,0 +1,40 @@
+"use strict";
+const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), { _electron } = require("playwright-core");
+test("chat fullscreen uses the whole workspace in Code and Motion while secondary tools stay available", { timeout: 60000 }, async () => {
+    const root = path.resolve(__dirname, ".."), dir = fs.mkdtempSync(path.join(os.tmpdir(), "frst-chat-layout-")), project = path.join(dir, "project"); fs.mkdirSync(project);
+    const modulePath = name => JSON.stringify(path.join(root, name)), harness = path.join(dir, "launch.cjs");
+    fs.writeFileSync(harness, `require(${modulePath("src/core/session")}).bootstrap=async()=>({ok:true});require(${modulePath("src/api/agents")}).listAgents=async()=>({agents:[{id:-1002,name:'Test model'}],source:'local'});require(${modulePath("src/api/account")}).fetchUserUsage=async()=>({});require(${modulePath("src/settings")}).save({releaseHighlightsSeen:${JSON.stringify(require("../package.json").version)},automaticUpdates:false});require(${modulePath("desktop/main.js")});`);
+    const env = { ...process.env, FS_DATA_DIR: dir, FS_STATE_DIR: dir, FS_SKILLS_DIR: path.join(dir, "skills") }; delete env.ELECTRON_RUN_AS_NODE;
+    const app = await _electron.launch({ executablePath: require("electron"), args: [harness, "--user-data-dir=" + path.join(dir, "electron")], env, cwd: root });
+    try {
+        const page = await app.firstWindow();
+        if (process.platform === "darwin") await page.locator("#mac-beta-notice").getByRole("button", { name: "Continuer", exact: true }).click();
+        await page.locator("#startup-loading").waitFor({ state: "hidden" });
+        if (await page.locator("#guide-close").isVisible()) await page.locator("#guide-close").click();
+        await page.evaluate(project => window.frst.openProject(project), project);
+        await page.setViewportSize({ width: 1400, height: 900 });
+        assert.equal(await page.locator(".agent-header").isVisible(), false);
+        assert.equal(await page.locator(".agent-context-bar").isVisible(), false);
+        assert.equal(await page.locator("#conversation-import").isVisible(), false);
+        await page.locator("#chat-more-tools").click(); assert.equal(await page.locator("#conversation-import").isVisible(), true);
+        await page.keyboard.press("Escape");
+        await page.locator("#agent-focus").click();
+        const fills = await page.locator("#agent").evaluate(el => { const r = el.getBoundingClientRect(); return r.left <= 1 && r.right >= innerWidth - 1 && r.bottom >= innerHeight - 1; });
+        assert.equal(fills, true);
+        assert.equal(await page.locator("#activity-bar").isVisible(), false); assert.equal(await page.locator("#statusbar").isVisible(), false);
+        await page.locator("#input").fill("Prépare une page claire et agréable à utiliser.");
+        await page.screenshot({ path: path.join(root, "release/chat-fullscreen-next.png") });
+        await page.keyboard.press("Escape"); assert.equal(await page.locator("#activity-bar").isVisible(), true);
+        await page.locator("#btn-motion").click(); await page.waitForFunction(() => document.querySelector("#app").classList.contains("view-motion"));
+        await page.locator("#agent-focus").click();
+        assert.equal(await page.locator("#agent").evaluate(el => el.getBoundingClientRect().width >= innerWidth - 1), true);
+        assert.equal(await page.locator("#motion-view").isVisible(), false);
+        await page.locator("#agent-focus").click(); assert.equal(await page.locator("#motion-view").isVisible(), true);
+        await page.locator("#motion-consent-back").click();
+        await page.setViewportSize({ width: 900, height: 600 });
+        const header = await page.locator(".agent-navigation").boundingBox(); assert.ok(header.x + header.width <= 901);
+        const send = await page.locator("#btn-send").boundingBox(); assert.ok(send.y + send.height <= 580);
+        assert.equal(await page.locator("#mode-select").isVisible(), false);
+        await page.locator("#chat-more-tools").click(); assert.equal(await page.locator("#mode-select").isVisible(), true);
+    } finally { await app.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

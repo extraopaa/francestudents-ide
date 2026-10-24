@@ -70,8 +70,10 @@ test("e2e : tâches ajoutées, réordonnées, exécutées et suspendues sur bloc
         assert.equal((await app.evaluate(() => global.queueTestCalls)).length, 3);
         await page.locator('[data-agent-tab="conversation"]').click();
         await page.locator("#input").fill("Mon prompt favori");
+        await page.locator("#chat-more-tools").click();
         await page.locator("#draft-save-favorite").click();
         await page.locator("#input").fill("");
+        await page.locator("#chat-more-tools").click();
         await page.locator("#favorite-open").click();
         await page.locator("#favorite-list").getByRole("button", { name: "Mon prompt favori", exact: true }).click();
         assert.equal(await page.locator("#input").inputValue(), "Mon prompt favori");
@@ -145,7 +147,7 @@ test("e2e : tâches ajoutées, réordonnées, exécutées et suspendues sur bloc
         await page.waitForFunction(() => document.getElementById("btn-stop").classList.contains("hidden"));
         const queuedCalls = await app.evaluate(() => global.queueTestCalls);
         assert.deepEqual(queuedCalls.slice(-3), ["LONG_RUNNING", "Test", "Suite"]);
-        await page.locator("#agent-access").click();
+        await page.locator('[data-view="settings"]').click();
         await page.locator('[data-access-mode="full"]').click();
         await page.waitForFunction(() => document.querySelector('[data-access-mode="full"]').getAttribute("aria-checked") === "true");
         assert.equal(await page.locator("#full-access-warning").isVisible(), true);

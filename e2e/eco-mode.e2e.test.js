@@ -8,6 +8,7 @@ test("eco activation explains limits, can be canceled, persists and can be disab
     const app = await _electron.launch({ executablePath: require("electron"), args: [harness, "--user-data-dir=" + path.join(dir, "electron")], env, cwd: root });
     try {
         const page = await app.firstWindow(); await page.locator("#startup-loading").waitFor({ state: "hidden" });
+        await page.locator("#chat-more-tools").click();
         await page.locator("#eco-mode-toggle").click();
         assert.match(await page.locator("#eco-mode-dialog").innerText(), /4 tours[\s\S]*incomplètes/);
         assert.equal(await page.locator("#eco-mode-dialog .fs-feature-card").count(),4);
@@ -18,11 +19,13 @@ test("eco activation explains limits, can be canceled, persists and can be disab
         await page.locator("#eco-mode-cancel").click();
         await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1400,900));
         assert.equal((await page.evaluate(() => window.frst.status())).ecoMode, false);
+        await page.locator("#chat-more-tools").click();
         await page.locator("#eco-mode-toggle").click(); await page.locator("#eco-mode-enable").click();
         await page.locator("#eco-mode-dialog").waitFor({ state: "hidden" });
         assert.equal((await page.evaluate(() => window.frst.status())).ecoMode, true);
         assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "settings.json"))).ecoMode, true);
-        await page.reload(); await page.locator('#eco-mode-toggle[aria-pressed="true"]').waitFor();
+        await page.reload(); await page.locator('#chat-more-tools').click(); await page.locator('#eco-mode-toggle[aria-pressed="true"]').waitFor(); await page.locator('#chat-more-tools').click();
+        await page.locator("#chat-more-tools").click();
         await page.locator("#eco-mode-toggle").click();
         await page.waitForFunction(async () => !(await window.frst.status()).ecoMode);
         assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "settings.json"))).ecoMode, false);

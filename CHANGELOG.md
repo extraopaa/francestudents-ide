@@ -2,6 +2,12 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## À venir — Un chat plein écran et mieux rangé
+
+- Plein écran Code/Motion sur toute la largeur et la hauteur utiles, sans centrage étroit ni barres latérales superflues.
+- Un seul en-tête de conversation ; suppression du libellé Agent et de la barre projet/accès en doublon. L’accès reste réglable près de la saisie.
+- Favoris, export, import Codex, mode Éco et options secondaires regroupés dans le menu Outils du chat ; informations de session repliables, sans perte d’historique.
+
 ## [1.4.0] — Un chat plus pratique, un environnement adapté
 
 - Import local de skills téléchargés : fichier SKILL.md, dossier avec ressources ou archive ZIP, avec aperçu, choix de destination et activation explicite après installation.
