@@ -2,6 +2,27 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.0] — Un chat plus pratique, un environnement adapté
+
+- Import local de skills téléchargés : fichier SKILL.md, dossier avec ressources ou archive ZIP, avec aperçu, choix de destination et activation explicite après installation.
+- Environnement WSL optionnel par projet : commandes de l’agent, tâches, serveurs, diagnostics, Git en lecture et nouveaux terminaux utilisent la distribution Linux choisie. Vérification du dossier et des outils avant activation, adaptation des chemins et du prompt Linux, arrêt ciblé des groupes de processus sans fermer toute la distribution.
+- Réglage de réflexion directement dans le chat pour les GPT compatibles connus. Niveaux filtrés par modèle et par l’API FranceStudent ; préférence du compte lue et enregistrée via gptReasoning, avec confirmation serveur et indication du coût potentiel.
+- Choix du terminal intégré : PowerShell Windows, PowerShell 7 si installé, cmd ou WSL avec distribution au choix ; shell système, bash ou zsh sur Mac. Préférence persistante pour les nouveaux terminaux, sans interrompre les sessions ouvertes.
+- Consigne commune Code/Motion : exploiter les pièces jointes transmises sans rechercher leur original sur le PC, même en accès complet ; signaler un contenu inaccessible au lieu de parcourir les dossiers personnels.
+- Choix du niveau d’accès depuis la saisie du chat : sur approbation, automatique ou accès complet, avec descriptions et mémorisation optionnelle, synchronisé avec les paramètres.
+- Choix du modèle directement dans la saisie du chat et jauge du contexte de la conversation active, distincte du quota du compte, en Code et Motion.
+- Dictée vocale en bêta : microphone sur activation explicite, transcription FranceStudent puis insertion dans le brouillon sans envoi automatique ; annulation, durée limitée à 2 minutes et gestion de la permission micro sur Mac.
+
+- Questions interactives déclenchées par l’agent pendant les tâches : QCM, sélection multiple ou réponse libre, avec bouton Passer. L’agent reçoit la réponse puis reprend ; Full accès ne répond pas automatiquement aux questions.
+
+- Fin du support Mac Intel : les prochains paquets Mac et la validation native ciblent uniquement Apple Silicon ARM64. La 1.3.5 reste archivée pour Intel ; aucun installateur incompatible n’est proposé par le vérificateur mis à jour.
+
+- Répertoire de codes `FST-…` et message au redémarrage après un arrêt inattendu, avec raison disponible et diagnostic copiable. La cause reste explicitement inconnue si elle n’a pas pu être enregistrée.
+- Journal technique local limité à 50 événements, sans messages, fichiers, jetons ni traces complètes ; aucun envoi automatique.
+- Gestion des erreurs de connexion du terminal Windows, protection des envois à une fenêtre fermée et récupération contrôlée de l’interface après son arrêt.
+- Affichage des réponses en flux regroupé ; les très longs messages restent complets dans un rendu texte léger. Le tampon initial des terminaux est borné.
+- Fermeture : une erreur de nettoyage ne bloque plus les autres opérations d’arrêt.
+
 ## [1.3.5] — Quota et suivi du plan
 
 - Suivi du plan commun à tous les modèles en Code et Motion : état du plan rappelé à chaque tour et cases actualisées depuis les réponses normales de l’agent.

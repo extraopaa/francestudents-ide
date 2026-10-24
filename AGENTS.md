@@ -20,8 +20,13 @@ Ce fichier s’adresse à toute personne ou tout assistant qui reprend le dépô
 - **EffectCraft** : utiliser le vrai moteur embarqué et son pont de commandes. Ne pas recréer un éditeur HTML/canvas parallèle. Le correctif Rust/WASM reproductible est dans `patches/effectcraft-francestudent.patch`.
 - **Historique** : le journal visible est distinct du contexte envoyé au modèle. Ne pas afficher les prompts internes ni supprimer les anciens échanges lors d’une compaction ou d’un nouveau chat.
 - **Données** : préserver l’identité de mise à jour (`build.appId`) et le dossier historique de données malgré le renommage du produit. Ne pas déplacer ou réinitialiser ces données sans migration explicite.
+- **Stabilité** : maintenir le [répertoire des codes FST](docs/error-codes.md) avec le catalogue de `desktop/stability.js`. Ne pas inventer de cause quand seul un arrêt anormal est connu. Le diagnostic local reste limité aux métadonnées techniques, sans contenu de conversation, secret, trace complète ni envoi automatique.
+- **Plateformes** : pour les prochaines versions, Windows et Mac Apple Silicon ARM64 uniquement. Le support Mac Intel est arrêté après la 1.3.5 ; conserver ses anciennes releases, sans réintroduire de build Intel ni proposer un DMG ARM64 à un processus x64.
+- **Questions de l’agent** : `ask_user` déclenche le QCM ou le champ libre pendant une tâche ; ne pas détecter les questions à partir des points d’interrogation dans du texte arbitraire. Full accès n’auto-répond pas et Passer ne donne aucune autorisation. Conserver l’historique des questions et réponses.
 
 ## Vérifications courantes
+
+**Préférence du contributeur : réserver les tests automatisés à la préparation d’une publication, ou à une demande explicite de test.** Pendant le développement, ne pas relancer les suites après chaque modification. Préparer le code et documenter ce qui reste à vérifier ; avant publication, effectuer les contrôles adaptés et les parcours nécessaires. Cette règle remplace toute recommandation de test immédiat ci-dessous.
 
 ```sh
 npm run lint

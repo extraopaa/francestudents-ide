@@ -40,7 +40,7 @@ Ouvre une pull request dans ce fork. Décris le problème, le comportement obten
 1. Mettre à jour la version, le changelog et le résumé de nouveautés dans `desktop/release-highlights.js`.
 2. Vérifier le code, construire les exécutables et contrôler leur démarrage.
 3. Créer une release sur un tag correspondant aux sources construites.
-4. Joindre l’installateur Windows, `.blockmap`, `latest.yml`, les DMG/ZIP Mac ARM64 et Intel, et les empreintes SHA-256. Les portables Windows restent locaux.
+4. Joindre l’installateur Windows, `.blockmap`, `latest.yml`, les DMG/ZIP Mac ARM64 et les empreintes SHA-256. Ne plus construire ni joindre de paquet Mac Intel. Les portables Windows restent locaux.
 
 Les exécutables vont dans GitHub Releases, jamais dans Git. Les notes de version rappellent que le projet est de EsteG7 et que ce dépôt est un fork d’amélioration.
 
@@ -66,8 +66,8 @@ Les versions portables restent exclusivement locales et ne doivent jamais accomp
 
 ## Validation Mac et Windows
 
-Le workflow `security-validation.yml` peut être lancé manuellement. Il prépare Electron avant les tests parallèles, construit EffectCraft avant les parcours Windows et vérifie les applications empaquetées. Le workflow Mac construit sur chaque architecture native et contrôle aussi la signature de l’application dans le DMG. Publier les artefacts du commit validé ; une modification du code embarqué exige une nouvelle construction.
+Le workflow `security-validation.yml` peut être lancé manuellement lors de la préparation d’une publication. Il prépare Electron avant les tests parallèles, construit EffectCraft avant les parcours Windows et vérifie les applications empaquetées. Le workflow Mac construit uniquement ARM64 sur Apple Silicon et contrôle aussi la signature de l’application dans le DMG. Publier les artefacts du commit validé ; une modification du code embarqué exige une nouvelle construction.
 
 Depuis Electron 45, macOS 13 est requis. `build.mac.identity` vaut `-` pour une signature ad hoc : `null` supprimerait cette signature. Sans compte Apple Developer, le paquet n’est pas notarisé et Gatekeeper peut le bloquer après téléchargement. Ne pas présenter la réussite de `codesign --verify` comme une notarisation ou une garantie d’ouverture sur un M5 physique.
 
-Une release commune contient les fichiers Windows et les deux architectures Mac. `latest.yml` concerne la mise à jour automatique Windows ; sur Mac, l’application propose le téléchargement de l’installateur correspondant. Conserver les assets existants lorsqu’un workflow complète une release. Calculer les empreintes de tous les fichiers distribués et vérifier les tailles et SHA-256 après téléversement avant de publier le brouillon.
+Une release commune contient désormais six fichiers : l’installateur Windows, son `.blockmap`, `latest.yml`, le DMG ARM64, le ZIP ARM64 et `SHA256SUMS.txt`. `latest.yml` concerne la mise à jour automatique Windows ; sur Mac Apple Silicon, l’application propose le téléchargement de l’installateur. Conserver les anciennes releases Intel (la dernière est la 1.3.5), sans ajouter de nouveaux paquets Intel. Calculer les empreintes de tous les fichiers distribués et vérifier les tailles et SHA-256 après téléversement avant de publier le brouillon.

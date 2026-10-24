@@ -8,7 +8,8 @@
 | --- | --- |
 | Windows 64 bits | [Release stable](https://github.com/extraopaa/francestudents-ide/releases/latest) : `setup.exe` |
 | Mac M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) : `mac-arm64.dmg` |
-| Mac Intel | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) : `mac-x64.dmg` |
+
+Les prochaines versions Mac nécessitent une puce **Apple Silicon (M1 et suivants)**. Le support Intel s’arrête à la [version archivée 1.3.5](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) ; ses fichiers existants sont conservés.
 
 Sur Mac, **À propos de ce Mac** indique le type de puce. Pour commencer, choisis le DMG ; le ZIP est une archive alternative.
 

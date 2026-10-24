@@ -243,6 +243,7 @@ async function requestModel(message, options = {}) {
     };
     let attachmentPlan = null;
     if (!options.fresh) {
+        if (state.pendingImages?.length || state.pendingFiles?.length) message += "\n\n" + require("../attachment-policy").ATTACHMENT_POLICY;
         await resolvePendingImages();
         const fileText = await resolvePendingFiles();
         const files = state.pendingFiles.filter(item => typeof item === "string");

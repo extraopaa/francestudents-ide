@@ -10,6 +10,12 @@ const { execFile } = require("node:child_process");
 const MAX_BUFFER = 8 * 1024 * 1024;
 
 function runGit(cwd, args) {
+    if (require("../src/execution-environment").projectEnvironment(cwd).mode === "wsl") {
+        return require("../src/tools/command/runner").runProcess({ file: "git", args, cwd, timeoutMs: 15000, captureStdout: true }).then(result => {
+            if (result.exit_code !== 0) throw new Error(result.output || "Git WSL a échoué.");
+            return result.stdout;
+        });
+    }
     return new Promise((resolve, reject) => {
         execFile("git", args, { cwd, maxBuffer: MAX_BUFFER, windowsHide: true, encoding: "utf8" }, (error, stdout, stderr) => {
             if (error) {

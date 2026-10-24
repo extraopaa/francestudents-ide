@@ -18,6 +18,19 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, safeStorage
 const { setUiBackend } = require("../src/ui-bridge");
 const { createDesktopBackend } = require("./backend");
 const { createLspManager } = require("./lsp");
+const { createStabilityMonitor, rendererCode, safeSend } = require("./stability");
+const stability = createStabilityMonitor({ directory: require("../src/config").CONFIG.dataDir, version: require("../package.json").version });
+const gotLock = app.requestSingleInstanceLock();
+let appClosing = false;
+if (gotLock) {
+    stability.start();
+    process.on("uncaughtExceptionMonitor", error => stability.record("FST-401", { errorName: error?.name, errorCode: error?.code }));
+    app.on("child-process-gone", (_event, details) => {
+        if (!appClosing && details.reason !== "clean-exit") stability.record(details.type === "GPU" ? "FST-201" : "FST-202", details);
+    });
+    app.on("before-quit", () => { appClosing = true; });
+    app.on("will-quit", () => stability.finish());
+}
 
 let lspManager = null;
 
@@ -41,6 +54,7 @@ let backend = null;
 let session = null;
 let booted = false;
 let busy = false;
+let reasoningSaving = false;
 let submissionInterrupted = false;
 let supportsSteering = false;
 let bootstrapPromise = null;
@@ -61,6 +75,7 @@ const marketplace = require("./marketplace").createMarketplace({getKey:marketpla
 const projectStudio = require("./project-studio").createProjectStudio({workspace:()=>require("../src/state").state.workspace,onEvent:data=>send("projectTask",data)});
 const previewServer = require("./preview-server").createPreviewServer();
 const conversationImporter = require("./conversation-import").createConversationImporter();
+const localSkillImporter = require("./local-skill-import").createLocalSkillImporter();
 const localBrowser = require("./local-browser").createLocalBrowser({getWindow:()=>win,onState:data=>send("localBrowser",data)});
 const effectCraftHost = require("./effectcraft-host").createEffectCraftHost({bindingFile:path.join(require("../src/config").CONFIG.dataDir,"effectcraft-host.json")});
 const effectCraftControl = require("./effectcraft-control").createEffectCraftControl({getWindow:()=>win,host:effectCraftHost});
@@ -91,7 +106,7 @@ function send(channel, data) {
         else if(channel==="liveAppend")transcriptLive+=data;
         else if(channel==="liveEnd" && transcriptLive){transcriptStore.capture(id,{type:"assistant",text:transcriptLive}).catch(error=>{transcriptFailure=error.message;});transcriptLive="";}
     }
-    if (win && !win.isDestroyed()) win.webContents.send("frst:event", { channel, data });
+    safeSend(win, channel, data, stability.record);
 }
 
 function pushStatus() {
@@ -208,6 +223,7 @@ function normalizeAttachments(list) {
 }
 
 async function submit(raw, attachments, { queued = false } = {}) {
+    if (reasoningSaving) throw new Error("Le réglage de réflexion est en cours d’enregistrement. Réessaie dans un instant.");
     const { state } = require("../src/state");
     let text = String(raw ?? "");
     const files = normalizeAttachments(attachments);
@@ -495,9 +511,10 @@ function runTerminal(commandLine, cwdRel) {
     const id = nextTerminalId++;
     const env = { ...process.env, FORCE_COLOR: "1", CLICOLOR_FORCE: "1", TERM: "xterm-256color" };
     delete env.NO_COLOR;
-    const child = spawn(line, {
-        cwd: insideWorkspace(String(cwdRel || ".")),
-        shell: process.platform === "win32" ? "powershell.exe" : true,
+    const selected = require("./terminal-profiles").resolveTerminal(insideWorkspace(String(cwdRel || ".")), line);
+    const child = spawn(selected.file, selected.args, {
+        cwd: selected.cwd,
+        shell: false,
         windowsHide: true,
         env
     });
@@ -546,15 +563,6 @@ function ptyAvailable() {
     return Boolean(loadPty());
 }
 
-function defaultShell() {
-    if (process.platform === "win32") return { file: "powershell.exe", args: ["-NoLogo"], name: "PowerShell" };
-    const fsSync = require("node:fs");
-    const file = process.env.SHELL && fsSync.existsSync(process.env.SHELL)
-        ? process.env.SHELL
-        : fsSync.existsSync("/bin/zsh") ? "/bin/zsh" : "/bin/bash";
-    return { file, args: ["-l"], name: path.basename(file) };
-}
-
 function clampSize(value, fallback, max) {
     const n = Math.floor(Number(value));
     return Number.isFinite(n) && n > 0 ? Math.min(n, max) : fallback;
@@ -563,7 +571,7 @@ function clampSize(value, fallback, max) {
 function ptyCreate(cwdRel, cols, rows) {
     const pty = loadPty();
     if (!pty) throw new Error("node-pty indisponible : lancer « npm run rebuild:native ».");
-    const shellInfo = defaultShell();
+    const shellInfo = require("./terminal-profiles").resolveTerminal(insideWorkspace(String(cwdRel || ".")));
     const env = { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", TERM_PROGRAM: "FranceStudentCode" };
     delete env.NO_COLOR;
     if (!env.LANG) env.LANG = "fr_FR.UTF-8";
@@ -572,13 +580,19 @@ function ptyCreate(cwdRel, cols, rows) {
         name: "xterm-256color",
         cols: clampSize(cols, 80, 1000),
         rows: clampSize(rows, 24, 500),
-        cwd: insideWorkspace(String(cwdRel || ".")),
+        cwd: shellInfo.cwd,
         env
     });
     ptys.set(id, proc);
-    proc.onData((data) => send("ptyData", { id, data }));
+    proc.on("error", error => {
+        if (!ptys.delete(id)) return;
+        stability.record("FST-301", { errorCode: error?.code, errorName: error?.name });
+        send("ptyExit", { id, code: -1, errorCode: "FST-301" });
+        try { proc.kill(); } catch { /* Transport already closed. */ }
+    });
+    proc.onData((data) => { if (ptys.has(id)) send("ptyData", { id, data }); });
     proc.onExit(({ exitCode, signal }) => {
-        ptys.delete(id);
+        if (!ptys.delete(id)) return;
         send("ptyExit", { id, code: exitCode, signal });
     });
     return { id, pid: proc.pid, shell: shellInfo.name };
@@ -764,6 +778,7 @@ function handle(name, fn) {
 }
 
 async function logoutAccount() {
+    if (reasoningSaving) throw new Error("Attends l’enregistrement du niveau de réflexion avant de te déconnecter.");
     if (busy || loginBusy) throw new Error("Arrête la tâche en cours avant de te déconnecter.");
     loginBusy = true;
     taskQueue.pause();
@@ -812,6 +827,11 @@ async function openDesktopConversation(id,fromCommand=false){
 }
 
 function registerIpc() {
+    handle("stability", (action = "get", id) => {
+        if (action === "get") return stability.notice();
+        if (action === "acknowledge") return stability.acknowledge(String(id || ""));
+        throw new Error("Action de diagnostic inconnue.");
+    });
     const releaseNotes=require("./release-highlights").createReleaseHighlights({version:app.getVersion(),enabled:app.isPackaged || process.env.FRST_QA_RELEASE_NOTES==="1",load:()=>require("../src/settings").load(),save:value=>require("../src/settings").save(value)});
     handle("releaseHighlights",(action,version)=>action==="seen"?releaseNotes.seen(version):releaseNotes.get());
     handle("localBrowser", (action,payload)=>localBrowser.action(String(action),payload||{}));
@@ -885,6 +905,17 @@ function registerIpc() {
         return {configured:Boolean(await marketplaceKey()), fromEnvironment:Boolean(process.env.SKILLSMP_API_KEY)};
     });
     handle("extensionAction", (action, payload) => extensionCenter.action(action, payload));
+    handle("localSkillImport", async (action, payload = {}) => {
+        if (action === "install") {
+            const bundle = localSkillImporter.get(payload.token);
+            const result = await extensionCenter.action("import", { ...bundle, name: payload.name, scope: payload.scope });
+            localSkillImporter.remove(payload.token); return result;
+        }
+        if (!["file", "directory"].includes(action)) throw new Error("Action d’import invalide.");
+        const result = await dialog.showOpenDialog(win, { title: "Importer un skill local", properties: [action === "directory" ? "openDirectory" : "openFile"],
+            ...(action === "file" ? { filters: [{ name: "Skill ou archive", extensions: ["md", "zip"] }] } : {}) });
+        return result.canceled || !result.filePaths[0] ? null : localSkillImporter.preview(result.filePaths[0]);
+    });
     handle("mcpManage", (action, payload) => extensionCenter.mcpAction(action, payload));
     handle("preferences", (action, payload) => {
         if (action !== "save") return preferences.get();
@@ -981,6 +1012,19 @@ function registerIpc() {
     });
     handle("status", () => ({ ...backend.status(), busy, booted, canSteer: busy && supportsSteering }));
     handle("models", () => backend.models());
+    handle("reasoning", async (action = "get", payload = {}) => {
+        if (!booted || loginBusy) throw new Error("Connecte-toi pour régler la réflexion.");
+        const { state } = require("../src/state"), reasoning = require("../src/api/reasoning");
+        const { agents } = await require("../src/api/agents").listAgents();
+        const modelId = state.model, support = reasoning.capabilities(agents.find(item => item.id === Number(modelId)));
+        if (action === "get") return { modelId, ...support, level: support.levels.length ? await reasoning.readPreference() : null };
+        if (action !== "save") throw new Error("Action de réflexion inconnue.");
+        if (!booted || busy || loginBusy || reasoningSaving) throw new Error("Attends la fin de la tâche avant de modifier la réflexion.");
+        if (payload.modelId !== modelId || !support.levels.includes(payload.level)) throw new Error("Ce niveau n’est pas disponible pour le modèle courant. Actualise le sélecteur.");
+        reasoningSaving = true;
+        try { return { modelId, ...support, level: await reasoning.savePreference(payload.level) }; }
+        finally { reasoningSaving = false; }
+    });
     handle("setEcoMode", (enabled) => {
         if (busy || loginBusy) throw new Error("Attends la fin de la tâche avant de changer le mode Éco.");
         const { state } = require("../src/state");
@@ -991,6 +1035,7 @@ function registerIpc() {
         return { enabled: next };
     });
     handle("setModel", async (id) => {
+        if (reasoningSaving) throw new Error("Attends l’enregistrement du niveau de réflexion avant de changer de modèle.");
         if (busy) throw new Error("Une demande est en cours : attends sa fin avant de changer de modèle.");
         const result = await backend.setModel(id);
         pushStatus();
@@ -1018,11 +1063,50 @@ function registerIpc() {
     handle("terminalCd", terminalCd);
     handle("killTerminal", killTerminal);
     handle("ptyAvailable", ptyAvailable);
+    handle("terminalPreferences", (action, payload) => require("./terminal-profiles").preferences(action, payload));
+    handle("projectEnvironment", async (action = "get", payload = {}) => {
+        const { state } = require("../src/state"), runtime = require("../src/execution-environment");
+        const workspace = state.workspace;
+        if (action === "get") return { workspace, available: process.platform === "win32" && !state.motionDesign, ...runtime.projectEnvironment(workspace) };
+        if (process.platform !== "win32" || state.motionDesign || !workspace) throw new Error("Ouvre un projet Code sur Windows pour choisir son environnement WSL.");
+        if (payload.workspace !== workspace) throw new Error("Le projet ouvert a changé. Actualise le réglage.");
+        if (!["save", "check"].includes(action) || !["native", "wsl"].includes(payload.mode)) throw new Error("Environnement invalide.");
+        const activeRuns = (await projectStudio.action("runs")).some(job => job.status === "running");
+        if (busy || require("../src/tools/command/jobs").manager.runningCount() || activeRuns) throw new Error("Arrête les tâches et serveurs avant de changer l’environnement du projet.");
+        let detected = null;
+        if (payload.mode === "wsl") {
+            const distributions = await require("./terminal-profiles").distributions();
+            if (typeof payload.distribution !== "string" || payload.distribution && !distributions.includes(payload.distribution)) throw new Error("Distribution WSL introuvable.");
+            detected = await runtime.probe(workspace, payload.distribution);
+        }
+        if (state.workspace !== workspace || state.motionDesign || busy || require("../src/tools/command/jobs").manager.runningCount() || (await projectStudio.action("runs")).some(job => job.status === "running")) throw new Error("Le projet ou les tâches ont changé pendant la vérification. Réessaie à l’arrêt.");
+        if (action === "save") {
+            const settings = require("../src/settings"), values = { ...(settings.load().projectExecutionEnvironments || {}) };
+            if (payload.mode === "wsl") values[runtime.workspaceKey(workspace)] = { mode: "wsl", distribution: detected.distribution, linuxRoot: detected.linuxRoot };
+            else delete values[runtime.workspaceKey(workspace)];
+            settings.save({ projectExecutionEnvironments: values }); pushStatus();
+        }
+        return { workspace, available: true, ...runtime.projectEnvironment(workspace), detected };
+    });
     handle("ptyCreate", ptyCreate);
     handle("ptyWrite", ptyWrite);
     handle("ptyResize", ptyResize);
     handle("ptyKill", ptyKill);
     handle("usage", usage);
+    handle("chatContext", async () => {
+        if (!booted || loginBusy) return null;
+        const { state } = require("../src/state");
+        const mode = state.mode === "chat" ? "chat" : "agent";
+        const id = state.chatIds[mode];
+        const identity = `${Boolean(state.motionDesign)}:${mode}:${id || ""}:${state.model}`;
+        if (!id) return { identity, empty: true, percent: 0 };
+        const dto = await require("../src/api/account").fetchChatUsage(id);
+        return { identity, percent: dto?.contextUsagePercent ?? null, tokens: dto?.tokenUsage?.totalTokenCount ?? null };
+    });
+    handle("dictate", (action, payload) => {
+        if (!booted || loginBusy) throw new Error("Connecte-toi à FranceStudent pour dicter.");
+        return require("./dictation").dictate(action, payload);
+    });
     handle("autoApprove", mode => {
         const result = setAutoApprove(mode);
         pushStatus();
@@ -1257,14 +1341,48 @@ function createWindow() {
         }
     });
 
-    win.once("ready-to-show", () => win.show());
+    const createdWindow = win;
+    createdWindow.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => {
+        callback(permission === "media" && contents === createdWindow.webContents && details.isMainFrame === true &&
+            details.requestingUrl === require("node:url").pathToFileURL(path.join(__dirname,"renderer","index.html")).href &&
+            Array.isArray(details.mediaTypes) && details.mediaTypes.length > 0 && details.mediaTypes.every(type => type === "audio"));
+    });
+    win.once("ready-to-show", () => { if (!createdWindow.isDestroyed()) createdWindow.show(); });
     win.webContents.setWindowOpenHandler(({ url }) => {
         try{const local=require("./preview-server").localPreviewUrl(url);send("localBrowserOpen",{url:local});return {action:"deny"};}catch{/* external site */}
-        if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+        if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => backend?.warn("Le navigateur système n’a pas pu ouvrir ce lien."));
         return { action: "deny" };
     });
     win.webContents.on("will-navigate", (event) => event.preventDefault());
-    win.loadFile(path.join(__dirname, "renderer", "index.html"));
+    win.webContents.on("will-prevent-unload", () => { appClosing = false; });
+    let recovering = false;
+    win.webContents.on("render-process-gone", async (_event, details) => {
+        if (appClosing || details.reason === "clean-exit" || createdWindow.isDestroyed()) return;
+        stability.record(rendererCode(details.reason), details);
+        submissionInterrupted = true;
+        for (const stop of [() => taskQueue.pause({ interrupt: true }), () => backend?.interrupt(), () => killAllTerminals()]) {
+            try { stop(); } catch (error) { stability.record("FST-501", { channel: "recovery-stop", errorName: error?.name }); }
+        }
+        if (recovering) return;
+        recovering = true;
+        try {
+            const { response } = await dialog.showMessageBox(createdWindow, {
+                type: "error", title: "Interface interrompue", message: "L’interface de FranceStudent IDE s’est arrêtée.",
+                detail: `Code : ${rendererCode(details.reason)}. La tâche en cours est interrompue. Les modifications non enregistrées peuvent être perdues. Un diagnostic sera affiché à la réouverture.`,
+                buttons: ["Rouvrir l’interface", "Fermer"], defaultId: 0, cancelId: 1
+            });
+            if (appClosing || createdWindow.isDestroyed()) return;
+            if (response === 0) await createdWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+            else createdWindow.close();
+        } catch (error) {
+            if (!appClosing) stability.record("FST-104", { errorName: error.name, reason: "recovery-failed" });
+        } finally { recovering = false; }
+    });
+    win.loadFile(path.join(__dirname, "renderer", "index.html")).catch(error => {
+        stability.record("FST-104", { errorName: error.name, reason: "load-failed" });
+        dialog.showErrorBox("FranceStudent IDE — FST-104", "L’interface n’a pas pu être chargée. Relance l’application ou réinstalle le paquet officiel.");
+        app.quit();
+    });
     win.on("closed", () => {
         localBrowser.destroy();
         win = null;
@@ -1289,8 +1407,6 @@ function prepareDataPaths() {
         process.env.PATH = parts.join(":");
     }
 }
-
-const gotLock = app.requestSingleInstanceLock();
 
 if (!gotLock) {
     app.quit();
@@ -1343,27 +1459,23 @@ if (!gotLock) {
         if(updateEnabled||(app.isPackaged&&process.platform==="darwin")){const checkUpdate=()=>{if(updateSettings.load().automaticUpdates!==false)updates.action("check").catch(()=>{});};setInterval(checkUpdate,4*60*60*1000).unref();}
 
         setInterval(pushStatus, 2000).unref();
+    }).catch(error => {
+        stability.record("FST-402", { errorName: error.name, errorCode: error.code });
+        dialog.showErrorBox("FranceStudent IDE — FST-402", "L’application n’a pas pu démarrer. Un diagnostic sera proposé au prochain lancement.");
+        app.quit();
     });
 
-    app.on("window-all-closed", async () => {
-        await projectStudio.stopAll();
-        await require("../src/tools/browse").stopAll();
-        webResearch.stopAll();
-        previewServer.stop().catch(()=>{});
-        effectCraftHost.stop().catch(()=>{});
-        killAllTerminals();
-        if (lspManager) lspManager.stopAll().catch(() => {});
-        try {
-            require("../src/tools/command/jobs").manager.stopAll?.();
-        } catch {
-            // ignoré
-        }
-        try {
-            require("../src/agent/worktrees").stopAll();
-        } catch {
-            // ignoré
-        }
-        app.quit();
+    app.on("window-all-closed", () => {
+        appClosing = true;
+        const cleanup = [() => projectStudio.stopAll(), () => require("../src/tools/browse").stopAll(),
+            () => webResearch.stopAll(), () => previewServer.stop(), () => effectCraftHost.stop(),
+            () => killAllTerminals(), () => lspManager?.stopAll(), () => require("../src/tools/command/jobs").manager.stopAll?.(),
+            () => require("../src/agent/worktrees").stopAll(), () => transcriptStore.flush()];
+        // A failing cleanup must not leave the app stuck in the Windows tray.
+        let timer;
+        Promise.race([Promise.allSettled(cleanup.map(action => Promise.resolve().then(action))),
+            new Promise(resolve => { timer = setTimeout(resolve, 2000); })])
+            .finally(() => { clearTimeout(timer); app.quit(); });
     });
 }
 

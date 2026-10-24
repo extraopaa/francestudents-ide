@@ -14,6 +14,7 @@ Choisis le parcours qui correspond à ton objectif. Les captures montrent l’ap
 | [Se connecter](connexion.md) | Le compte, le dossier et la première demande |
 | [Premiers pas](guide-utilisation.md) | Les deux modes, le chat et les raccourcis |
 | [Résoudre un problème](depannage.md) | Connexion, quota, images et serveurs |
+| [Codes d’erreur et crashs](error-codes.md) | Comprendre et transmettre un diagnostic `FST-…` |
 
 ## Pour tes projets
 

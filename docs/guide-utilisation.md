@@ -34,6 +34,12 @@ Une consigne précise aide : « Ajoute une navigation accessible et conserve les
 
 Pendant le travail, les nouvelles demandes s’empilent au-dessus de la saisie. **Orienter** transmet une consigne à la tâche en cours ; **Reprendre** relance une file suspendue. Les pièces jointes restent associées à leur demande.
 
+### Quand l’agent te pose une question
+
+Si une précision est nécessaire, l’agent affiche une carte au-dessus de la saisie : choix proposés, sélection multiple ou champ de réponse libre. Sélectionne ta réponse ou écris la tienne, puis clique sur **Répondre**. **Ctrl+Entrée** valide aussi le texte. L’agent reçoit ta réponse et reprend sa tâche.
+
+**Passer** lui indique que tu ne réponds pas ; ce bouton ne donne aucune autorisation. **Stop** interrompt la tâche. Ces questions restent disponibles en Full accès et figurent dans l’historique. L’agent ne les affiche que lorsqu’il en demande une ; aucun bouton manuel n’est nécessaire pour les déclencher.
+
 ## 4. Essayer le mode Motion
 
 Ouvre **Motion design**, garde **Simple** et décris ta composition. **Tutos** prépare des exemples, **Skills** ouvre les méthodes disponibles et **Avancé** affiche les outils complets.
@@ -78,3 +84,41 @@ Sur Mac, utilise **Cmd** à la place de **Ctrl** pour les raccourcis corresponda
 | Ctrl+J | Afficher ou masquer le panneau du bas |
 
 Un problème ? Consulte le [dépannage](depannage.md). Pour le terminal, les réglages techniques et la compilation, ouvre le [guide avancé](avance.md).
+
+## Saisie du chat : modèle, contexte et dictée
+
+Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. La petite jauge indique le pourcentage de contexte utilisé par la conversation courante, fourni par FranceStudent. Elle est distincte du quota du compte. Clique dessus pour obtenir le détail et actualiser. Une valeur indisponible est affichée « — », jamais inventée ; l’historique visible reste conservé après compaction.
+
+Le bouton micro **Bêta** permet de dicter un brouillon. À la première utilisation, confirme l’envoi de l’audio à FranceStudent et autorise le microphone dans ton système. Clique à nouveau pour terminer et transcrire (2 minutes maximum). Pendant la transcription, le bouton permet d’annuler. Le texte est ajouté au brouillon sans envoi automatique. La transcription nécessite une connexion et peut consommer son quota FranceStudent ; annuler après l’envoi ne supprime pas nécessairement le job distant. Les enregistrements ne sont pas sauvegardés localement. Sur Mac, vérifie Réglages Système → Confidentialité et sécurité → Microphone si l’accès est refusé.
+
+Le bouton de niveau d’accès, à côté du modèle dans la saisie, permet de choisir **Sur approbation**, **Automatique** ou **Accès complet**. Le menu explique chaque mode ; une option permet de mémoriser le choix pour les prochaines sessions. Le même réglage reste accessible dans les paramètres et s’applique en Code comme en Motion. L’accès complet autorise aussi les actions hors du projet et approuve les actions déjà en attente ; il ne répond pas aux questions de l’agent à ta place.
+
+## Choisir son terminal, notamment WSL
+
+Dans **Paramètres → Général → Terminal intégré**, choisis PowerShell Windows, PowerShell 7 (si installé), Invite de commandes ou **WSL · Linux**. Pour WSL, sélectionne ta distribution installée (Ubuntu, Debian…) ou conserve sa distribution par défaut, puis clique sur **Enregistrer**. Ouvre un nouveau terminal avec **+** : il utilisera cet environnement et ses packages existants. Les terminaux déjà ouverts sont conservés. Le bouton Actualiser relance la détection si tu viens d’installer un terminal ou une distribution.
+
+WSL doit être installé et initialisé au préalable ; l’IDE ne réinstalle pas ses outils. Un projet Windows est ouvert dans WSL via son montage Linux. Tu peux aussi ouvrir un projet depuis `\\wsl.localhost\Ubuntu\home\ton-nom\projet` dans le sélecteur de dossier ; choisis alors la même distribution que celle du projet. Les chemins vers une autre distribution sont refusés avec une explication.
+
+Sur Mac, le choix propose le shell système et les shells présents dans `/bin`. Ce réglage concerne le terminal interactif et les commandes du terminal simple de secours ; il ne transforme pas l’IDE entier en environnement distant WSL. Les commandes de l’agent, MCP et les autres outils continuent à utiliser leur environnement actuel. Le terminal simple de secours ne conserve pas les variables et sessions d’un shell interactif.
+
+## Régler la réflexion des GPT
+
+Avec un GPT compatible, le bouton **Réflexion** apparaît à côté du modèle dans le chat, en Code et Motion. Choisis Faible, Moyenne, Élevée ou Très élevée ; Désactivée est proposée seulement si le modèle le permet. Les niveaux non compatibles ne sont pas affichés. Un modèle inconnu ne reçoit pas de capacités supposées.
+
+Le réglage est une **préférence du compte FranceStudent**, commune aux conversations GPT et potentiellement aux autres clients connectés au même compte. Il est enregistré par l’API puis relu pour confirmation. Il ne peut pas être modifié pendant une tâche. Un niveau élevé peut augmenter la durée et le quota consommé. Si la valeur du compte est incompatible avec le modèle sélectionné, le bouton indique « à choisir » : aucune préférence n’est remplacée automatiquement. Les autres fournisseurs ne reçoivent pas ce réglage.
+
+## Utiliser ses outils WSL pour tout le travail du projet
+
+Sous Windows, ouvre ton projet puis **Paramètres → Général → Environnement du projet · WSL**. Choisis **WSL · mes outils Linux**, sélectionne ta distribution, puis **Appliquer à ce projet**. L’IDE vérifie qu’il peut ouvrir le dossier dans Linux et affiche les versions de Node, npm et Git trouvées. Aucun outil n’est installé automatiquement.
+
+L’option utilise les outils de cette distribution pour les commandes de l’agent, ses commandes en arrière-plan, les tâches et serveurs du projet, les diagnostics ESLint/TypeScript, la lecture Git et les nouveaux terminaux. Les dépendances déjà installées dans la distribution restent utilisables ; tu n’as pas à réinstaller leurs équivalents Windows. Les outils manquants sont signalés comme tels. Les permissions et boutons d’arrêt restent applicables.
+
+Arrête les tâches et serveurs avant de changer d’environnement, puis ouvre un nouveau terminal avec **+**. Le choix est mémorisé uniquement pour ce projet ; Windows reste le mode habituel des autres projets. Pour revenir en arrière, sélectionne Windows puis applique. Si tu as réglé séparément un terminal WSL par défaut, ce choix de terminal reprend alors effet.
+
+L’interface et l’éditeur restent sur Windows, ainsi que les connecteurs natifs et serveurs MCP configurés pour Windows ; le studio Motion reste indépendant. Le projet peut se trouver sur un disque Windows ou dans `\\wsl.localhost\Ubuntu\home\ton-nom\projet`. Dans ce dernier cas, sélectionne la distribution correspondante. Ce mode requiert une distribution initialisée avec Bash et setsid, et ne migre ni ne copie tes fichiers. Si Node est installé par un gestionnaire de versions, son PATH doit être accessible au shell de connexion Linux utilisé pour les commandes.
+
+## Importer un skill téléchargé
+
+Dans **Extensions → Mes skills**, clique sur **Importer un fichier** pour choisir un `SKILL.md` ou une archive `.zip`, ou sur **Importer un dossier** pour reprendre ses références et scripts annexes. L’aperçu présente les instructions et la liste des ressources. Choisis le nom et la destination, puis clique sur **Importer**. Le skill est ajouté désactivé : active-le ensuite dans Mes skills quand tu es prêt. Aucun script n’est exécuté pendant l’import.
+
+Les dossiers et ZIP doivent contenir un seul skill (un unique `SKILL.md`), avec au maximum 200 ressources et 4 Mo au total. Une collection doit être importée dossier par dossier. Les liens de dossiers ne sont pas suivis ; `.git` et `node_modules` sont exclus. Un SKILL.md choisi seul importe uniquement ses instructions. Un skill existant n’est pas écrasé.

@@ -16,6 +16,10 @@ function call(name, ...args) {
 
 contextBridge.exposeInMainWorld("frst", {
     platform: process.platform,
+    chatContext: () => call("chatContext"),
+    reasoning: (action = "get", payload = {}) => call("reasoning", action, payload),
+    dictate: (action, payload) => call("dictate", action, payload),
+    stability: (action = "get", id) => call("stability", String(action), id),
     releaseHighlights: (action="get",version)=>call("releaseHighlights",action,version),
     bootstrap: () => call("bootstrap"),
     loginAccount: credentials => call("loginAccount", { email: String(credentials?.email ?? ""), password: String(credentials?.password ?? "") }),
@@ -70,6 +74,9 @@ contextBridge.exposeInMainWorld("frst", {
     conversationsOpen:id=>call("conversationsOpen",String(id)),
     killTerminal: (id) => call("killTerminal", id),
     ptyAvailable: () => call("ptyAvailable"),
+    terminalPreferences: (action = "get", payload = {}) => call("terminalPreferences", action, payload),
+    projectEnvironment: (action = "get", payload = {}) => call("projectEnvironment", action, payload),
+    localSkillImport: (action, payload = {}) => call("localSkillImport", action, payload),
     ptyCreate: (cwd, cols, rows) => call("ptyCreate", String(cwd ?? "."), Number(cols) || 80, Number(rows) || 24),
     ptyWrite: (id, data) => call("ptyWrite", Number(id), String(data ?? "")),
     ptyResize: (id, cols, rows) => call("ptyResize", Number(id), Number(cols) || 80, Number(rows) || 24),

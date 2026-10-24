@@ -95,7 +95,7 @@ npm run desktop
 | `npm run test:e2e` | Tester les parcours Electron dans un environnement graphique |
 | `npm run build:desktop` | Générer une application locale non empaquetée en installateur |
 | `npm run dist:win` | Générer le portable et l’installateur Windows dans `release/` |
-| `npm run dist:mac` | Construire les cibles Mac ; utiliser `-- --x64` ou `-- --arm64` sur un Mac adapté |
+| `npm run dist:mac` | Construire le DMG et le ZIP Mac Apple Silicon ARM64 ; le support Intel est arrêté après la 1.3.5 |
 
 Les modules natifs peuvent nécessiter les outils de compilation du système. Sous Windows, une erreur MSB8040 signale l’absence de bibliothèques Spectre dans Visual Studio Build Tools. Les versions Mac sont distribuées dans des préversions séparées de la stable Windows. Voir [le guide Mac](macos.md).
 

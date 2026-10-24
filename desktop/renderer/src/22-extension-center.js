@@ -143,15 +143,24 @@ function openSkillEditor(state) {
     $("skill-editor-title").textContent = library ? item.title : remote ? item.name : state.kind === "edit" ? `Modifier ${item.name}` : "Créer ou importer un skill";
     $("skill-editor-description").textContent = remote ? item.resourceCount ? `Remotion pour le chat code · ${item.resourceCount} ressources annexes incluses. Après installation, active le skill dans Mes skills pour l’utiliser.` : "Skill communautaire : vérifie les instructions et la licence du dépôt. Après installation, active-le dans Mes skills pour l’utiliser. Seul le SKILL.md est copié." : library ? `${item.description} · ${item.category}` : "Écris ou colle les instructions que l’agent doit suivre quand il utilise ce skill.";
     $("skill-editor-name").value = item.id || item.name || "mon-skill";
-    $("skill-editor-name").disabled = !["new", "remote"].includes(state.kind);
+    $("skill-editor-name").disabled = !["new", "remote", "local"].includes(state.kind);
     if (remote) $("skill-editor-name").value = item.name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "community-skill";
     $("skill-editor-identity").classList.toggle("hidden", state.kind === "edit");
     $("skill-editor-scope").value = library ? $("library-scope").value : item.scope || "utilisateur";
     $("skill-editor-content").value = item.content || "---\nname: mon-skill\ndescription: Quand utiliser ce skill.\n---\n\n# Ma méthode\n\nDécris les étapes et les vérifications à suivre.\n";
-    $("skill-editor-content").readOnly = library || remote;
+    $("skill-editor-content").readOnly = library || remote || state.kind === "local";
+    $("skill-editor-content").closest("label").nextElementSibling.textContent = state.kind === "local" || item.resourceCount
+        ? "Les instructions et les ressources annoncées seront copiées. Aucun script n’est exécuté pendant l’import."
+        : "Tu peux coller un SKILL.md personnel ici. Seules ces instructions sont importées ; les scripts et fichiers annexes ne sont pas copiés.";
     $("skill-editor-save").textContent = remote ? "Installer" : library ? "Installer ce skill" : "Enregistrer";
     $("skill-editor-save").disabled = false;
     $("skill-editor-message").textContent = "";
+    if (state.kind === "local") {
+        $("skill-editor-title").textContent = "Importer un skill téléchargé";
+        $("skill-editor-description").textContent = `${item.resourceCount || 0} ressource(s) annexe(s) incluse(s). Vérifie les instructions et fichiers avant d’activer ce skill dans Mes skills.`;
+        $("skill-editor-save").textContent = "Importer";
+        $("skill-editor-message").textContent = item.resourceNames?.length ? `Ressources : ${item.resourceNames.join(", ")}` : "Les instructions SKILL.md seront importées.";
+    }
     $("skill-editor").showModal();
 }
 $("btn-skill-new").onclick = () => openSkillEditor({kind:"new"});
@@ -162,7 +171,11 @@ $("skill-editor-form").onsubmit = async event => {
     $("skill-editor-save").disabled = true;
     try {
         const scope = $("skill-editor-scope").value;
-        if (state.kind === "library") await changeExtension("install", {id:state.item.id, scope}, "Skill installé.");
+        if (state.kind === "local") {
+            centerData = await api.localSkillImport("install", { token: state.item.token, name: $("skill-editor-name").value, scope });
+            renderExtensionCenter(); $("center-message").textContent = "Skill importé avec ses ressources. Active-le dans Mes skills quand tu es prêt.";
+        }
+        else if (state.kind === "library") await changeExtension("install", {id:state.item.id, scope}, "Skill installé.");
         else if (state.kind === "remote") {
             centerData = await api.marketplace("install", {name:$("skill-editor-name").value, scope, url:state.item.url});
             const installed=centerData.skills.find(skill=>skill.key===`${scope}:${$("skill-editor-name").value.trim().toLowerCase()}`);

@@ -1,6 +1,13 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.0":{headline:"Ton environnement, tes outils, ton rythme.",items:[
+        {icon:"chat",title:"Tout sous la main dans le chat",text:"Modèle, réflexion des GPT compatibles, niveau d’accès et jauge du contexte sont réunis près de la saisie. La dictée vocale arrive en bêta."},
+        {icon:"tools",title:"Retrouve tes outils Linux",text:"L’environnement WSL par projet utilise tes outils déjà installés pour le terminal, les commandes de l’agent, les tâches et les serveurs."},
+        {icon:"spark",title:"Des questions au bon moment",text:"L’agent peut proposer des choix ou un champ de réponse pendant une tâche. Tu peux répondre ou passer."},
+        {icon:"tools",title:"Importe tes skills téléchargés",text:"Choisis un SKILL.md, un dossier ou un ZIP, consulte l’aperçu puis importe les ressources."},
+        {icon:"clock",title:"Des incidents mieux expliqués",text:"Un diagnostic local et un code FST apparaissent après un arrêt inattendu. Cette version Mac cible uniquement Apple Silicon."}
+    ]},
     "1.3.5":{headline:"Moins de répétitions, un meilleur suivi.",items:[
         {icon:"clock",title:"Des échanges plus légers",text:"Les messages de suivi évitent de répéter les catalogues et consignes. Les longs journaux gardent leurs erreurs utiles."},
         {icon:"chat",title:"Ton plan reste à jour",text:"Les cases sont actualisées dans les réponses de l’agent. Toutes les cinq requêtes, un bref rappel demande où en est le travail."},

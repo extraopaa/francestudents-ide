@@ -12,6 +12,11 @@ function showPrompt() {
     }
 
     zone.classList.remove("hidden");
+    if (p.kind === "question") {
+        renderAgentQuestion(p, zone);
+        scrollDown();
+        return;
+    }
     const question = document.createElement("div");
     question.className = "question";
     question.textContent = p.question;

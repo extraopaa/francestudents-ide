@@ -192,7 +192,9 @@ function ptyData(data) {
         term.xterm.write(data.data);
         return;
     }
-    earlyPty.set(data.id, (earlyPty.get(data.id) || "") + data.data);
+    let initialOutput = (earlyPty.get(data.id) || "") + data.data;
+    if (initialOutput.length > 128000) initialOutput = "\r\n[Sortie initiale abrégée pour limiter la mémoire]\r\n" + initialOutput.slice(-120000);
+    earlyPty.set(data.id, initialOutput);
     while (earlyPty.size > 50) earlyPty.delete(earlyPty.keys().next().value);
 }
 
@@ -207,7 +209,7 @@ function ptyExit(data) {
     termByPty.delete(data.id);
     term.ptyId = null;
     if (term.xterm) {
-        const how = data.signal ? `signal ${data.signal}` : `code ${data.code}`;
+        const how = data.errorCode || (data.signal ? `signal ${data.signal}` : `code ${data.code}`);
         term.xterm.writeln(`\r\n\x1b[90m[shell terminé, ${how}] · + pour ouvrir un nouveau terminal\x1b[0m`);
     }
     renderTermList();

@@ -227,6 +227,7 @@ function changeDirectory(segment, cwd, workspace) {
 
 /** Dossier de départ : paramètre cwd (relatif au projet), sinon state.cwd s'il est valide, sinon le projet. */
 function resolveStartDir(requested, remembered, workspace) {
+    requested = require("../../execution-environment").hostPath(requested, workspace);
     if (typeof requested === "string" && requested.trim()) {
         const result = resolveDirectory(workspace, requested.trim(), workspace);
         if (!result.ok) throw new Error(`Paramètre cwd refusé : ${result.message}`);

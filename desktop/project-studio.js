@@ -61,10 +61,14 @@ function createProjectStudio({workspace = () => null, onEvent = () => {}} = {}) 
             const oldest = [...runs.values()].find(job => job.status !== "running");
             if (!oldest) break; runs.delete(oldest.id);
         }
-        const command = task.program ? programCommand(task.program,task.args) : shellCommand(task.command);
-        const child = spawn(command.file,command.args,{cwd:task.cwd || current,env:{...process.env,FORCE_COLOR:"0"},windowsHide:true,detached:process.platform !== "win32",stdio:["ignore","pipe","pipe"]});
+        const runtime = require("../src/execution-environment"), execution = runtime.projectEnvironment(current);
+        const command = execution.mode === "wsl"
+            ? runtime.wslTarget(task.program ? task.program.replace(/\.cmd$/i, "") : "/bin/bash", task.program ? task.args : ["-lc", task.command], task.cwd || current, execution)
+            : task.program ? programCommand(task.program,task.args) : shellCommand(task.command);
+        const child = spawn(command.file,command.args,{cwd:command.cwd || task.cwd || current,env:{...process.env,FORCE_COLOR:"0"},windowsHide:true,detached:process.platform !== "win32",stdio:["ignore","pipe","pipe"]});
         const job = {id:nextId++,taskId:id,name:task.name,command:task.command,workspace:current,child,status:"running",startedAt:Date.now(),endedAt:null,exitCode:null,output:"",truncated:false};
         runs.set(job.id,job);
+        job.stopProcess = command.stop;
         job.server = task.server || null;
         let outputTimer=null;
         const append = chunk => {
@@ -73,9 +77,9 @@ function createProjectStudio({workspace = () => null, onEvent = () => {}} = {}) 
             if(!outputTimer)outputTimer=setTimeout(()=>{outputTimer=null;emit(job);},50);
         };
         child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");
-        child.stdout.on("data",append); child.stderr.on("data",append);
+        child.stdout.on("data",append); child.stderr.on("data",chunk => append(command.filterStderr ? command.filterStderr(chunk) : chunk));
         child.on("error",error => {append(error.message + "\n"); job.status="failed";job.endedAt=Date.now();emit(job);});
-        child.on("close",code => {clearTimeout(outputTimer);if(job.status === "running")job.status=job.stopRequested?"stopped":code===0?"passed":"failed";job.exitCode=code;job.endedAt=Date.now();emit(job);});
+        child.on("close",code => {const tail=command.filterStderr?.("",true);if(tail)append(tail);clearTimeout(outputTimer);if(job.status === "running")job.status=job.stopRequested?"stopped":code===0?"passed":"failed";job.exitCode=code;job.endedAt=Date.now();emit(job);});
         emit(job);return snapshot(job);
     }
     async function stop(id) {
@@ -85,7 +89,8 @@ function createProjectStudio({workspace = () => null, onEvent = () => {}} = {}) 
         job.stopRequested=true;
         job.stopPromise=(async()=>{
             const closed=new Promise(resolve=>{if(job.child.exitCode!==null||job.child.signalCode!==null)resolve();else job.child.once("close",resolve);});
-            if (process.platform === "win32") await new Promise((resolve,reject)=>execFile("taskkill",["/pid",String(job.child.pid),"/T","/F"],{windowsHide:true},error=>{if(error&&job.child.exitCode===null&&job.child.signalCode===null)reject(error);else resolve();}));
+            if (job.stopProcess) job.stopProcess(job.child);
+            else if (process.platform === "win32") await new Promise((resolve,reject)=>execFile("taskkill",["/pid",String(job.child.pid),"/T","/F"],{windowsHide:true},error=>{if(error&&job.child.exitCode===null&&job.child.signalCode===null)reject(error);else resolve();}));
             else {try {process.kill(-job.child.pid,"SIGTERM");} catch {job.child.kill("SIGTERM");}}
             let timer;
             try{await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("Le processus n’a pas confirmé son arrêt.")),5000);})]);}
@@ -128,6 +133,11 @@ function createProjectStudio({workspace = () => null, onEvent = () => {}} = {}) 
 }
 let diagnosticsPromise = null; let diagnosticsAt = 0;
 async function environmentDiagnostics() {
+    const workspace = require("../src/state").state.workspace, runtime = require("../src/execution-environment"), environment = runtime.projectEnvironment(workspace);
+    if (environment.mode === "wsl") {
+        const info = await runtime.probe(workspace, environment.distribution);
+        return [["Node.js", info.node], ["npm", info.npm], ["Git", info.git]].map(([name, version]) => ({ name: `${name} · WSL ${info.distribution}`, available: Boolean(version), version: version || "Non trouvé dans le PATH Linux" }));
+    }
     if(diagnosticsPromise && Date.now()-diagnosticsAt<30000)return diagnosticsPromise;
     diagnosticsAt=Date.now();
     diagnosticsPromise=Promise.all([["Node.js","node",["--version"]],["npm",process.platform==="win32"?"npm.cmd":"npm",["--version"]],["Git","git",["--version"]]].map(async([name,file,args])=>{

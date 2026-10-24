@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "1.3.5",
+  "version": "1.4.0",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -39,7 +39,7 @@
     "predist:win": "npm run check:effectcraft && npm run build:renderer",
     "predist:mac": "npm run check:effectcraft && npm run build:renderer",
     "dist:win": "electron-builder --win portable nsis --publish never",
-    "dist:mac": "electron-builder --mac dmg zip --publish never",
+    "dist:mac": "electron-builder --mac dmg zip --arm64 --publish never",
     "vendor:effectcraft:upstream": "node scripts/fetch-effectcraft.js",
     "check:effectcraft": "node scripts/build-effectcraft.js --check",
     "prepare:electron": "node -e \"require('electron')\""
@@ -52,6 +52,7 @@
   "author": "Hecone",
   "license": "ISC",
   "dependencies": {
+    "@breezystack/lamejs": "1.2.7",
     "@kenjiuno/msgreader": "1.29.0",
     "@napi-rs/canvas": "0.1.100",
     "@xmldom/xmldom": "0.9.12",
@@ -153,20 +154,21 @@
       "artifactName": "FranceStudentIDE-${version}-setup.exe"
     },
     "mac": {
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Le microphone permet de dicter un brouillon après activation du bouton de dictée."
+      },
       "icon": "desktop/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": [
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
             "arm64"
           ]
         }

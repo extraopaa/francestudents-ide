@@ -216,6 +216,7 @@ const expanded = new Set();
 /* ---------- Rendu du texte ---------- */
 
 const TOOL_LABELS = {
+    ask_user: "Question de l’agent",
     effectcraft: "EffectCraft",
     list_directory: "Lister", read_file: "Lire", search_files: "Chercher",web_search_result:"Résultat web",view_image:"Examiner l’image",
     create_directory: "Créer le dossier", write_file: "Écrire", edit_file: "Éditer",
@@ -558,6 +559,13 @@ function scrollDown() {
 
 const QUIET_TOOLS = new Set(["read_file", "search_files", "list_directory"]);
 let toolGroup = null;
+let livePaintTimer = null;
+
+function renderAssistantText(text) {
+    const value = String(text ?? "");
+    // Large replies remain complete, but avoid expensive Markdown highlighting.
+    return value.length > 64000 ? `<div class="fs-long-message">${escapeHtml(value)}</div>` : renderMarkdown(value);
+}
 
 function toolRowHtml(e) {
     return `<span class="tdot"></span><span class="name">${escapeHtml(toolLabel(e.name))}</span><span class="arg" title="${escapeHtml(e.arg || "")}">${escapeHtml(e.arg || "")}</span>`;
@@ -617,7 +625,7 @@ function renderEntry(e) {
             return addEntry("user", `<div class="message-content">${escapeHtml(e.text)}</div>`);
         case "assistant": {
             $("agent-starter").classList.add("hidden");
-            const message = addEntry("assistant", `<div class="message-content">${renderMarkdown(e.text)}</div>`);
+            const message = addEntry("assistant", `<div class="message-content">${renderAssistantText(e.text)}</div>`);
             const actions = document.createElement("div");
             actions.className = "message-actions";
             const copy = document.createElement("button");
@@ -682,19 +690,28 @@ function renderEntry(e) {
 }
 
 function liveStart() {
+    liveEnd();
     ui.liveText = "";
     ui.live = addEntry("assistant", "");
+}
+
+function paintLiveMessage() {
+    livePaintTimer = null;
+    if (!ui.live?.isConnected) return;
+    ui.live.innerHTML = renderAssistantText(ui.liveText);
+    scrollDown();
 }
 
 function liveAppend(text) {
     if (!ui.live) liveStart();
     ui.liveText += text;
-    ui.live.innerHTML = renderMarkdown(ui.liveText);
-    scrollDown();
+    if (livePaintTimer === null) livePaintTimer = setTimeout(paintLiveMessage, 80);
 }
 
 function liveEnd() {
-    if (ui.live && ui.liveText) attachServerControls(ui.live, ui.liveText);
+    if (livePaintTimer !== null) clearTimeout(livePaintTimer);
+    paintLiveMessage();
+    if (ui.live?.isConnected && ui.liveText) attachServerControls(ui.live, ui.liveText);
     ui.live = null;
     ui.liveText = "";
 }
@@ -737,6 +754,11 @@ function showPrompt() {
     }
 
     zone.classList.remove("hidden");
+    if (p.kind === "question") {
+        renderAgentQuestion(p, zone);
+        scrollDown();
+        return;
+    }
     const question = document.createElement("div");
     question.className = "question";
     question.textContent = p.question;
@@ -798,6 +820,10 @@ function applyStatus(s) {
     if (!s || typeof s !== "object") return;
     const wasBusy = Boolean(ui.status.busy);
     ui.status = s;
+    if (typeof updateComposerContext === "function") updateComposerContext(s);
+    if (typeof updateChatAccess === "function") updateChatAccess(s);
+    if (typeof updateChatReasoning === "function") updateChatReasoning(s);
+    if (typeof updateWslProject === "function") updateWslProject(s);
     const ecoButton = $("eco-mode-toggle");
     if (ecoButton) {
         ecoButton.disabled = Boolean(s.busy);
@@ -929,7 +955,7 @@ function confirmHistoryDeletion(item) {
             }
             dialog.close();
         };
-        dialog.addEventListener("close", () => { dialog.remove(); resolve(confirmed); }, { once: true });
+        dialog.addEventListener("close", () => { dialog.remove(); hideModelMenu(); resolve(confirmed); }, { once: true });
         studioSurfaceHeader(dialog,{title:"Supprimer cette conversation ?",subtitle:"Les fichiers de ton projet sont conservés.",icon:"auth"});
         dialog.querySelector(".studio-actions").classList.add("fs-dialog-footer");
         document.body.appendChild(dialog);
@@ -2334,6 +2360,7 @@ async function confirmImageReadability(attachments){
 }
 
 async function send(text) {
+    if (typeof cancelChatDictation === "function") cancelChatDictation();
     if(ui.replayingConversation){studioFeedback("L’historique de la conversation est encore en cours de chargement.");return;}
     if(typeof motionChatSwitch!=="undefined" && motionChatSwitch){studioFeedback("Le changement de chat est en cours.");return;}
     const value = text ?? input.value;
@@ -4003,7 +4030,9 @@ function ptyData(data) {
         term.xterm.write(data.data);
         return;
     }
-    earlyPty.set(data.id, (earlyPty.get(data.id) || "") + data.data);
+    let initialOutput = (earlyPty.get(data.id) || "") + data.data;
+    if (initialOutput.length > 128000) initialOutput = "\r\n[Sortie initiale abrégée pour limiter la mémoire]\r\n" + initialOutput.slice(-120000);
+    earlyPty.set(data.id, initialOutput);
     while (earlyPty.size > 50) earlyPty.delete(earlyPty.keys().next().value);
 }
 
@@ -4018,7 +4047,7 @@ function ptyExit(data) {
     termByPty.delete(data.id);
     term.ptyId = null;
     if (term.xterm) {
-        const how = data.signal ? `signal ${data.signal}` : `code ${data.code}`;
+        const how = data.errorCode || (data.signal ? `signal ${data.signal}` : `code ${data.code}`);
         term.xterm.writeln(`\r\n\x1b[90m[shell terminé, ${how}] · + pour ouvrir un nouveau terminal\x1b[0m`);
     }
     renderTermList();
@@ -6575,15 +6604,24 @@ function openSkillEditor(state) {
     $("skill-editor-title").textContent = library ? item.title : remote ? item.name : state.kind === "edit" ? `Modifier ${item.name}` : "Créer ou importer un skill";
     $("skill-editor-description").textContent = remote ? item.resourceCount ? `Remotion pour le chat code · ${item.resourceCount} ressources annexes incluses. Après installation, active le skill dans Mes skills pour l’utiliser.` : "Skill communautaire : vérifie les instructions et la licence du dépôt. Après installation, active-le dans Mes skills pour l’utiliser. Seul le SKILL.md est copié." : library ? `${item.description} · ${item.category}` : "Écris ou colle les instructions que l’agent doit suivre quand il utilise ce skill.";
     $("skill-editor-name").value = item.id || item.name || "mon-skill";
-    $("skill-editor-name").disabled = !["new", "remote"].includes(state.kind);
+    $("skill-editor-name").disabled = !["new", "remote", "local"].includes(state.kind);
     if (remote) $("skill-editor-name").value = item.name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "community-skill";
     $("skill-editor-identity").classList.toggle("hidden", state.kind === "edit");
     $("skill-editor-scope").value = library ? $("library-scope").value : item.scope || "utilisateur";
     $("skill-editor-content").value = item.content || "---\nname: mon-skill\ndescription: Quand utiliser ce skill.\n---\n\n# Ma méthode\n\nDécris les étapes et les vérifications à suivre.\n";
-    $("skill-editor-content").readOnly = library || remote;
+    $("skill-editor-content").readOnly = library || remote || state.kind === "local";
+    $("skill-editor-content").closest("label").nextElementSibling.textContent = state.kind === "local" || item.resourceCount
+        ? "Les instructions et les ressources annoncées seront copiées. Aucun script n’est exécuté pendant l’import."
+        : "Tu peux coller un SKILL.md personnel ici. Seules ces instructions sont importées ; les scripts et fichiers annexes ne sont pas copiés.";
     $("skill-editor-save").textContent = remote ? "Installer" : library ? "Installer ce skill" : "Enregistrer";
     $("skill-editor-save").disabled = false;
     $("skill-editor-message").textContent = "";
+    if (state.kind === "local") {
+        $("skill-editor-title").textContent = "Importer un skill téléchargé";
+        $("skill-editor-description").textContent = `${item.resourceCount || 0} ressource(s) annexe(s) incluse(s). Vérifie les instructions et fichiers avant d’activer ce skill dans Mes skills.`;
+        $("skill-editor-save").textContent = "Importer";
+        $("skill-editor-message").textContent = item.resourceNames?.length ? `Ressources : ${item.resourceNames.join(", ")}` : "Les instructions SKILL.md seront importées.";
+    }
     $("skill-editor").showModal();
 }
 $("btn-skill-new").onclick = () => openSkillEditor({kind:"new"});
@@ -6594,7 +6632,11 @@ $("skill-editor-form").onsubmit = async event => {
     $("skill-editor-save").disabled = true;
     try {
         const scope = $("skill-editor-scope").value;
-        if (state.kind === "library") await changeExtension("install", {id:state.item.id, scope}, "Skill installé.");
+        if (state.kind === "local") {
+            centerData = await api.localSkillImport("install", { token: state.item.token, name: $("skill-editor-name").value, scope });
+            renderExtensionCenter(); $("center-message").textContent = "Skill importé avec ses ressources. Active-le dans Mes skills quand tu es prêt.";
+        }
+        else if (state.kind === "library") await changeExtension("install", {id:state.item.id, scope}, "Skill installé.");
         else if (state.kind === "remote") {
             centerData = await api.marketplace("install", {name:$("skill-editor-name").value, scope, url:state.item.url});
             const installed=centerData.skills.find(skill=>skill.key===`${scope}:${$("skill-editor-name").value.trim().toLowerCase()}`);
@@ -7190,7 +7232,7 @@ $("studio-browser-permission").onchange=async()=>{try{await api.browserPermissio
 const updateSettings=document.createElement("section");updateSettings.className="settings-card";
 updateSettings.innerHTML=`<h3>Application et mises à jour</h3><p id="studio-app-version" class="settings-help"></p><label class="setting-toggle"><span><b>Mises à jour automatiques</b><small>Vérifier et télécharger les versions publiées. Sur Windows installé, une mise à jour téléchargée est appliquée à la fermeture. Sur Mac, la vérification est automatique et l’installation reste manuelle. Les projets et réglages restent dans leurs dossiers.</small></span><input type="checkbox" role="switch" id="studio-automatic-updates"></label><p id="studio-update-message" class="settings-help" role="status"></p><progress id="studio-update-progress" max="100" value="0" class="hidden"></progress><div class="studio-actions"><button type="button" id="studio-update-check">Vérifier maintenant</button><button type="button" id="studio-update-download" class="hidden">Télécharger la mise à jour</button><button type="button" id="studio-update-install" class="primary hidden">Enregistrer et redémarrer</button></div><p class="settings-help">Source prévue : versions GitHub de extraopaa/francestudents-ide. Les nouvelles versions doivent être publiées avec leur installateur et leurs métadonnées de mise à jour. Aucune version n’est publiée automatiquement par cette interface.</p>`;
 $("settings-view").insertBefore(updateSettings,$("settings-message"));
-function renderStudioUpdates(data){$("studio-app-version").textContent=`Version de l’application : ${data.version}`;$("studio-automatic-updates").checked=data.automatic;$("studio-update-message").textContent=data.message;$("studio-update-progress").value=data.progress;$("studio-update-progress").classList.toggle("hidden",data.status!=="downloading");$("studio-update-check").disabled=["unavailable","checking","downloading"].includes(data.status);$("studio-update-download").classList.toggle("hidden",(data.status!=="available"||(data.canInstall===false&&!data.downloadUrl)));$("studio-update-install").classList.toggle("hidden",data.status!=="downloaded");}
+function renderStudioUpdates(data){$("studio-app-version").textContent=`Version de l’application : ${data.version}`;$("studio-automatic-updates").checked=data.automatic;$("studio-update-message").textContent=data.message;$("studio-update-progress").value=data.progress;$("studio-update-progress").classList.toggle("hidden",data.status!=="downloading");$("studio-update-check").disabled=["unavailable","unsupported","checking","downloading"].includes(data.status);$("studio-update-download").classList.toggle("hidden",(data.status!=="available"||(data.canInstall===false&&!data.downloadUrl)));$("studio-update-install").classList.toggle("hidden",data.status!=="downloaded");}
 api.updates().then(renderStudioUpdates).catch(()=>{});
 $("studio-automatic-updates").onchange=()=>api.updates("automatic",{enabled:$("studio-automatic-updates").checked}).then(renderStudioUpdates).catch(error=>{$("studio-update-message").textContent=error.message;});
 for(const action of ["check","download","install"])$("studio-update-"+action).onclick=async()=>{try{if(action==="install"){await saveAllStudioFiles();if(ui.tabs.some(tab=>tab.dirty))throw new Error("Certains fichiers n’ont pas pu être enregistrés. Enregistre-les avant de redémarrer.");}renderStudioUpdates(await api.updates(action));}catch(error){$("studio-update-message").textContent=error.message;}};
@@ -8358,6 +8400,523 @@ if(api.platform==="darwin"){
     done.type="button";done.onclick=()=>macBetaNotice.close();
     footer.append(done);macBetaNotice.append(body,footer);
     macBetaNotice.showModal();done.focus();
+}
+/* Crash notices are local, actionable and acknowledged explicitly. */
+let stabilityNotice = null, stabilityNoticeShown = false;
+function maybeShowStabilityNotice() {
+    if (!stabilityNotice || stabilityNoticeShown || !$("startup-loading").hidden || document.querySelector("dialog[open]")) return;
+    stabilityNoticeShown = true;
+    stabilityNoticeObserver.disconnect();
+    document.removeEventListener("close", maybeShowStabilityNotice, true);
+    const notice = stabilityNotice, dialog = centerNode("dialog", "fs-dialog");
+    dialog.id = "stability-notice";
+    studioSurfaceHeader(dialog, { title: "Après un arrêt inattendu", subtitle: "Voici ce que l’application a pu identifier.", badge: notice.code, icon: "clock" });
+    const body = centerNode("section", "fs-dialog-section");
+    body.append(centerNode("h3", "", notice.title), centerNode("p", "", notice.reasonText), centerNode("p", "fs-dialog-note", notice.advice));
+    const report = centerNode("pre", "fs-stability-report", notice.report);
+    body.append(report, centerNode("p", "fs-section-description", "Diagnostic local : le texte des conversations et des fichiers, les jetons et les traces complètes ne sont pas collectés. Aucun envoi automatique."));
+    if (!notice.persisted) body.append(centerNode("p", "fs-dialog-note", "Le journal local n’a pas pu être sauvegardé. Copie ce diagnostic avant de fermer."));
+    const footer = centerNode("div", "fs-dialog-footer"), copy = centerNode("button", "", "Copier le diagnostic"), done = centerNode("button", "primary", "J’ai compris");
+    copy.id = "stability-copy"; done.id = "stability-acknowledge"; copy.type = done.type = "button";
+    copy.onclick = () => api.copyText(notice.report).then(() => { copy.textContent = "Diagnostic copié"; }).catch(error => studioFeedback(error.message));
+    done.onclick = () => dialog.close();
+    dialog.addEventListener("close", () => { api.stability("acknowledge", notice.id).catch(error => studioFeedback(error.message)); dialog.remove(); }, { once: true });
+    footer.append(copy, done); dialog.append(body, footer); document.body.append(dialog); dialog.showModal(); done.focus();
+}
+const stabilityNoticeObserver = new MutationObserver(maybeShowStabilityNotice);
+stabilityNoticeObserver.observe($("startup-loading"), { attributes: true, attributeFilter: ["hidden"] });
+document.addEventListener("close", maybeShowStabilityNotice, true);
+api.stability().then(notice => {
+    stabilityNotice = notice;
+    if (notice) maybeShowStabilityNotice();
+    else { stabilityNoticeObserver.disconnect(); document.removeEventListener("close", maybeShowStabilityNotice, true); }
+}).catch(() => { stabilityNoticeObserver.disconnect(); document.removeEventListener("close", maybeShowStabilityNotice, true); });
+/* Triggered only by the agent's ask_user tool; never inferred from question marks. */
+function renderAgentQuestion(prompt, zone) {
+    const card = centerNode("section", "fs-agent-question");
+    card.setAttribute("aria-labelledby", `agent-question-${prompt.id}`);
+    const header = centerNode("div", "fs-agent-question-header");
+    header.append(centerNode("span", "fs-surface-badge", "Question de l’agent"), centerNode("span", "muted", "En attente de ta réponse"));
+    const heading = centerNode("h3", "", prompt.question); heading.id = `agent-question-${prompt.id}`;
+    card.append(header, heading);
+    const choices = centerNode("fieldset", "fs-agent-choices");
+    const legend = centerNode("legend", "", prompt.multiple ? "Tu peux sélectionner plusieurs réponses." : "Choisis une réponse ou écris la tienne.");
+    choices.append(legend);
+    const inputs = [];
+    for (const option of prompt.options || []) {
+        const row = centerNode("label", "fs-agent-choice"), field = document.createElement("input");
+        field.type = prompt.multiple ? "checkbox" : "radio"; field.name = `agent-question-${prompt.id}`; field.value = option.id;
+        const copy = centerNode("span", "fs-agent-choice-copy"), title = centerNode("strong", "", option.label);
+        copy.append(title);
+        if (option.recommended) title.append(centerNode("span", "fs-surface-badge", "Conseillé"));
+        if (option.description) copy.append(centerNode("small", "", option.description));
+        row.append(field, copy); choices.append(row); inputs.push(field);
+    }
+    if (inputs.length) {
+        if (!prompt.multiple) {
+            const other = centerNode("label", "fs-agent-choice"), radio = document.createElement("input");
+            radio.type = "radio"; radio.name = `agent-question-${prompt.id}`; radio.value = "";
+            other.append(radio, centerNode("strong", "", "Autre réponse")); choices.append(other); inputs.push(radio);
+        }
+        card.append(choices);
+    }
+    const label = centerNode("label", "fs-agent-answer-label", inputs.length ? "Précision ou autre réponse" : "Ta réponse");
+    const text = document.createElement("textarea"); text.rows = 2; text.maxLength = 4000; text.placeholder = prompt.placeholder || "Écris ta réponse…";
+    text.id = `agent-answer-${prompt.id}`; label.htmlFor = text.id; card.append(label, text);
+    const error = centerNode("p", "fs-agent-question-error"); error.setAttribute("role", "alert");
+    const footer = centerNode("div", "buttons"), skip = centerNode("button", "", "Passer"), submit = centerNode("button", "primary", "Répondre");
+    skip.type = submit.type = "button"; skip.dataset.questionAction = "skip"; submit.dataset.questionAction = "answer";
+    let sending = false;
+    const refresh = () => { submit.disabled = sending || (!text.value.trim() && !inputs.some(field => field.checked && field.value)); };
+    async function answer(skipped) {
+        if (sending || (!skipped && submit.disabled)) return;
+        sending = true; error.textContent = ""; skip.disabled = true; text.disabled = true;
+        inputs.forEach(field => { field.disabled = true; }); refresh();
+        try {
+            await api.resolvePrompt(prompt.id, skipped ? { skipped: true } : { selected: inputs.filter(field => field.checked && field.value).map(field => field.value), text: text.value });
+        } catch (failure) {
+            sending = false; error.textContent = failure.message; skip.disabled = false; text.disabled = false;
+            inputs.forEach(field => { field.disabled = false; }); refresh();
+        }
+    }
+    inputs.forEach(field => field.addEventListener("change", refresh)); text.addEventListener("input", refresh);
+    text.addEventListener("keydown", event => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); answer(false); } });
+    submit.onclick = () => answer(false); skip.onclick = () => answer(true);
+    footer.append(skip, submit); card.append(error, footer); zone.append(card); refresh();
+    setTimeout(() => { if (card.isConnected) (inputs[0] || text).focus({ preventScroll: true }); }, 0);
+}
+/* Model selection, current-chat context and explicit, opt-in dictation. */
+const composerTools = document.createElement("div");
+composerTools.className = "chat-composer-tools";
+const composerModelRow = document.createElement("div"), composerSettingsRow = document.createElement("div");
+composerModelRow.className = "chat-model-row"; composerSettingsRow.className = "chat-settings-row";
+composerTools.append(composerModelRow, composerSettingsRow);
+function chatControlContent(button, icon, label) {
+    button.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span class="chat-control-label"></span><svg class="chat-control-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>`;
+    button.querySelector(".chat-control-label").textContent = label;
+}
+const contextGauge = document.createElement("button");
+contextGauge.type = "button"; contextGauge.id = "chat-context-gauge";
+contextGauge.innerHTML = '<span class="chat-context-ring" aria-hidden="true"></span><span class="chat-context-label">Contexte —</span>';
+composerModelRow.append($("btn-model"), contextGauge);
+const dictationButton = document.createElement("button");
+dictationButton.type = "button"; dictationButton.id = "chat-dictation";
+dictationButton.title = "Dicter un message · Bêta"; dictationButton.setAttribute("aria-label", dictationButton.title);
+dictationButton.setAttribute("aria-pressed", "false");
+dictationButton.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span class="dictation-beta" aria-hidden="true">β</span>';
+composerModelRow.append(dictationButton);
+$("composer").querySelector(".composer-actions").before(composerTools);
+let composerContextKey = null, composerContextSerial = 0, composerContextAt = 0, composerContextPending = false;
+let composerContextDetail = "Le contexte du chat sera affiché après sa première requête.";
+function paintComposerContext(percent, detail) {
+    const known = typeof percent === "number" && Number.isFinite(percent) && percent >= 0 && percent <= 100;
+    contextGauge.style.setProperty("--context-progress", `${known ? percent * 3.6 : 0}deg`);
+    contextGauge.classList.toggle("context-warning", known && percent >= 80);
+    contextGauge.querySelector(".chat-context-label").textContent = known ? `${Math.round(percent)} %` : "—";
+    composerContextDetail = detail; contextGauge.title = detail; contextGauge.setAttribute("aria-label", detail);
+}
+async function refreshComposerContext(force = false) {
+    if (!ui.status.booted || composerContextPending || !force && Date.now() - composerContextAt < 15000) return;
+    const serial = composerContextSerial; composerContextPending = true; composerContextAt = Date.now();
+    try {
+        const value = await api.chatContext();
+        if (serial !== composerContextSerial || value?.identity !== composerContextKey) return;
+        paintComposerContext(value.percent, value.empty ? "Nouvelle conversation · contexte vide." :
+            typeof value.percent === "number" ? `Contexte du chat : ${Math.round(value.percent)} % utilisés${value.tokens == null ? "" : ` · ${Number(value.tokens).toLocaleString("fr-FR")} tokens cumulés`}. La compaction conserve l’historique visible.` : "L’API ne fournit pas le contexte de ce chat.");
+    } catch { if (serial === composerContextSerial) paintComposerContext(null, "Contexte temporairement indisponible. Clique pour actualiser."); }
+    finally { composerContextPending = false; if (serial !== composerContextSerial) refreshComposerContext(true); }
+}
+function updateComposerContext(status) {
+    const key = status.booted ? status.chatContextKey : null;
+    if (key !== composerContextKey) {
+        composerContextKey = key; composerContextSerial++; composerContextAt = 0;
+        paintComposerContext(null, "Chargement du contexte de la conversation…");
+        cancelChatDictation();
+    }
+    refreshComposerContext();
+}
+contextGauge.onclick = () => { studioFeedback(composerContextDetail); refreshComposerContext(true); };
+setInterval(() => { if (!document.hidden) refreshComposerContext(); }, 30000);
+
+let chatDictation = null;
+function cancelChatDictation() {
+    if (!chatDictation) return;
+    chatDictation.canceled = true;
+    if (chatDictation.recorder?.state === "recording") chatDictation.recorder.stop();
+    chatDictation.stream?.getTracks().forEach(track => track.stop());
+    clearTimeout(chatDictation.timer);
+    api.dictate("cancel").catch(() => {});
+    chatDictation = null; paintDictation(false);
+}
+function paintDictation(recording, processing = false) {
+    dictationButton.classList.toggle("recording", recording);
+    dictationButton.setAttribute("aria-pressed", String(recording));
+    dictationButton.title = recording ? "Terminer et transcrire la dictée" : processing ? "Annuler la transcription" : "Dicter un message · Bêta";
+    dictationButton.setAttribute("aria-label", dictationButton.title);
+}
+async function startChatDictation() {
+    if (!ui.status.booted) { openConnectionGuide(1); return; }
+    let consent = false;
+    try { consent = localStorage.getItem("frst.dictation.consent") === "yes"; } catch { /* Ask again without persistent storage. */ }
+    if (!consent) {
+        if (!await confirmStudioAction("Après ton clic, le micro enregistre jusqu’à 2 minutes. L’audio est envoyé à FranceStudent pour transcription et peut consommer le quota de transcription. Le texte reste un brouillon que tu peux modifier avant d’envoyer.", { title: "Dictée vocale · Bêta", confirmLabel: "Activer le micro", danger: false })) return;
+        try { localStorage.setItem("frst.dictation.consent", "yes"); } catch { /* Consent applies to this recording. */ }
+    }
+    if (chatDictation) return;
+    const session = { canceled: false, key: composerContextKey, chunks: [] };
+    chatDictation = session;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        session.stream = stream;
+        if (session.canceled) { stream.getTracks().forEach(track => track.stop()); return; }
+        const recorder = new MediaRecorder(stream); session.recorder = recorder;
+        recorder.ondataavailable = event => { if (event.data.size) session.chunks.push(event.data); };
+        recorder.onstop = async () => {
+            stream.getTracks().forEach(track => track.stop()); clearTimeout(session.timer);
+            if (session.canceled) return;
+            paintDictation(false, true); studioFeedback("Transcription en cours… Clique sur le micro pour annuler.");
+            let audioContext;
+            try {
+                audioContext = new AudioContext();
+                const decoded = await audioContext.decodeAudioData(await new Blob(session.chunks, { type: recorder.mimeType }).arrayBuffer());
+                if (decoded.duration > 121) throw new Error("La dictée dépasse 2 minutes.");
+                const offline = new OfflineAudioContext(1, Math.min(16000 * 120, Math.ceil(decoded.duration * 16000)), 16000);
+                const source = offline.createBufferSource(); source.buffer = decoded; source.connect(offline.destination); source.start();
+                const samples = (await offline.startRendering()).getChannelData(0), pcm = new Int16Array(samples.length);
+                for (let i = 0; i < samples.length; i++) pcm[i] = Math.max(-1, Math.min(1, samples[i])) * 32767;
+                if (session.canceled) return;
+                const text = await api.dictate("transcribe", pcm);
+                if (session.canceled || session.key !== composerContextKey) return;
+                if (text.trim()) { input.value += `${input.value && !/\s$/.test(input.value) ? " " : ""}${text}`; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
+                studioFeedback(text.trim() ? "Dictée ajoutée au brouillon. Tu peux la corriger avant d’envoyer." : "Aucune parole reconnue. Ton brouillon est conservé.");
+            } catch (error) { if (!session.canceled) studioFeedback(error.message || "La transcription a échoué. Ton brouillon est conservé."); }
+            finally { await audioContext?.close().catch(() => {}); if (chatDictation === session) { chatDictation = null; paintDictation(false); } }
+        };
+        recorder.onerror = () => { cancelChatDictation(); studioFeedback("L’enregistrement a échoué. Ton brouillon est conservé."); };
+        recorder.start(1000); paintDictation(true); studioFeedback("Micro actif · parle, puis clique sur le micro pour transcrire (2 min maximum).");
+        session.timer = setTimeout(() => { if (recorder.state === "recording") recorder.stop(); }, 120000);
+    } catch { cancelChatDictation(); studioFeedback("Micro indisponible ou autorisation refusée. Vérifie les réglages du système."); }
+}
+dictationButton.onclick = () => {
+    if (chatDictation?.recorder?.state === "recording") chatDictation.recorder.stop();
+    else if (chatDictation) { cancelChatDictation(); studioFeedback("Dictée annulée. Ton brouillon est conservé."); }
+    else startChatDictation();
+};
+window.addEventListener("beforeunload", cancelChatDictation);
+$("composer").addEventListener("submit", cancelChatDictation, true);
+updateComposerContext(ui.status);
+/* Same permission policy as Settings, available directly in the chat composer. */
+const chatAccessButton = document.createElement("button");
+chatAccessButton.type = "button"; chatAccessButton.id = "chat-access-button";
+chatAccessButton.setAttribute("aria-haspopup", "menu"); chatAccessButton.setAttribute("aria-expanded", "false");
+chatAccessButton.setAttribute("aria-controls", "chat-access-menu");
+composerSettingsRow.append(chatAccessButton);
+chatControlContent(chatAccessButton, '<path d="M12 3 4 6v6c0 4 8 9 8 9s8-5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>', "Accès");
+const chatAccessMenu = document.createElement("div");
+chatAccessMenu.id = "chat-access-menu"; chatAccessMenu.className = "chat-access-menu";
+chatAccessMenu.setAttribute("popover", "auto");
+chatAccessMenu.innerHTML = '<div class="chat-access-heading">Autorisations de l’agent</div><div class="chat-access-choices" role="menu" aria-label="Niveau d’accès"></div><label class="chat-access-remember"><input type="checkbox"> Mémoriser pour les prochaines sessions</label><p class="chat-access-error" role="status"></p>';
+document.body.append(chatAccessMenu);
+const chatAccessModes = [
+    { id: "ask", label: "Sur approbation", icon: "♧", description: "Demande ton accord pour les modifications et les commandes sensibles." },
+    { id: "auto", label: "Automatique", icon: "◈", description: "Approuve les modifications et les commandes autorisées. Les commandes bloquées restent interdites." },
+    { id: "full", label: "Accès complet", icon: "◇", description: "Actions sans confirmation, y compris hors du projet. Approuve aussi les actions déjà en attente. Tu peux les annuler pendant leur exécution." }
+];
+let chatAccessSaving = false;
+function chatAccessMode(status) {
+    return status.fullAccess ? "full" : status.autoApprove && status.autoApproveCommands ? "auto" : status.autoApprove || status.autoApproveCommands ? "custom" : "ask";
+}
+function updateChatAccess(status) {
+    const mode = chatAccessMode(status || {}), label = chatAccessModes.find(item => item.id === mode)?.label || "Personnalisé";
+    chatAccessButton.querySelector(".chat-control-label").textContent = label;
+    chatAccessButton.classList.toggle("full-access", mode === "full");
+    chatAccessButton.title = `Niveau d’accès : ${label}. Modifier les autorisations de l’agent.`;
+    for (const row of chatAccessMenu.querySelectorAll("[data-chat-access]")) {
+        const selected = row.dataset.chatAccess === mode;
+        row.setAttribute("aria-checked", String(selected)); row.classList.toggle("selected", selected);
+        row.querySelector(".chat-access-check").textContent = selected ? "✓" : "";
+    }
+}
+function positionChatAccess() {
+    const rect = chatAccessButton.getBoundingClientRect();
+    const width = Math.min(370, window.innerWidth - 24);
+    chatAccessMenu.style.width = `${width}px`;
+    chatAccessMenu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
+    chatAccessMenu.style.maxHeight = `${Math.max(80, rect.top - 20)}px`;
+    chatAccessMenu.style.top = `${Math.max(12, rect.top - chatAccessMenu.getBoundingClientRect().height - 8)}px`;
+}
+for (const item of chatAccessModes) {
+    const row = document.createElement("button"); row.type = "button"; row.dataset.chatAccess = item.id;
+    row.setAttribute("role", "menuitemradio"); row.setAttribute("aria-checked", "false");
+    row.innerHTML = '<span class="chat-access-icon" aria-hidden="true"></span><span class="chat-access-copy"><strong></strong><small></small></span><span class="chat-access-check" aria-hidden="true"></span>';
+    row.querySelector(".chat-access-icon").textContent = item.icon;
+    row.querySelector("strong").textContent = item.label; row.querySelector("small").textContent = item.description;
+    row.onclick = async () => {
+        if (chatAccessSaving) return;
+        chatAccessSaving = true; chatAccessMenu.querySelector(".chat-access-error").textContent = "";
+        chatAccessMenu.querySelectorAll("button,input").forEach(control => { control.disabled = true; });
+        try {
+            const remember = chatAccessMenu.querySelector("input").checked;
+            applySettings(await api.setAutoApprove(`access-${item.id}-${remember ? "always" : "session"}`));
+            applyStatus(await api.status()); chatAccessMenu.hidePopover(); chatAccessButton.focus();
+        } catch (error) { chatAccessMenu.querySelector(".chat-access-error").textContent = error.message; }
+        finally { chatAccessSaving = false; chatAccessMenu.querySelectorAll("button,input").forEach(control => { control.disabled = false; }); }
+    };
+    chatAccessMenu.querySelector(".chat-access-choices").append(row);
+}
+chatAccessButton.onclick = async () => {
+    if (chatAccessMenu.matches(":popover-open")) { chatAccessMenu.hidePopover(); return; }
+    hideModelMenu(); updateChatAccess(ui.status); chatAccessMenu.querySelector(".chat-access-error").textContent = "";
+    chatAccessMenu.querySelector("input").checked = $("set-remember-access").checked;
+    chatAccessMenu.showPopover(); positionChatAccess();
+    (chatAccessMenu.querySelector('[aria-checked="true"]') || chatAccessMenu.querySelector("button")).focus();
+    try {
+        const settings = await api.setAutoApprove("");
+        if (!chatAccessMenu.matches(":popover-open") || chatAccessSaving) return;
+        applySettings(settings); updateChatAccess(settings);
+        chatAccessMenu.querySelector("input").checked = $("set-remember-access").checked;
+        positionChatAccess();
+    } catch (error) { chatAccessMenu.querySelector(".chat-access-error").textContent = error.message; }
+};
+chatAccessMenu.addEventListener("toggle", () => chatAccessButton.setAttribute("aria-expanded", String(chatAccessMenu.matches(":popover-open"))));
+chatAccessMenu.addEventListener("keydown", event => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const rows = [...chatAccessMenu.querySelectorAll("[data-chat-access]")];
+    if (!rows.includes(document.activeElement)) return;
+    event.preventDefault();
+    const index = rows.indexOf(document.activeElement);
+    rows[event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : (index + (event.key === "ArrowUp" ? rows.length - 1 : 1)) % rows.length].focus();
+});
+window.addEventListener("resize", () => { if (chatAccessMenu.matches(":popover-open")) positionChatAccess(); });
+updateChatAccess(ui.status);
+/* Terminal profile applies to new terminals; running shells are preserved. */
+const terminalSettingsCard = document.createElement("section");
+terminalSettingsCard.className = "settings-card"; terminalSettingsCard.dataset.settingsGroup = "general";
+terminalSettingsCard.setAttribute("aria-labelledby", "settings-terminal-title");
+terminalSettingsCard.innerHTML = '<h3 id="settings-terminal-title">Terminal intégré</h3><p class="settings-help">Choisis le terminal des nouveaux onglets. Avec WSL, retrouve les packages et outils déjà installés dans ta distribution Linux. Les terminaux ouverts gardent leur environnement.</p><label class="center-code-label">Terminal par défaut<select id="settings-terminal-profile" disabled></select></label><label id="settings-terminal-distribution-label" class="center-code-label hidden">Distribution WSL<select id="settings-terminal-distribution"><option value="">Distribution par défaut de WSL</option></select></label><div class="studio-actions"><button type="button" id="settings-terminal-save" class="primary" disabled>Enregistrer</button><button type="button" id="settings-terminal-refresh">Actualiser les terminaux</button></div><p id="settings-terminal-message" class="settings-help" role="status"></p><p class="settings-help">Ce réglage concerne le terminal intégré, pas les commandes de l’agent, les serveurs MCP ou les autres outils Windows. WSL doit être installé au préalable. Ouvre un nouveau terminal avec + après avoir enregistré. Le terminal simple de secours ne conserve pas tout l’état d’un shell interactif.</p>';
+$("settings-model-title").closest(".settings-card").after(terminalSettingsCard);
+const terminalProfileSelect = $("settings-terminal-profile"), terminalDistributionSelect = $("settings-terminal-distribution");
+let terminalSettingsLoading = false, terminalDistributionSerial = 0;
+function terminalSettingsMessage(text) { $("settings-terminal-message").textContent = text; }
+async function refreshTerminalDistributions(selected = "") {
+    const serial = ++terminalDistributionSerial;
+    const wsl = terminalProfileSelect.value === "wsl";
+    $("settings-terminal-distribution-label").classList.toggle("hidden", !wsl);
+    if (!wsl) return;
+    terminalDistributionSelect.disabled = true; $("settings-terminal-save").disabled = true;
+    try {
+        const names = await api.terminalPreferences("distributions");
+        if (serial !== terminalDistributionSerial || terminalProfileSelect.value !== "wsl") return;
+        terminalDistributionSelect.replaceChildren(new Option("Distribution par défaut de WSL", ""));
+        for (const name of names) terminalDistributionSelect.append(new Option(name, name));
+        if (selected && !names.includes(selected)) terminalSettingsMessage(`La distribution ${selected} est introuvable. Choisis une distribution installée.`);
+        terminalDistributionSelect.value = names.includes(selected) ? selected : "";
+        if (!names.length) { terminalSettingsMessage("Aucune distribution WSL installée. Installe-la avant de sélectionner WSL."); return; }
+        terminalDistributionSelect.disabled = false; $("settings-terminal-save").disabled = false;
+    } catch (error) { if (serial === terminalDistributionSerial) terminalSettingsMessage(error.message); }
+}
+async function loadTerminalSettings() {
+    if (terminalSettingsLoading) return;
+    terminalSettingsLoading = true; terminalSettingsMessage("Détection des terminaux…");
+    terminalProfileSelect.disabled = true; $("settings-terminal-save").disabled = true;
+    try {
+        const value = await api.terminalPreferences();
+        terminalProfileSelect.replaceChildren();
+        for (const profile of value.profiles) terminalProfileSelect.append(new Option(profile.name, profile.id));
+        if (!value.profiles.some(profile => profile.id === value.profile)) {
+            const missing = new Option(`Terminal indisponible (${value.profile})`, value.profile); missing.disabled = true; terminalProfileSelect.append(missing);
+        }
+        terminalProfileSelect.value = value.profile; terminalProfileSelect.disabled = false;
+        $("settings-terminal-save").disabled = false; terminalSettingsMessage("");
+        await refreshTerminalDistributions(value.distribution);
+    } catch (error) { terminalSettingsMessage(error.message); }
+    finally { terminalSettingsLoading = false; }
+}
+terminalProfileSelect.onchange = () => {
+    terminalSettingsMessage(""); $("settings-terminal-save").disabled = false;
+    refreshTerminalDistributions();
+};
+$("settings-terminal-refresh").onclick = loadTerminalSettings;
+$("settings-terminal-save").onclick = async () => {
+    $("settings-terminal-save").disabled = true; terminalProfileSelect.disabled = true;
+    try {
+        const value = await api.terminalPreferences("save", { profile: terminalProfileSelect.value, distribution: terminalDistributionSelect.value });
+        terminalSettingsMessage(`Terminal enregistré : ${value.profiles.find(item => item.id === value.profile)?.name || value.profile}. Ouvre un nouvel onglet avec +.`);
+    } catch (error) { terminalSettingsMessage(error.message); }
+    finally { $("settings-terminal-save").disabled = false; terminalProfileSelect.disabled = false; }
+};
+loadTerminalSettings();
+/* FranceStudent stores this preference on the account, not in each chat. */
+const reasoningButton = document.createElement("button");
+reasoningButton.id = "chat-reasoning"; reasoningButton.type = "button"; reasoningButton.hidden = true;
+reasoningButton.setAttribute("aria-haspopup", "menu"); reasoningButton.setAttribute("aria-expanded", "false");
+reasoningButton.setAttribute("aria-controls", "chat-reasoning-menu");
+composerSettingsRow.append(reasoningButton);
+chatControlContent(reasoningButton, '<path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/>', "Réflexion");
+const reasoningMenu = document.createElement("div");
+reasoningMenu.id = "chat-reasoning-menu"; reasoningMenu.className = "chat-access-menu"; reasoningMenu.setAttribute("popover", "auto");
+reasoningMenu.innerHTML = '<div class="chat-access-heading">Niveau de réflexion</div><p class="reasoning-account-note">Préférence du compte FranceStudent, commune aux chats GPT. Un niveau élevé peut consommer davantage de quota.</p><div class="chat-access-choices" role="menu" aria-label="Niveau de réflexion du GPT"></div><p class="chat-access-error" role="status"></p>';
+document.body.append(reasoningMenu);
+const reasoningLabels = { none: ["Désactivée", "Privilégie une réponse rapide, sans raisonnement supplémentaire."], minimal: ["Minimale", "Réflexion très courte."], low: ["Faible", "Privilégie la rapidité et une consommation réduite."], medium: ["Moyenne", "Équilibre entre rapidité et réflexion."], high: ["Élevée", "Davantage de réflexion pour les tâches difficiles."], xhigh: ["Très élevée", "Réflexion approfondie, potentiellement plus lente et coûteuse."] };
+let reasoningSnapshot = null, reasoningModelKey = null, reasoningSerial = 0, reasoningLoading = false, reasoningSavingUi = false;
+function positionReasoningMenu() {
+    const rect = reasoningButton.getBoundingClientRect(), width = Math.min(360, window.innerWidth - 24);
+    reasoningMenu.style.width = `${width}px`; reasoningMenu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
+    reasoningMenu.style.maxHeight = `${Math.max(80, rect.top - 20)}px`;
+    reasoningMenu.style.top = `${Math.max(12, rect.top - reasoningMenu.getBoundingClientRect().height - 8)}px`;
+}
+function paintReasoning() {
+    const focusedLevel = reasoningMenu.contains(document.activeElement) ? document.activeElement.dataset.level : null;
+    const snapshot = reasoningSnapshot;
+    reasoningButton.hidden = !snapshot?.levels?.length;
+    reasoningButton.disabled = reasoningLoading || reasoningSavingUi || Boolean(ui.status.busy);
+    if (reasoningButton.hidden) { if (reasoningMenu.matches(":popover-open")) reasoningMenu.hidePopover(); return; }
+    const supported = snapshot.levels.includes(snapshot.level);
+    const prefix = document.createElement("span"); prefix.className = "chat-control-prefix"; prefix.textContent = "Réflexion · ";
+    reasoningButton.querySelector(".chat-control-label").replaceChildren(prefix, document.createTextNode(supported ? reasoningLabels[snapshot.level]?.[0].toLowerCase() || snapshot.level : "à choisir"));
+    reasoningButton.title = "Régler la réflexion du GPT · préférence du compte FranceStudent · un niveau élevé peut consommer davantage de quota";
+    const choices = reasoningMenu.querySelector(".chat-access-choices"); choices.replaceChildren();
+    for (const level of snapshot.levels) {
+        const row = document.createElement("button"); row.type = "button"; row.dataset.level = level;
+        row.setAttribute("role", "menuitemradio"); row.setAttribute("aria-checked", String(snapshot.level === level));
+        row.classList.toggle("selected", snapshot.level === level); row.disabled = reasoningSavingUi || Boolean(ui.status.busy);
+        row.innerHTML = '<span class="chat-access-copy"><strong></strong><small></small></span><span class="chat-access-check" aria-hidden="true"></span>';
+        row.querySelector("strong").textContent = reasoningLabels[level]?.[0] || level;
+        row.querySelector("small").textContent = reasoningLabels[level]?.[1] || "";
+        row.querySelector(".chat-access-check").textContent = snapshot.level === level ? "✓" : "";
+        row.onclick = () => saveChatReasoning(level); choices.append(row);
+    }
+    reasoningMenu.querySelector(".chat-access-error").textContent = supported ? "" : "Le réglage actuel du compte n’est pas compatible avec ce GPT ou n’est pas fourni. Choisis un niveau pour l’enregistrer.";
+    if (focusedLevel && reasoningMenu.matches(":popover-open")) reasoningMenu.querySelector(`[data-level="${focusedLevel}"]`)?.focus();
+}
+async function loadChatReasoning() {
+    if (!ui.status.booted || reasoningSavingUi) return;
+    const serial = ++reasoningSerial; reasoningLoading = true; paintReasoning();
+    try {
+        const value = await api.reasoning();
+        if (serial !== reasoningSerial || value.modelId !== ui.status.modelId) return;
+        reasoningSnapshot = value;
+    } catch (error) {
+        if (serial === reasoningSerial) {
+            reasoningSnapshot = null;
+            if (reasoningMenu.matches(":popover-open")) studioFeedback(`Réflexion : ${error.message}`);
+        }
+    } finally {
+        if (serial === reasoningSerial) { reasoningLoading = false; paintReasoning(); if (reasoningMenu.matches(":popover-open")) positionReasoningMenu(); }
+    }
+}
+function updateChatReasoning(status) {
+    const key = status.booted ? status.modelId : null;
+    if (key !== reasoningModelKey) {
+        reasoningModelKey = key; reasoningSerial++; reasoningSnapshot = null; reasoningLoading = false;
+        if (reasoningMenu.matches(":popover-open")) reasoningMenu.hidePopover();
+        if (key !== null) loadChatReasoning();
+    }
+    paintReasoning();
+}
+async function saveChatReasoning(level) {
+    if (reasoningSavingUi || ui.status.busy || !reasoningSnapshot) return;
+    reasoningSavingUi = true; reasoningSerial++; reasoningLoading = false; paintReasoning();
+    try {
+        const value = await api.reasoning("save", { modelId: reasoningSnapshot.modelId, level });
+        if (value.modelId !== ui.status.modelId) return;
+        reasoningSnapshot = value; reasoningMenu.hidePopover(); reasoningButton.focus();
+        studioFeedback(`Réflexion ${reasoningLabels[level]?.[0].toLowerCase() || level} enregistrée sur ton compte FranceStudent.`);
+    } catch (error) { reasoningMenu.querySelector(".chat-access-error").textContent = error.message; studioFeedback(error.message); }
+    finally { reasoningSavingUi = false; const message = reasoningMenu.querySelector(".chat-access-error").textContent; paintReasoning(); reasoningMenu.querySelector(".chat-access-error").textContent = message; }
+}
+reasoningButton.onclick = () => {
+    if (reasoningMenu.matches(":popover-open")) { reasoningMenu.hidePopover(); return; }
+    hideModelMenu(); if (chatAccessMenu.matches(":popover-open")) chatAccessMenu.hidePopover();
+    paintReasoning(); reasoningMenu.showPopover(); positionReasoningMenu();
+    (reasoningMenu.querySelector('[aria-checked="true"]') || reasoningMenu.querySelector("button"))?.focus();
+    loadChatReasoning();
+};
+reasoningMenu.addEventListener("toggle", () => reasoningButton.setAttribute("aria-expanded", String(reasoningMenu.matches(":popover-open"))));
+reasoningMenu.addEventListener("keydown", event => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const rows = [...reasoningMenu.querySelectorAll("[data-level]")];
+    if (!rows.length || !rows.includes(document.activeElement)) return;
+    event.preventDefault(); const index = rows.indexOf(document.activeElement);
+    rows[event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : (index + (event.key === "ArrowUp" ? rows.length - 1 : 1)) % rows.length].focus();
+});
+window.addEventListener("resize", () => { if (reasoningMenu.matches(":popover-open")) positionReasoningMenu(); });
+updateChatReasoning(ui.status);
+/* Project execution environment, independent of the terminal-only preference. */
+const wslProjectCard = document.createElement("section");
+wslProjectCard.className = "settings-card"; wslProjectCard.dataset.settingsGroup = "general";
+wslProjectCard.setAttribute("aria-labelledby", "settings-wsl-project-title");
+wslProjectCard.innerHTML = '<h3 id="settings-wsl-project-title">Environnement du projet · WSL</h3><p class="settings-help">WSL permet d’utiliser Linux dans Windows. Si tes outils sont déjà installés dans ta distribution, active ce mode pour les utiliser dans le terminal, les commandes de l’agent, les tâches, les serveurs du projet et les diagnostics. Aucune réinstallation automatique.</p><p id="wsl-project-name" class="settings-help"></p><label class="center-code-label">Exécuter ce projet avec<select id="wsl-project-mode"><option value="native">Windows · environnement habituel</option><option value="wsl">WSL · mes outils Linux</option></select></label><label id="wsl-project-distribution-label" class="center-code-label hidden">Distribution Linux<select id="wsl-project-distribution"><option value="">Distribution par défaut</option></select></label><div class="studio-actions"><button type="button" id="wsl-project-save" class="primary">Appliquer à ce projet</button><button type="button" id="wsl-project-check">Vérifier l’environnement</button><button type="button" id="wsl-project-refresh">Actualiser</button></div><p id="wsl-project-message" class="settings-help" role="status"></p><p class="settings-help">Arrête les tâches avant de changer d’environnement, puis ouvre un nouveau terminal. Le choix est conservé pour ce projet. L’interface, l’éditeur, le moteur Motion et les connecteurs natifs Windows restent sur Windows. Ce mode ne déplace pas tes fichiers et n’installe pas WSL.</p>';
+terminalSettingsCard.after(wslProjectCard);
+terminalSettingsCard.querySelector(":scope > p:last-child").textContent = "Ce choix de terminal seul ne change pas les commandes de l’agent. Pour utiliser aussi tes outils Linux dans les tâches du projet, active l’environnement WSL ci-dessous : il a priorité pour les nouveaux terminaux de ce projet. Les sessions ouvertes sont conservées.";
+let wslProjectSnapshot = null, wslProjectKey = null, wslProjectSerial = 0, wslProjectSaving = false;
+const wslProjectMode = $("wsl-project-mode"), wslProjectDistribution = $("wsl-project-distribution");
+function wslProjectMessage(text) { $("wsl-project-message").textContent = text; }
+function setWslProjectDisabled(disabled) { for (const control of wslProjectCard.querySelectorAll("button,select")) control.disabled = disabled; }
+async function populateWslProjectDistributions(selected = "") {
+    const serial = ++wslProjectSerial, wsl = wslProjectMode.value === "wsl";
+    $("wsl-project-distribution-label").classList.toggle("hidden", !wsl);
+    if (!wsl) return;
+    wslProjectDistribution.disabled = true; $("wsl-project-save").disabled = true; $("wsl-project-check").disabled = true;
+    try {
+        const distributions = await api.terminalPreferences("distributions");
+        if (serial !== wslProjectSerial || wslProjectMode.value !== "wsl") return;
+        wslProjectDistribution.replaceChildren(new Option("Distribution par défaut", ""));
+        for (const name of distributions) wslProjectDistribution.append(new Option(name, name));
+        wslProjectDistribution.value = distributions.includes(selected) ? selected : "";
+        if (!distributions.length) { wslProjectMessage("Aucune distribution installée. Installe et initialise WSL avant d’activer cette option."); return; }
+        if (selected && !distributions.includes(selected)) wslProjectMessage(`La distribution ${selected} n’est plus disponible. Sélectionne sa remplaçante.`);
+        wslProjectDistribution.disabled = false; $("wsl-project-save").disabled = false; $("wsl-project-check").disabled = false;
+    } catch (error) { if (serial === wslProjectSerial) wslProjectMessage(error.message); }
+}
+async function loadWslProject() {
+    const serial = ++wslProjectSerial; setWslProjectDisabled(true);
+    try {
+        const value = await api.projectEnvironment();
+        if (serial !== wslProjectSerial) return;
+        wslProjectSnapshot = value; $("wsl-project-name").textContent = value.workspace || "Ouvre un projet pour choisir son environnement.";
+        wslProjectMode.value = value.mode; $("wsl-project-distribution-label").classList.toggle("hidden", value.mode !== "wsl");
+        if (!value.available || !value.workspace) { wslProjectMessage("Cette option est réservée aux projets Code ouverts sur Windows."); return; }
+        setWslProjectDisabled(false);
+        wslProjectMessage(value.mode === "wsl" ? `Actif : WSL · ${value.distribution}. Les nouveaux terminaux utilisent ce choix.` : "Environnement Windows actif pour ce projet.");
+        await populateWslProjectDistributions(value.distribution);
+    } catch (error) { if (serial === wslProjectSerial) { wslProjectMessage(error.message); $("wsl-project-refresh").disabled = false; } }
+}
+function updateWslProject(status) {
+    const key = `${status.workspace || ""}:${status.chatContextKey?.split(":")[0] || "false"}`;
+    if (key === wslProjectKey) return;
+    wslProjectKey = key; loadWslProject();
+}
+async function applyWslProject(action) {
+    if (!wslProjectSnapshot?.workspace || wslProjectSaving) return;
+    wslProjectSaving = true; setWslProjectDisabled(true); wslProjectMessage("Vérification du dossier et des outils dans la distribution…");
+    const payload = { workspace: wslProjectSnapshot.workspace, mode: wslProjectMode.value, distribution: wslProjectDistribution.value };
+    try {
+        const value = await api.projectEnvironment(action, payload);
+        if (value.workspace !== ui.workspace) return;
+        if (action === "save") { await loadWslProject(); }
+        const detected = value.detected;
+        wslProjectMessage(detected ? `${action === "save" ? "WSL activé pour ce projet" : "Vérification réussie"} · ${detected.distribution}\nDossier Linux : ${detected.linuxRoot}\nNode : ${detected.node || "non trouvé dans Linux"} · npm : ${detected.npm || "non trouvé dans Linux"} · Git : ${detected.git || "non trouvé dans Linux"}\n${action === "save" ? "Ouvre un nouveau terminal (+)." : "Aucun réglage modifié."}` : action === "save" ? "Environnement Windows rétabli. Ouvre un nouveau terminal (+)." : "Environnement Windows sélectionné. Aucun réglage modifié.");
+    } catch (error) { wslProjectMessage(error.message); }
+    finally { wslProjectSaving = false; if (wslProjectSnapshot?.available && wslProjectSnapshot.workspace === ui.workspace) setWslProjectDisabled(false); }
+}
+wslProjectMode.onchange = () => { wslProjectMessage(""); $("wsl-project-save").disabled = false; $("wsl-project-check").disabled = false; populateWslProjectDistributions(); };
+$("wsl-project-save").onclick = () => applyWslProject("save");
+$("wsl-project-check").onclick = () => applyWslProject("check");
+$("wsl-project-refresh").onclick = loadWslProject;
+updateWslProject(ui.status);
+/* Local file selection is performed by the native dialog, never by agent paths. */
+for (const [kind, label] of [["file", "Importer un fichier"], ["directory", "Importer un dossier"]]) {
+    const button = document.createElement("button"); button.type = "button";
+    button.id = `btn-skill-import-${kind}`; button.textContent = label;
+    button.title = kind === "file" ? "Importer un SKILL.md ou une archive ZIP téléchargée" : "Importer un dossier de skill avec ses scripts et références";
+    $("btn-skill-new").before(button);
+    button.onclick = async () => {
+        button.disabled = true;
+        try { const preview = await api.localSkillImport(kind); if (preview) openSkillEditor({ kind: "local", item: preview }); }
+        catch (error) { $("center-message").textContent = error.message; }
+        finally { button.disabled = false; }
+    };
 }
 /* ---------- Démarrage ---------- */
 

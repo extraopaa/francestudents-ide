@@ -35,3 +35,7 @@ Dans **Extensions → Serveurs MCP**, renseigne la commande, les arguments et le
 Vérifie la provenance du serveur avant de l’activer. **Retirer la connexion** supprime sa configuration de l’IDE avec sauvegarde ; cela ne désinstalle pas le programme de l’ordinateur. Les variables sont stockées localement : n’y mets que les accès nécessaires.
 
 Les serveurs et leurs dépendances doivent être compatibles avec ton système. Un outil conçu uniquement pour Windows n’acquiert pas une version Mac parce qu’il est ajouté à l’IDE.
+
+## Skills téléchargés sur ton ordinateur
+
+Dans **Mes skills**, utilise **Importer un fichier** (`SKILL.md` ou ZIP) ou **Importer un dossier**. L’aperçu montre les instructions et ressources incluses ; choisis le nom et la destination puis importe. Le skill reste désactivé jusqu’à ton activation dans Mes skills. Les scripts et références sont copiés pour un dossier/bundle mais ne sont jamais exécutés pendant l’import. Un fichier Markdown seul importe ses instructions uniquement. [Formats et limites](guide-utilisation.md#importer-un-skill-téléchargé).

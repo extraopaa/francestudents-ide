@@ -4,6 +4,10 @@ function applyStatus(s) {
     if (!s || typeof s !== "object") return;
     const wasBusy = Boolean(ui.status.busy);
     ui.status = s;
+    if (typeof updateComposerContext === "function") updateComposerContext(s);
+    if (typeof updateChatAccess === "function") updateChatAccess(s);
+    if (typeof updateChatReasoning === "function") updateChatReasoning(s);
+    if (typeof updateWslProject === "function") updateWslProject(s);
     const ecoButton = $("eco-mode-toggle");
     if (ecoButton) {
         ecoButton.disabled = Boolean(s.busy);
@@ -135,7 +139,7 @@ function confirmHistoryDeletion(item) {
             }
             dialog.close();
         };
-        dialog.addEventListener("close", () => { dialog.remove(); resolve(confirmed); }, { once: true });
+        dialog.addEventListener("close", () => { dialog.remove(); hideModelMenu(); resolve(confirmed); }, { once: true });
         studioSurfaceHeader(dialog,{title:"Supprimer cette conversation ?",subtitle:"Les fichiers de ton projet sont conservés.",icon:"auth"});
         dialog.querySelector(".studio-actions").classList.add("fs-dialog-footer");
         document.body.appendChild(dialog);

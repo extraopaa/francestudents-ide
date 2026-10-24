@@ -33,6 +33,7 @@ function createDesktopBackend(send) {
 
     const resolvers = new Map();
     const promptKinds = new Map();
+    const questionSpecs = new Map();
     const interrupts = [];
     let nextPromptId = 1;
     let nextSpinnerId = 1;
@@ -54,6 +55,13 @@ function createDesktopBackend(send) {
         return new Promise((resolve) => {
             resolvers.set(id, resolve);
             promptKinds.set(id, kind);
+            if (kind === "question") {
+                questionSpecs.set(id, { question: clean(question), ...extra });
+                let detach = () => {};
+                resolvers.set(id, value => { detach(); resolve(value); });
+                detach = require("../src/tools/action-control").onCancel(() => backend.resolvePrompt(id, null));
+                if (!resolvers.has(id)) { detach(); return; }
+            }
             send("prompt", { id, kind, question: clean(question), ...extra });
         });
     }
@@ -223,6 +231,12 @@ function createDesktopBackend(send) {
             return openPrompt("ask", question);
         },
 
+        askQuestion(payload) {
+            const question = require("../src/user-questions").normalizeQuestion(payload);
+            backend.assistant(question.question + (question.options.length ? "\n\n" + question.options.map(option => `- ${option.label}${option.description ? " : " + option.description : ""}`).join("\n") : ""));
+            return openPrompt("question", question.question, { options: question.options, multiple: question.multiple, placeholder: question.placeholder });
+        },
+
         askSecret(question) {
             return openPrompt("secret", question, { secret: true });
         },
@@ -310,6 +324,7 @@ function createDesktopBackend(send) {
                 ecoMode: Boolean(state.ecoMode),
                 model: agentName(),
                 modelId: state.model,
+                chatContextKey: `${Boolean(state.motionDesign)}:${state.mode === "chat" ? "chat" : "agent"}:${state.chatIds[state.mode === "chat" ? "chat" : "agent"] || ""}:${state.model}`,
                 workspace: state.workspace,
                 fullAccess: Boolean(state.fullAccess),
                 autoApprove: Boolean(state.autoApprove),
@@ -323,6 +338,11 @@ function createDesktopBackend(send) {
         resolvePrompt(id, value) {
             const resolve = resolvers.get(id);
             if (!resolve) return false;
+            if (promptKinds.get(id) === "question") {
+                value = require("../src/user-questions").normalizeAnswer(questionSpecs.get(id), value);
+                emit(value.interrupted ? { type: "info", text: "Question interrompue." } : { type: "user", text: value.skipped ? "Question passée." : value.answer });
+                questionSpecs.delete(id);
+            }
             resolvers.delete(id);
             promptKinds.delete(id);
             send("promptResolved", { id });

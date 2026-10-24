@@ -4,7 +4,15 @@
 
 Commence par noter la version de l’application, ton système et les étapes qui reproduisent le souci. Ne partage jamais de mot de passe, token ou conversation privée dans une issue publique.
 
-## Connexion
+## Arrêt inattendu ou crash
+
+Au redémarrage, le message de diagnostic indique ce que l’application a pu détecter et un code `FST-…`. Clique sur **Copier le diagnostic**, puis transmets ce texte avec l’action effectuée juste avant l’arrêt. **J’ai compris** acquitte le message.
+
+Le code **FST-001** signifie que la cause reste inconnue : il peut aussi suivre une fermeture forcée ou une coupure de courant. Les autres codes décrivent une catégorie observée, sans garantir que la cause profonde est connue. [Répertoire des codes](error-codes.md).
+
+Le diagnostic reste local et aucun envoi automatique n’est effectué. Le texte des conversations, fichiers et secrets n’est pas collecté par ce journal.
+
+## Connexion au compte
 
 Vérifie Internet et les identifiants du compte FranceStudent. Saisis à nouveau le mot de passe, vidé après une tentative. Le formulaire ne gère pas les étapes supplémentaires de captcha ou de double authentification.
 

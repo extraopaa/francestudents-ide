@@ -7,6 +7,13 @@ function scrollDown() {
 
 const QUIET_TOOLS = new Set(["read_file", "search_files", "list_directory"]);
 let toolGroup = null;
+let livePaintTimer = null;
+
+function renderAssistantText(text) {
+    const value = String(text ?? "");
+    // Large replies remain complete, but avoid expensive Markdown highlighting.
+    return value.length > 64000 ? `<div class="fs-long-message">${escapeHtml(value)}</div>` : renderMarkdown(value);
+}
 
 function toolRowHtml(e) {
     return `<span class="tdot"></span><span class="name">${escapeHtml(toolLabel(e.name))}</span><span class="arg" title="${escapeHtml(e.arg || "")}">${escapeHtml(e.arg || "")}</span>`;
@@ -66,7 +73,7 @@ function renderEntry(e) {
             return addEntry("user", `<div class="message-content">${escapeHtml(e.text)}</div>`);
         case "assistant": {
             $("agent-starter").classList.add("hidden");
-            const message = addEntry("assistant", `<div class="message-content">${renderMarkdown(e.text)}</div>`);
+            const message = addEntry("assistant", `<div class="message-content">${renderAssistantText(e.text)}</div>`);
             const actions = document.createElement("div");
             actions.className = "message-actions";
             const copy = document.createElement("button");
@@ -131,19 +138,28 @@ function renderEntry(e) {
 }
 
 function liveStart() {
+    liveEnd();
     ui.liveText = "";
     ui.live = addEntry("assistant", "");
+}
+
+function paintLiveMessage() {
+    livePaintTimer = null;
+    if (!ui.live?.isConnected) return;
+    ui.live.innerHTML = renderAssistantText(ui.liveText);
+    scrollDown();
 }
 
 function liveAppend(text) {
     if (!ui.live) liveStart();
     ui.liveText += text;
-    ui.live.innerHTML = renderMarkdown(ui.liveText);
-    scrollDown();
+    if (livePaintTimer === null) livePaintTimer = setTimeout(paintLiveMessage, 80);
 }
 
 function liveEnd() {
-    if (ui.live && ui.liveText) attachServerControls(ui.live, ui.liveText);
+    if (livePaintTimer !== null) clearTimeout(livePaintTimer);
+    paintLiveMessage();
+    if (ui.live?.isConnected && ui.liveText) attachServerControls(ui.live, ui.liveText);
     ui.live = null;
     ui.liveText = "";
 }

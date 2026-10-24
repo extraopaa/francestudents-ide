@@ -34,6 +34,7 @@ const stripAnsi = text => String(text ?? "").replace(/\u001b\[[0-9;]*[A-Za-z]/g,
 
 function relative(workspace, file) {
     if (!file) return "";
+    file = require("../execution-environment").hostPath(file, workspace);
     const abs = path.resolve(workspace, file);
     const rel = path.relative(workspace, abs);
     return (rel && !rel.startsWith("..") ? rel : abs).split(path.sep).join("/");
@@ -112,6 +113,10 @@ function parseTscOutput(output, workspace = process.cwd()) {
 }
 
 function localBin(workspace, name, platform = process.platform) {
+    if (require("../execution-environment").projectEnvironment(workspace).mode === "wsl") {
+        const candidate = path.join(workspace, "node_modules", ".bin", name);
+        try { fs.lstatSync(candidate); return candidate; } catch { return null; }
+    }
     const file = path.join(workspace, "node_modules", ".bin", platform === "win32" ? `${name}.cmd` : name);
     return fs.existsSync(file) ? file : null;
 }
@@ -139,6 +144,10 @@ function resolveFiles(workspace, files = []) {
 }
 
 function runBinary(bin, args, { cwd, timeoutMs }) {
+    if (require("../execution-environment").projectEnvironment(cwd).mode === "wsl") {
+        return require("./command/runner").runProcess({ file: bin, args, cwd, timeoutMs, captureStdout: true }).then(result =>
+            ({ code: result.exit_code ?? 1, stdout: result.stdout, stderr: result.output, timedOut: result.timed_out }));
+    }
     return new Promise(resolve => {
         execFile(bin, args, {
             cwd,

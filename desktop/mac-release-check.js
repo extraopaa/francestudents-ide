@@ -9,6 +9,7 @@ function compare(a,b){for(let i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]>b[i
 async function checkMacRelease(version,arch=process.arch,fetchImpl=fetch){
     const current=parseVersion(version);
     if(!current||!["arm64","x64"].includes(arch))throw new Error("Version ou architecture Mac non prise en charge.");
+    if(arch==="x64")return {status:"unsupported",availableVersion:null,downloadUrl:null,canInstall:false,manualPlatform:"darwin",message:"Le support des versions Mac Intel s’arrête à la version 1.3.5. Les prochaines mises à jour Mac sont réservées à Apple Silicon (M1 et suivants). Aucun installateur incompatible ne sera proposé."};
     const response=await fetchImpl(releasesUrl,{headers:{Accept:"application/vnd.github+json"},signal:AbortSignal.timeout(8000)});
     if(!response.ok)throw new Error("Source de mises à jour indisponible.");
     const releases=await response.json();
@@ -26,6 +27,6 @@ async function checkMacRelease(version,arch=process.arch,fetchImpl=fetch){
     }
     candidates.sort((a,b)=>compare(b.parsed,a.parsed));
     const next=candidates[0];
-    return {status:next?"available":"current",availableVersion:next?.version||null,downloadUrl:next?.url||null,canInstall:false,manualPlatform:"darwin",message:next?`La version ${next.version} est disponible pour Mac ${arch==="arm64"?"Apple Silicon":"Intel"}. Télécharge l’installateur, puis installe-le manuellement.`:"Aucune version Mac compatible plus récente disponible."};
+    return {status:next?"available":"current",availableVersion:next?.version||null,downloadUrl:next?.url||null,canInstall:false,manualPlatform:"darwin",message:next?`La version ${next.version} est disponible pour Mac Apple Silicon. Télécharge l’installateur, puis installe-le manuellement.`:"Aucune version Mac compatible plus récente disponible."};
 }
 module.exports={checkMacRelease};

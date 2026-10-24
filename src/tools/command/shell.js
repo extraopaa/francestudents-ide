@@ -8,6 +8,9 @@ const fs = require("node:fs");
 function shellSegment(command) {
     if (typeof command !== "string" || !command.trim()) throw new Error("Commande vide.");
     if (command.includes("\0") || command.length > 128000) throw new Error("Commande invalide ou trop longue.");
+    if (require("../../execution-environment").projectEnvironment(require("../../state").state.workspace).mode === "wsl") {
+        return { file: "/bin/bash", args: ["-lc", command], display: command, op: null };
+    }
     if (process.platform === "win32") {
         const file = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
         const script = "$ErrorActionPreference = 'Stop'\n" +
@@ -20,6 +23,8 @@ function shellSegment(command) {
 }
 
 function shellCwd(requested, workspace) {
+    requested = require("../../execution-environment").hostPath(requested, workspace);
+    if (typeof requested === "string" && requested.startsWith("/") && require("../../execution-environment").projectEnvironment(workspace).mode === "wsl") throw new Error("cwd Linux hors du projet : utilise un cwd relatif au projet, puis un cd explicite dans le script si nécessaire.");
     const cwd = path.resolve(workspace, typeof requested === "string" && requested.trim() ? requested : ".");
     if (!fs.statSync(cwd).isDirectory()) throw new Error(`Pas un dossier : ${cwd}`);
     return cwd;

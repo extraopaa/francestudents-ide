@@ -13,9 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15-intel
-            arch: x64
-            app: release/mac/FranceStudent IDE.app
           - runner: macos-15
             arch: arm64
             app: release/mac-arm64/FranceStudent IDE.app
@@ -37,7 +34,7 @@ jobs:
       - uses: ./.github/actions/build-effectcraft
       - name: Build native installers
         id: package
-        run: npm run dist:mac -- --${{ matrix.arch }}
+        run: npm run dist:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Test packaged application and EffectCraft
@@ -45,7 +42,6 @@ jobs:
         env:
           FRST_PACKAGED_EXE: ${{ github.workspace }}/${{ matrix.app }}/Contents/MacOS/FranceStudent IDE
           FRST_QA_SCREENSHOT: ${{ github.workspace }}/release/qa-mac-${{ matrix.arch }}
-          FRST_E2E_SOFTWARE_WEBGL: ${{ matrix.arch == 'x64' && '1' || '0' }}
       - name: Verify application signature and DMG contents
         if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         shell: bash

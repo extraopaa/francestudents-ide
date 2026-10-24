@@ -6,7 +6,7 @@
 
 **Du code aux animations, crée tes projets avec un assistant IA en français.**
 
-[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) · [Les guides illustrés](docs/README.md)
+[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Les guides illustrés](docs/README.md)
 
 Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 
@@ -15,6 +15,8 @@ Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 > [!IMPORTANT]
 > **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
+
+**Nouveautés 1.4 :** contrôles du chat intégrés (modèle, accès, réflexion GPT et contexte), dictée vocale en bêta, questions interactives de l’agent, environnement WSL par projet et import de skills téléchargés. [Comment les utiliser](docs/guide-utilisation.md).
 
 ## Le mode Code
 
@@ -36,7 +38,8 @@ Les conversations Code et Motion sont séparées : l’assistant motion travaill
 | --- | --- |
 | **Windows 64 bits** | [Dernière version stable](https://github.com/extraopaa/francestudents-ide/releases/latest) → `setup.exe` |
 | **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) → `mac-arm64.dmg` |
-| **Mac Intel** — macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) → `mac-x64.dmg` |
+
+À partir de la prochaine mise à jour, les versions Mac sont réservées à **Apple Silicon (M1 et suivants)**. La [1.3.5](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) reste la dernière version archivée pour Mac Intel, sans nouvelles mises à jour.
 
 1. Sur Windows, ouvre l’installateur. Sur Mac, ouvre le DMG et déplace l’application dans **Applications**.
 2. Lance FranceStudent IDE et suis le guide de connexion à ton **compte FranceStudent**.

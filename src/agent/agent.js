@@ -69,6 +69,13 @@ async function detectPackageInfo(workspace) {
 
 /** Indices concrets sur le terminal, comme le bloc <env> de Claude Code. */
 async function detectEnvironment(workspace) {
+    const runtime = require("../execution-environment"), execution = runtime.projectEnvironment(workspace);
+    if (execution.mode === "wsl") {
+        const detected = await runtime.probe(workspace, execution.distribution);
+        const { runProcess } = require("../tools/command/runner");
+        const branch = await runProcess({ file: "git", args: ["branch", "--show-current"], cwd: workspace, timeoutMs: 5000, captureStdout: true });
+        return { ...await detectPackageInfo(workspace), ...detected, execution: "wsl", git: Boolean(detected.git), branch: branch.exit_code === 0 ? branch.stdout.trim() : null };
+    }
     const inside = await git(["rev-parse", "--is-inside-work-tree"], workspace);
     const branch = inside === "true" ? await git(["branch", "--show-current"], workspace) : null;
 
@@ -107,7 +114,7 @@ async function agentContextStamp(workspace) {
 
 async function loadAgentContext(workspace, now = Date.now()) {
     const key = workspace || "";
-    const stamp = await agentContextStamp(workspace);
+    const stamp = await agentContextStamp(workspace) + JSON.stringify(require("../execution-environment").projectEnvironment(workspace));
     const cached = agentContextCache.get(key);
 
     if (cached && cached.stamp === stamp && now - cached.at < AGENT_CONTEXT_TTL_MS) {
@@ -207,7 +214,7 @@ function extractJsonObject(text) {
                 parsed &&
                 typeof parsed === "object" &&
                 !Array.isArray(parsed) &&
-                (parsed.type === "tool" || parsed.type === "final")
+                (parsed.type === "tool" || parsed.type === "final" || parsed.type === "question")
             ) {
                 return parsed;
             }
@@ -220,10 +227,13 @@ function extractJsonObject(text) {
 }
 
 function parseAgentResponse(text) {
-    const action = extractJsonObject(text);
+    let action = extractJsonObject(text);
 
     if (!action) {
         throw new Error('Aucun objet JSON {"type":"tool"|"final"} trouvé.');
+    }
+    if (action.type === "question") {
+        action = { type: "tool", name: "ask_user", reason: "Demander une précision à l’utilisateur", plan: action.plan, plan_progress: action.plan_progress, args: { question: action.question, options: action.options, multiple: action.multiple, placeholder: action.placeholder } };
     }
 
     if (action.plan_progress !== undefined) validateProgress(action.plan_progress);
@@ -836,7 +846,7 @@ async function runAgent(task, options = {}) {
         }
 
         // Mode plan (/plan) : lecture seule, toute autre action est refusée sans être exécutée.
-        if (options.readOnly && !["list_directory", "read_file", "search_files", "task", "semantic_search", "web_search", "web_search_result", "web_fetch", "update_plan"].includes(action.name)) {
+        if (options.readOnly && !["list_directory", "read_file", "search_files", "task", "semantic_search", "web_search", "web_search_result", "web_fetch", "update_plan", "ask_user"].includes(action.name)) {
             ui.result(`Mode plan : ${action.name} refusé (lecture seule)`, { tone: "error" });
             observations.push({
                 tool: action.name,
@@ -849,7 +859,7 @@ async function runAgent(task, options = {}) {
 
         ui.tool(action.name, describeCall(action));
 
-        const recorded = recordArgs(action.args);
+        const recorded = action.name === "ask_user" ? { question: action.args.question } : recordArgs(action.args);
 
         try {
             // Hooks preToolUse : un code de sortie non nul bloque l'outil.

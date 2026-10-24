@@ -11,8 +11,15 @@ test("Mac selects the newest compatible installer, including numeric beta orderi
     const fetchImpl=async()=>Response.json(data);
     const result=await checkMacRelease("1.3.3-mac.1","arm64",fetchImpl);
     assert.equal(result.availableVersion,"1.3.3-mac.10");assert.match(result.downloadUrl,/mac-arm64\.dmg$/);assert.equal(result.canInstall,false);
-    assert.equal((await checkMacRelease("1.3.3-mac.1","x64",fetchImpl)).availableVersion,"9.0.0");
-    assert.equal((await checkMacRelease("9.0.0","x64",fetchImpl)).status,"current");
+    assert.equal((await checkMacRelease("1.3.3-mac.1","x64",fetchImpl)).status,"unsupported");
+    assert.equal((await checkMacRelease("9.0.0","x64",fetchImpl)).downloadUrl,null);
+});
+
+test("retired Intel builds make no network request and never offer an Apple Silicon installer",async()=>{
+    let calls=0;
+    const result=await checkMacRelease("1.3.5","x64",async()=>{calls++;return Response.json([release("2.0.0")]);});
+    assert.equal(calls,0);assert.equal(result.status,"unsupported");assert.equal(result.canInstall,false);
+    assert.equal(result.downloadUrl,null);assert.equal(result.availableVersion,null);assert.match(result.message,/1\.3\.5/);
 });
 test("Mac rejects foreign downloads and missing assets and never downgrades stable builds",async()=>{
     const foreign=release("2.0.0");foreign.assets[0].browser_download_url="https://example.com/malicious.dmg";

@@ -65,6 +65,7 @@ const MODULES = [
     require("./web-research"),
     require("./view-image"),
     require("./update-plan"),
+    require("./ask-user"),
     require("../agent/subagent"),
     require("./browse"),
     require("./diagnostics"),

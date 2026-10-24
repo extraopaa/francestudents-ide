@@ -119,7 +119,7 @@ async function runProcess({
     if (typeof file !== "string" || !file) throw new Error("file doit être une chaîne non vide.");
 
     const env = filterEnv();
-    const target = resolveProgram(file, args, cwd, env);
+    const target = require("../../execution-environment").targetForProject(file, args, cwd) || resolveProgram(file, args, cwd, env);
     const limit = clampTimeout(timeoutMs);
     const collector = createCollector(onLine);
     const started = Date.now();
@@ -157,7 +157,7 @@ async function runProcess({
 
         function stop() {
             if (settled) return;
-            killTree(child);
+            if (target.stop) target.stop(child); else killTree(child);
             // Un petit-enfant peut garder les tubes ouverts : on n'attend pas indéfiniment.
             clearTimeout(forceTimer);
             forceTimer = setTimeout(() => finish(null, "SIGKILL"), FORCE_FINISH_MS);
@@ -165,7 +165,7 @@ async function runProcess({
 
         try {
             child = spawn(target.file, target.args, {
-                cwd,
+                cwd: target.cwd || cwd,
                 env,
                 shell: false,
                 stdio: [typeof input === "string" ? "pipe" : "ignore", "pipe", "pipe"],
@@ -196,13 +196,18 @@ async function runProcess({
             else collector.push(text);
         });
         child.stderr?.on("data", text => {
+            if (target.filterStderr) text = target.filterStderr(text);
             if (discardStderr) return;
             if (stderrToStdout && captureStdout && !discardStdout) capture(text);
             else collector.push(text);
         });
 
         child.on("error", error => finish(null, null, launchError(file, error)));
-        child.on("close", (code, signal) => finish(code, signal));
+        child.on("close", (code, signal) => {
+            const tail = target.filterStderr?.("", true);
+            if (tail && !discardStderr) { if (stderrToStdout && captureStdout && !discardStdout) capture(tail); else collector.push(tail); }
+            finish(code, signal);
+        });
 
         timer = setTimeout(() => {
             timedOut = true;

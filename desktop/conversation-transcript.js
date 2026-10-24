@@ -44,7 +44,7 @@ function visibleUserText(text){
         return index<0?null:visibleUserText(source.slice(index+marker.length));
     }
     if(source.startsWith("SUITE DE LA TÂCHE EN COURS (mêmes instructions, outils et format qu'au premier message de cette demande).")){
-        const match=source.match(/\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR[^\n]*\n([\s\S]*?)(?=\n\n(?:CORRECTION\n|TOUR \d+)|$)/);
+        const match=source.match(/\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR[^\n]*\n([\s\S]*?)(?=\n\n(?:RAPPELS INTERNES\n|CORRECTION\n|TOUR \d+)|$)/);
         return match?match[1].trim():null;
     }
     if(isAgentEnvelope(source)){
