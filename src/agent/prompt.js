@@ -1,6 +1,7 @@
 "use strict";
 
 const { CONFIG } = require("../config");
+const { progressPrompt, periodicProgressPrompt } = require("./plan-progress");
 const MOTION_TOOL_CATALOG=`OUTILS MOTION DESIGN — EffectCraft est le seul projet actif. Le projet code, son terminal et ses extensions ne font pas partie de cet espace.
 effectcraft : contrôler le moteur avec {"method":"engine.execute","params":{"command":"project.summary","params":{}}}. Méthodes : host.info, host.save {path:"FranceStudent.ecproj"}, engine.commands {filter?}, engine.execute {command,params?}, ui.inspect, ui.elements, ui.set, ui.playback, ui.menu.list, ui.menu.invoke, ui.click, ui.key, ui.type, render.frame {base64:true,max_side:1200}. Découvre les paramètres avec engine.execute command.describe.
 view_image {path} : examiner un rendu PNG créé par EffectCraft, avec le chemin renvoyé par son outil. Les chemins sont relatifs au dossier de rendus motion, indépendant de l’espace code.
@@ -255,6 +256,7 @@ Forme finale : {"type":"final","message":"<réponse en français>","completed":t
 - Un seul outil par réponse. "reason" est obligatoire pour un outil.
 - Exception, lecture en lot : jusqu'à 5 appels list_directory, read_file ou search_files dans un seul objet, avec "calls" à la place de "name" et "args" : {"type":"tool","calls":[{"name":"read_file","args":{"path":"src/a.js"}},{"name":"search_files","args":{"query":"login","path":"src"}}],"reason":"<une phrase>"}. Jamais d'outil d'écriture ni de run_command dans "calls".
 - "plan" (3 à 6 étapes courtes) seulement au premier tour, sur un outil.
+- Dès qu’un plan existe, ajoute "plan_progress" à chaque réponse outil, lot ou finale : les statuts de toutes les étapes dans leur ordre (exemple : ["completed","in_progress","pending"]). Actualise-les d’après les résultats vérifiés, sans appel séparé. Exception : update_plan transmet déjà ses statuts ; utilise-le pour changer les étapes du plan, sans ajouter plan_progress.
 - Dans les chaînes JSON, échappe les guillemets (\\") et les retours à la ligne (\\n).
 - Dans write_file et edit_file, mets le code exact, sans commentaire ajouté sauf demande.`;
 
@@ -281,20 +283,20 @@ const EXAMPLE = `EXEMPLE DE SESSION (illustration du protocole, pas une tâche r
 Demande : rends le port configurable dans server.js
 Toi : {"type":"tool","name":"read_file","args":{"path":"server.js"},"reason":"Lire server.js avant de le modifier","plan":["Lire server.js","Remplacer le port fixe","Vérifier"]}
 Résultat : {"tool":"read_file","ok":true,"result":{"path":"server.js","content":"const app = require('./app');\\napp.listen(3000);\\n"}}
-Toi : {"type":"tool","name":"edit_file","args":{"path":"server.js","old_string":"app.listen(3000);","new_string":"app.listen(process.env.PORT || 3000);"},"reason":"Lire le port depuis la variable PORT"}
+Toi : {"type":"tool","name":"edit_file","args":{"path":"server.js","old_string":"app.listen(3000);","new_string":"app.listen(process.env.PORT || 3000);"},"reason":"Lire le port depuis la variable PORT","plan_progress":["completed","in_progress","pending"]}
 Résultat : {"tool":"edit_file","ok":true,"result":{"changed":true,"replacements":1}}
-Toi : {"type":"final","message":"server.js : le port vient maintenant de PORT (3000 par défaut). Non testé."}
+Toi : {"type":"final","message":"server.js : le port vient maintenant de PORT (3000 par défaut). Non testé.","completed":false,"plan_progress":["completed","completed","pending"]}
 
 Demande : le test de sum échoue, corrige-le
 Toi : {"type":"tool","name":"run_command","args":{"command":"npm test"},"reason":"Lancer les tests pour voir lequel échoue","plan":["Lancer les tests","Lire le code fautif","Corriger","Relancer les tests"]}
 Résultat : {"tool":"run_command","ok":true,"result":{"command":"npm test","exit_code":1,"timed_out":false,"truncated":false,"output":"not ok 1 - sum additionne deux nombres\\n  expected: 5\\n  actual: -1\\n  at test/sum.test.js:6","message":"Terminé (code 1) en 0,4 s."}}
-Toi : {"type":"tool","name":"read_file","args":{"path":"src/sum.js"},"reason":"Lire src/sum.js, testé par test/sum.test.js qui échoue"}
+Toi : {"type":"tool","name":"read_file","args":{"path":"src/sum.js"},"reason":"Lire src/sum.js, testé par test/sum.test.js qui échoue","plan_progress":["completed","in_progress","pending","pending"]}
 Résultat : {"tool":"read_file","ok":true,"result":{"path":"src/sum.js","content":"function sum(a, b) {\\nreturn a - b;\\n}\\nmodule.exports = { sum };\\n"}}
-Toi : {"type":"tool","name":"edit_file","args":{"path":"src/sum.js","old_string":"return a - b;","new_string":"return a + b;"},"reason":"sum soustrait au lieu d'additionner"}
+Toi : {"type":"tool","name":"edit_file","args":{"path":"src/sum.js","old_string":"return a - b;","new_string":"return a + b;"},"reason":"sum soustrait au lieu d'additionner","plan_progress":["completed","completed","in_progress","pending"]}
 Résultat : {"tool":"edit_file","ok":true,"result":{"changed":true,"replacements":1}}
-Toi : {"type":"tool","name":"run_command","args":{"command":"npm test"},"reason":"Vérifier que la correction fait passer le test"}
+Toi : {"type":"tool","name":"run_command","args":{"command":"npm test"},"reason":"Vérifier que la correction fait passer le test","plan_progress":["completed","completed","completed","in_progress"]}
 Résultat : {"tool":"run_command","ok":true,"result":{"command":"npm test","exit_code":0,"timed_out":false,"truncated":false,"output":"ok 1 - sum additionne deux nombres","message":"Terminé (code 0) en 0,4 s."}}
-Toi : {"type":"final","message":"src/sum.js : sum additionne au lieu de soustraire. npm test : exit_code 0."}`;
+Toi : {"type":"final","message":"src/sum.js : sum additionne au lieu de soustraire. npm test : exit_code 0.","plan_progress":["completed","completed","completed","completed"]}`;
 
 function truncate(text, max) {
     const value = String(text);
@@ -303,11 +305,17 @@ function truncate(text, max) {
 }
 
 function clipContent(result, max) {
-    if (result && typeof result.content === "string" && result.content.length > max) {
-        return { ...result, content: result.content.slice(0, max), truncated_in_prompt: true };
+    if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+    const copy = { ...result };
+    for (const key of ["content", "output", "stdout", "stderr", "excerpt"]) {
+        const value = copy[key];
+        const budget = key === "content" ? max : Math.min(max, require("../state").state.ecoMode ? 3000 : 6000);
+        if (typeof value !== "string" || value.length <= budget) continue;
+        copy[key] = key === "content" ? value.slice(0, budget)
+            : value.slice(0, Math.floor(budget / 2)) + `\n[… ${value.length - budget} caractères omis ; relancer une commande ciblée si nécessaire …]\n` + value.slice(-Math.ceil(budget / 2));
+        copy.truncated_in_prompt = true;
     }
-
-    return result;
+    return copy;
 }
 
 function formatObservation(observation, maxChars) {
@@ -384,7 +392,9 @@ function buildAgentPrompt({
     correction,
     skillsCatalog = "",
     activeFile = null,
-    editorFiles = []
+    editorFiles = [],
+    plan = [],
+    requestNumber = turn
 }) {
     const intent = detectIntent(task);
     const motion = Boolean(require("../state").state.motionDesign);
@@ -464,6 +474,11 @@ function buildAgentPrompt({
         'RAPPEL : respecte le protocole des outils. Réponds avec UN seul objet JSON {"type":"tool"|"final",...}, et rien d\'autre.'
     );
 
+    sections.push(progressPrompt(plan));
+    if (periodicProgressPrompt(plan, requestNumber)) sections.push(periodicProgressPrompt(plan, requestNumber));
+    sections.push(motion
+        ? "ÉCONOMIE DE QUOTA — Réutilise les informations déjà reçues sur la composition. Filtre engine.commands et utilise command.describe pour la commande utile, sans redemander tout le catalogue. Ne répète pas une inspection inchangée sans raison ; conserve la vérification du rendu après les modifications. Garde reason et le compte rendu concis. Actualise les cases avec plan_progress dans les réponses normales."
+        : "ÉCONOMIE DE QUOTA — Réutilise les résultats déjà obtenus ; ne relis pas un fichier inchangé sans raison. Regroupe jusqu’à cinq lectures indépendantes avec calls. Cherche puis lis les plages utiles plutôt que des fichiers entiers. Modifie un fichier existant avec edit_file quand c’est adapté, sans le réécrire intégralement. Évite les sous-agents pour une tâche que tu peux résoudre directement. Pour les commandes, demande une sortie ciblée et conserve les erreurs, le code de sortie et les vérifications utiles. Garde reason et le compte rendu concis. Actualise le plan avec plan_progress dans tes réponses normales, sans appel dédié aux cases.");
     sections.push(autonomyInstructions());
     sections.push('Dans ta réponse finale JSON, ajoute "conversation_title" : un titre français court de 3 à 8 mots résumant le sujet concret de cette conversation. Pas de préfixe, pas de guillemets décoratifs, pas de nom de modèle. Ce champ complète message et completed.');
     if (fullAccessInstructions()) sections.push(fullAccessInstructions());
@@ -488,10 +503,10 @@ function turnWarning(turn, maxTurns) {
  * serveur, le modèle a déjà reçu les instructions, le projet et la demande au
  * tour 1. On n'envoie que le dernier résultat d'outil.
  */
-function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, steering = [] }) {
+function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, steering = [], plan = [], requestNumber = turn }) {
     const sections = [
         "SUITE DE LA TÂCHE EN COURS (mêmes instructions, outils et format qu'au premier message de cette demande).",
-        ...(require("../state").state.motionDesign ? [MOTION_TOOL_CATALOG,MOTION_FORMAT] : []),
+        ...(require("../state").state.motionDesign ? ["AGENT MOTION DESIGN — EffectCraft uniquement, sans accès au projet code. Vérifie le schéma avec command.describe avant une commande inconnue ; conserve les calques existants et contrôle le rendu."] : []),
         "Les outils sont locaux : écris l’action JSON dans le texte de ta réponse, sans function_call natif. Les avertissements du backend ne remplacent pas les résultats des outils locaux."
     ];
 
@@ -501,6 +516,8 @@ function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, stee
         );
     }
     if (steering.length) sections.push(`CONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR — ajuste la tâche en cours en conséquence :\n${steering.join("\n\n")}`);
+    if (plan.length) sections.push(progressPrompt(plan, { compact: true }));
+    if (periodicProgressPrompt(plan, requestNumber)) sections.push(periodicProgressPrompt(plan, requestNumber));
 
     if (correction) {
         sections.push(
@@ -516,9 +533,8 @@ function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, stee
         'RAPPEL : respecte le protocole des outils. Réponds avec UN seul objet JSON {"type":"tool"|"final",...}, et rien d\'autre.'
     );
 
-    sections.push(autonomyInstructions());
-    sections.push('Dans ta réponse finale JSON, ajoute "conversation_title" : un titre français court de 3 à 8 mots résumant le sujet concret de cette conversation, sans préfixe ni nom de modèle. Ce champ complète message et completed.');
-    if (fullAccessInstructions()) sections.push(fullAccessInstructions());
+    sections.push('Continue jusqu’au résultat vérifié ; réutilise les résultats et regroupe les lectures indépendantes. Réponse finale : message, completed (false si bloqué/incomplet), conversation_title court en français.');
+    if (require("../state").state.fullAccess) sections.push("Full accès actif : conserve les permissions et les consignes de shell initiales, sans élévation automatique ; les actions restent visibles et interruptibles.");
     return sections.join("\n\n");
 }
 

@@ -10,10 +10,10 @@ Le projet original appartient à [EsteG7](https://github.com/EsteG7/francestuden
 
 ## État de référence, daté du 24 octobre 2026
 
-- Version de référence de ce contexte : **1.3.4**. Vérifier sur GitHub le statut de publication effectif et les éventuelles versions plus récentes ; la version du paquet ne suffit pas à le prouver.
+- Version de référence de ce contexte : **1.3.5**. Vérifier sur GitHub le statut de publication effectif et les éventuelles versions plus récentes ; la version du paquet ne suffit pas à le prouver.
 - Le tag v1.3.1 existe, mais aucune release v1.3.1 n’était publiée lors de la vérification. Ne pas déplacer ou réutiliser un tag public.
 - Nom d’application : **FranceStudent IDE** ; les anciens noms « FranceStudent Code » restent parfois nécessaires pour préserver les données ou désigner une version historique.
-- Validation locale : 689 tests unitaires, dont 686 réussis et 3 hooks Unix ignorés sous Windows ; 28 parcours Electron réussis. Consulter le [rapport de validation](validation-v1.3.4.md) pour les limites, puis relancer les contrôles adaptés aux nouveaux changements.
+- Validation de référence 1.3.4 : 689 tests unitaires, dont 686 réussis et 3 hooks Unix ignorés sous Windows ; 28 parcours Electron réussis. Pour les changements actuels, consulter le [rapport 1.3.5](validation-v1.3.5.md) et les résultats du workflow du commit concerné.
 - Les API distantes et mutations GitHub sont simulées dans les scénarios automatisés. Le vrai moteur EffectCraft, le terminal PTY et les serveurs locaux ont été exécutés. Roblox Studio réel et l’installation par-dessus l’application principale n’ont pas été validés.
 
 Cet état est un instantané. Vérifier le dépôt et les releases avant de s’appuyer sur ces numéros ; mettre cette section à jour après publication.
@@ -62,6 +62,12 @@ Le journal utilisateur visible ne se confond pas avec les prompts techniques ni 
 Les limites réelles observées par l’API peuvent être inférieures aux capacités annoncées d’un modèle. Toute erreur « maximum token limit » doit pouvoir déclencher une compaction et une reprise bornée, même sans valeur numérique. Ne pas créer de boucle infinie de relances.
 
 Les titres IA sont proposés dans la réponse finale habituelle de l’agent via `conversation_title`, sans requête séparée. Les titres manuels et ceux des anciennes conversations sont protégés.
+
+Le suivi du plan accepte `plan_progress`, tableau de statuts aligné sur les étapes actuelles, dans les réponses outil, lot et finale. Le prompt complet contient les libellés ; les suivis d’une conversation existante rappellent uniquement les statuts dans leur ordre. Après compaction, le prompt complet rétablit les outils, les permissions et le plan détaillé. Aucun appel supplémentaire n’est lancé uniquement pour cocher les cases. Ne jamais déduire une étape terminée du nombre d’outils ou de la simple arrivée d’une réponse finale. `update_plan` reste disponible pour modifier les étapes.
+
+Les suivis évitent de répéter les catalogues et les consignes déjà présentes dans la conversation serveur. Les logs longs sont raccourcis en conservant début, fin, code de sortie et indicateur de troncature ; les fichiers se lisent par plages si nécessaire. Le journal original reste intact. Une baisse des caractères envoyés ne garantit pas une baisse identique du quota facturé par le service.
+
+Toutes les cinq requêtes d’action de l’agent pendant une tâche, un bref point « Où en es-tu ? » demande d’actualiser le plan. Il est intégré au message existant, sans appel dédié, et figure aussi dans le prompt complet de reprise. Le compteur inclut les tentatives de correction du protocole ; il repart à zéro pour une nouvelle tâche. Sans plan, aucun point périodique n’est ajouté.
 
 ### Images et consommation
 

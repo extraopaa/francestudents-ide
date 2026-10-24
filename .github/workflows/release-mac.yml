@@ -36,6 +36,7 @@ jobs:
         run: npm run build:renderer && node --test e2e/startup-update-offer.e2e.test.js e2e/ipc-security.e2e.test.js e2e/credential-migration.e2e.test.js
       - uses: ./.github/actions/build-effectcraft
       - name: Build native installers
+        id: package
         run: npm run dist:mac -- --${{ matrix.arch }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -46,6 +47,7 @@ jobs:
           FRST_QA_SCREENSHOT: ${{ github.workspace }}/release/qa-mac-${{ matrix.arch }}
           FRST_E2E_SOFTWARE_WEBGL: ${{ matrix.arch == 'x64' && '1' || '0' }}
       - name: Verify application signature and DMG contents
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         shell: bash
         env:
           MAC_APP: ${{ matrix.app }}
@@ -61,6 +63,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$mountpoint/FranceStudent IDE.app"
           spctl --assess --type execute --verbose=4 "$mountpoint/FranceStudent IDE.app" > "release/gatekeeper-mac-$MAC_ARCH.txt" 2>&1 || true
       - name: Checksums
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         run: shasum -a 256 release/*.dmg release/*.zip > release/SHA256SUMS-mac-${{ matrix.arch }}.txt
       - uses: actions/upload-artifact@v4
         if: always()

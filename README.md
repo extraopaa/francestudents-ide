@@ -6,7 +6,7 @@
 
 **Du code aux animations, crée tes projets avec un assistant IA en français.**
 
-[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) · [Les guides illustrés](docs/README.md)
+[Télécharger pour Windows](https://github.com/extraopaa/francestudents-ide/releases/latest) · [Télécharger pour Mac — bêta](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) · [Les guides illustrés](docs/README.md)
 
 Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 
@@ -35,8 +35,8 @@ Les conversations Code et Motion sont séparées : l’assistant motion travaill
 | Ton ordinateur | Fichier à télécharger |
 | --- | --- |
 | **Windows 64 bits** | [Dernière version stable](https://github.com/extraopaa/francestudents-ide/releases/latest) → `setup.exe` |
-| **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) → `mac-arm64.dmg` |
-| **Mac Intel** — macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) → `mac-x64.dmg` |
+| **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) → `mac-arm64.dmg` |
+| **Mac Intel** — macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) → `mac-x64.dmg` |
 
 1. Sur Windows, ouvre l’installateur. Sur Mac, ouvre le DMG et déplace l’application dans **Applications**.
 2. Lance FranceStudent IDE et suis le guide de connexion à ton **compte FranceStudent**.

@@ -2,6 +2,13 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.3.5] — Quota et suivi du plan
+
+- Suivi du plan commun à tous les modèles en Code et Motion : état du plan rappelé à chaque tour et cases actualisées depuis les réponses normales de l’agent.
+- Suivi du plan intégré aux réponses normales : aucun appel supplémentaire uniquement pour les cases. Une erreur ou une interruption ne coche pas automatiquement les étapes restantes.
+- Toutes les cinq requêtes de l’agent, un bref « Où en es-tu ? » demande une actualisation du plan dans le message déjà envoyé, sans appel supplémentaire.
+- Consommation : messages de suivi allégés, catalogues et consignes initiales non répétés à chaque tour ; journaux longs raccourcis en conservant le début, la fin et les métadonnées d’erreur.
+
 ## [1.3.4] — Sécurité et migration des profils
 
 - Sécurité : Electron 45.0.0, retrait des dépendances vulnérables et audit complet bloquant dans les workflows.

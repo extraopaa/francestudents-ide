@@ -7,8 +7,8 @@
 | Ton ordinateur | Téléchargement |
 | --- | --- |
 | Windows 64 bits | [Release stable](https://github.com/extraopaa/francestudents-ide/releases/latest) : `setup.exe` |
-| Mac M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) : `mac-arm64.dmg` |
-| Mac Intel | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.4) : `mac-x64.dmg` |
+| Mac M1 et suivants | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) : `mac-arm64.dmg` |
+| Mac Intel | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) : `mac-x64.dmg` |
 
 Sur Mac, **À propos de ce Mac** indique le type de puce. Pour commencer, choisis le DMG ; le ZIP est une archive alternative.
 

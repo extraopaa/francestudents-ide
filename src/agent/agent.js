@@ -10,6 +10,8 @@ const conversations = require("../project/conversations");
 const projectContext = require("../project/project-context");
 const { loadInstructions, INSTRUCTIONS_FILES } = require("../project/instructions");
 const { buildAgentPrompt, buildFollowUpPrompt } = require("./prompt");
+const { validateProgress, applyProgress } = require("./plan-progress");
+const { updatePlan } = require("../tools/update-plan");
 const {
     TOOLS,
     validateToolCall,
@@ -224,6 +226,8 @@ function parseAgentResponse(text) {
         throw new Error('Aucun objet JSON {"type":"tool"|"final"} trouvé.');
     }
 
+    if (action.plan_progress !== undefined) validateProgress(action.plan_progress);
+
     if (action.type === "final") {
         if (typeof action.message !== "string") {
             throw new Error("message doit être une chaîne.");
@@ -256,7 +260,7 @@ function parseAgentResponse(text) {
 
     if (action.plan !== undefined) {
         action.plan = Array.isArray(action.plan)
-            ? action.plan.filter(item => typeof item === "string").slice(0, 8)
+            ? action.plan.filter(item => typeof item === "string" && item.trim() && item.trim().length <= 300).map(item => item.trim()).slice(0, 8)
             : undefined;
     }
 
@@ -538,7 +542,6 @@ async function runAgent(task, options = {}) {
         ui.warn(`Hooks indisponibles : ${error.message}`);
     }
 
-    let planShown = false;
     let stuck = 0;
 
     async function saveConversation() {
@@ -587,6 +590,7 @@ async function runAgent(task, options = {}) {
     // Mode normal sans plafond ; Éco borne le travail automatique à quatre tours.
     const maxTurns = state.ecoMode ? 4 : 0;
     let deferredSteering = [];
+    let requestNumber = 0;
 
     for (let turn = 1; ; turn++) {
         if (maxTurns && turn > maxTurns) {
@@ -612,6 +616,7 @@ async function runAgent(task, options = {}) {
 
         try {
             for (let attempt = 1; attempt <= (state.ecoMode ? 1 : CONFIG.maxProtocolAttempts); attempt++) {
+                requestNumber++;
                 // Message complet : instructions, projet, demande, résultats d'outils.
                 const fullPrompt = withProject => fitPrompt({
                     workspace: state.motionDesign ? null : state.workspace,
@@ -626,6 +631,8 @@ async function runAgent(task, options = {}) {
                     mcpCatalog,
                     skillsCatalog,
                     observations,
+                    plan: state.agentPlan,
+                    requestNumber,
                     turn,
                     maxTurns,
                     correction,
@@ -644,7 +651,9 @@ async function runAgent(task, options = {}) {
                         turn,
                         maxTurns,
                         correction,
-                        steering
+                        steering,
+                        plan: state.agentPlan,
+                        requestNumber
                     })
                     : fullPrompt(!hasConversation);
 
@@ -657,8 +666,12 @@ async function runAgent(task, options = {}) {
 
                 try {
                     action = parseAgentResponse(lastResponse);
+                    if (action.plan_progress !== undefined && action.name !== "update_plan") {
+                        validateProgress(action.plan_progress, state.agentPlan.length ? state.agentPlan : action.plan || []);
+                    }
                     break;
                 } catch (error) {
+                    action = null;
                     ui.debug(
                         `Réponse invalide (${attempt}/${CONFIG.maxProtocolAttempts}) : ` +
                         `${error.message}\n${lastResponse.slice(0, 400)}`
@@ -691,6 +704,10 @@ async function runAgent(task, options = {}) {
             return { completed: false, message: "La réponse de l’agent n’a pas suivi le protocole d’outils." };
         }
 
+        if (action.type === "tool" && action.plan?.length && !state.agentPlan.length) {
+            updatePlan({ steps: action.plan.map((step, index) => ({ step, status: index === 0 ? "in_progress" : "pending" })) });
+        }
+
         if (action.type === "final") {
             if (!recoveredUnsupportedTool && /Unsupported tool ignored by the backend/i.test(action.message) &&
                 !observations.some(o => ["write_file", "run_command"].includes(o.tool) && (!o.ok || o.result?.denied))) {
@@ -704,21 +721,18 @@ async function runAgent(task, options = {}) {
                 deferredSteering = lateSteering;
                 continue;
             }
+            if (action.plan_progress !== undefined) applyProgress(state.agentPlan, action.plan_progress);
             await finish(action.message, action.conversation_title);
             return { completed: action.completed !== false, message: action.message };
         }
+
+        if (action.plan_progress !== undefined && action.name !== "update_plan") applyProgress(state.agentPlan, action.plan_progress);
 
         if (state.ecoMode && action.name === "task") {
             const message = "Le mode Éco ne lance pas de sous-agents pour limiter les appels IA. Désactive-le pour poursuivre cette exploration.";
             await finish(message);
             return { completed: false, message };
         }
-        if (action.plan?.length && !planShown) {
-            state.agentPlan = action.plan.map(step => ({ step, status: "pending" }));
-            ui.plan(action.plan);
-            planShown = true;
-        }
-
         if (action.reason) ui.reason(action.reason);
 
         // Garde-fou : la même action, ou le même lot de lectures, répétée en boucle n'est plus exécutée.

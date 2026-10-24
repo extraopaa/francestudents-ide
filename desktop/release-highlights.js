@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.3.5":{headline:"Moins de répétitions, un meilleur suivi.",items:[
+        {icon:"clock",title:"Des échanges plus légers",text:"Les messages de suivi évitent de répéter les catalogues et consignes. Les longs journaux gardent leurs erreurs utiles."},
+        {icon:"chat",title:"Ton plan reste à jour",text:"Les cases sont actualisées dans les réponses de l’agent. Toutes les cinq requêtes, un bref rappel demande où en est le travail."},
+        {icon:"tools",title:"Aucun appel dédié aux cases",text:"Le rappel accompagne le message existant. Le gain de quota réel dépend du modèle et de la facturation du service."}
+    ]},
     "1.3.4":{headline:"Tes connexions, mieux protegees.",items:[
         {icon:"tools",title:"Moteur mis a jour",text:"Electron 45 corrige des vulnerabilites connues. Sur Mac, macOS 13 minimum est requis."},
         {icon:"chat",title:"Connexions protegees",text:"Les anciennes sessions et connexions GitHub sont migrees vers le coffre systeme disponible."},
