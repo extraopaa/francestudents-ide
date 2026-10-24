@@ -2,6 +2,11 @@ name: Build and test macOS
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Source tag or commit to build (empty uses the selected branch)
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -20,6 +25,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,8 +36,21 @@ jobs:
       - run: npm run prepare:electron
       - run: npm audit --audit-level=low
       - run: npm test
+      - name: Prepare isolated test keychain
+        shell: bash
+        run: |
+          set -euo pipefail
+          qa_password=$(openssl rand -hex 32)
+          echo "::add-mask::$qa_password"
+          qa_keychain="$RUNNER_TEMP/frst-validation.keychain-db"
+          security create-keychain -p "$qa_password" "$qa_keychain"
+          security set-keychain-settings -lut 21600 "$qa_keychain"
+          security unlock-keychain -p "$qa_password" "$qa_keychain"
+          security list-keychains -d user -s "$qa_keychain" "$HOME/Library/Keychains/login.keychain-db"
+          security default-keychain -s "$qa_keychain"
       - name: Test update offers in the Mac interface
-        run: npm run build:renderer && node --test e2e/startup-update-offer.e2e.test.js e2e/ipc-security.e2e.test.js e2e/credential-migration.e2e.test.js
+        timeout-minutes: 8
+        run: npm run build:renderer && node --test --test-concurrency=1 e2e/startup-update-offer.e2e.test.js e2e/ipc-security.e2e.test.js e2e/credential-migration.e2e.test.js
       - uses: ./.github/actions/build-effectcraft
       - name: Build native installers
         id: package
