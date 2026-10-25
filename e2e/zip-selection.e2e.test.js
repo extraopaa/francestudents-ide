@@ -14,20 +14,7 @@ test("ZIP picker inventories locally, filters files and preserves only the expli
         if(await page.locator("#guide-close").isVisible())await page.locator("#guide-close").click();
         const bytes=Buffer.from(require("fflate").zipSync({"src/app.js":Buffer.from("useful code"),"private.txt":Buffer.from("private contents")}));
         const attachment={name:"project.zip",kind:"file",data:`data:application/zip;base64,${bytes.toString("base64")}`,size:bytes.length};
-        assert.equal((await page.evaluate(()=>window.frst.preferences())).localAttachmentsExperimental,false);
-        await page.evaluate(async item=>{
-            const bytes=Uint8Array.from(atob(item.data.split(",")[1]),char=>char.charCodeAt(0));
-            await addAttachments([new File([bytes],item.name,{type:"application/zip"})]);
-        },attachment);
-        assert.equal(await page.locator("#zip-selection-dialog").count(),0);
-        assert.equal(await page.evaluate(()=>pendingAttachments[0].selectedPaths),undefined);
-        await page.evaluate(()=>{pendingAttachments.splice(0);renderAttachments();});
-        await page.locator('[data-view="settings"]').click();
-        await page.locator('[data-category="agent"]').click();
-        await page.locator("#set-local-attachments-experimental").check();
-        await page.locator('#studio-confirm-dialog [data-confirm="accept"]').click();
-        await page.waitForFunction(async()=> (await window.frst.preferences()).localAttachmentsExperimental===true);
-        await page.locator("#settings-close").click();
+        assert.equal(await page.locator("#set-local-attachments-experimental").count(),0);
         await page.evaluate(item=>{
             const bytes=Uint8Array.from(atob(item.data.split(",")[1]),char=>char.charCodeAt(0));
             globalThis.zipAdding=addAttachments([new File([bytes],item.name,{type:"application/zip"})]);
@@ -42,8 +29,14 @@ test("ZIP picker inventories locally, filters files and preserves only the expli
         await page.evaluate(()=>globalThis.zipAdding);
         const selected=await page.evaluate(()=>pendingAttachments[0]);
         assert.deepEqual(selected.selectedPaths,["src/app.js"]);
-        await page.evaluate(()=>window.frst.preferences("save",{localAttachmentsExperimental:false}));
-        assert.equal((await page.evaluate(()=>window.frst.preferences())).localAttachmentsExperimental,false);
+        await app.evaluate(()=>{process.mainModule.require(process.cwd()+"/desktop/zip-selection").preview=async()=>{throw Error("Local inventory unavailable");};});
+        await page.evaluate(async item=>{
+            pendingAttachments.splice(0);renderAttachments();
+            const bytes=Uint8Array.from(atob(item.data.split(",")[1]),char=>char.charCodeAt(0));
+            await addAttachments([new File([bytes],"fallback.zip",{type:"application/zip"})]);
+        },attachment);
+        assert.equal(await page.locator("#zip-selection-dialog").count(),0);
+        assert.equal(await page.evaluate(()=>pendingAttachments[0].classicPreparation),true);
         assert.equal((await page.evaluate(()=>window.frst.status())).busy,false);
     }finally{await app.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

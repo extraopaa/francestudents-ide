@@ -65,6 +65,13 @@ test("conversation accepts dropped files, preserves drafts and ignores outside a
         assert.equal(await page.locator("#attachment-quota-warning").isVisible(), false);
         assert.equal(await page.locator(".attachment-chip").count(), 4);
         assert.equal(await page.locator("#input").inputValue(), "Analyse ces documents");
+        const different=await page.evaluateHandle(()=>{
+            const data=new DataTransfer();data.items.add(new File(["AAAA"],"same-name.txt",{type:"text/plain"}));data.items.add(new File(["BBBB"],"same-name.txt",{type:"text/plain"}));return data;
+        });
+        await page.dispatchEvent("#transcript","drop",{dataTransfer:different});
+        await page.waitForFunction(()=>document.querySelectorAll(".attachment-chip").length===6);
+        assert.equal(await page.locator(".attachment-name",{hasText:"same-name.txt"}).count(),2);
+        await different.dispose();
         await transfer.dispose();
     } finally {
         await app.close();

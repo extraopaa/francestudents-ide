@@ -22,6 +22,10 @@ const {
     listDirectory
 } = require("../tools/tools");
 const { execFile } = require("node:child_process");
+function mcpAttemptKey(args){
+    const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+    return JSON.stringify(canonical(args));
+}
 
 function git(args, cwd) {
     return new Promise(resolve => {
@@ -389,12 +393,12 @@ async function preloadContext(task, observations) {
 
     for (const file of mentioned.slice(0, CONFIG.maxPreloadFiles)) {
         try {
-            const result = await require("../tools/action-control").run("read_file", file, () => readFile({ path: file }));
+            const result = await require("../tools/action-control").run("read_file", file, () => readFile({ path: file,start_line:1,end_line:160 }));
 
             ui.tool("read_file", file);
             ui.result(summarizeResult("read_file", result));
 
-            observations.push({ tool: "read_file", args: { path: file }, ok: true, result });
+            observations.push({ tool: "read_file", args: { path: file,start_line:1,end_line:160 }, ok: true, result });
         } catch (error) {
             if (error.code === "ACTION_CANCELED") observations.push({ tool: "read_file", args: { path: file }, ok: false, error: "Préchargement annulé par l’utilisateur. Ne relis pas ce fichier sans nouvelle demande." });
             // Pas un fichier lisible : le modèle décidera.
@@ -491,6 +495,8 @@ async function runAgent(task, options = {}) {
         }
     }
     const signatures = new Map();
+    const uncertainMcpCalls=new Set();
+    const readDelivery=require("./token-economy").createReadDeliveryCache();
     const { projectText: codeProjectText, env, instructions } = state.motionDesign
         ? {projectText:"",env:{},instructions:""}
         : await loadAgentContext(state.workspace);
@@ -623,6 +629,7 @@ async function runAgent(task, options = {}) {
         let action = null;
         let correction = null;
         let lastResponse;
+        let protocolFailure=null;
 
         const spin = ui.spinner(turn === 1 ? "Réflexion" : `Réflexion (tour ${turn})`);
 
@@ -661,14 +668,15 @@ async function runAgent(task, options = {}) {
                     workspace:state.motionDesign?null:state.workspace,model:state.model,motion:!!state.motionDesign,
                     env,instructions,preprompt,mcpCatalog,skillsCatalog,
                     fullAccess:state.fullAccess,autoApprove:state.autoApprove,autoApproveCommands:state.autoApproveCommands,
-                    eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb,
-                    localAttachmentsExperimental:require("../settings").load().localAttachmentsExperimental===true
+                    eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb
                 });
                 const originalChat=state.chatIds.agent;
+                const deliveryScope={id:originalChat,model:state.model,workspace:state.workspace,motion:Boolean(state.motionDesign)};
+                const lastObservation=observations[observations.length-1];
                 const reuseInstructions=promptCache.has(originalChat,signature);
                 const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
-                        lastObservation: observations[observations.length - 1],
+                        lastObservation: readDelivery.delivery(lastObservation,deliveryScope,CONFIG.maxObservationChars),
                         turn,
                         maxTurns,
                         correction,
@@ -678,16 +686,23 @@ async function runAgent(task, options = {}) {
                     })
                     : reuseInstructions
                         ? buildResumePrompt({task,observations,activeFile:state.motionDesign?null:state.activeFile,
-                            editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction})
+                            editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction,mcpCatalog:state.motionDesign?"":mcpCatalog})
                         : fullPrompt(!hasConversation);
 
-                lastResponse = await api.requestModel(prompt, {
+                try{lastResponse = await api.requestModel(prompt, {
                     conversationMode: "agent",
                     // Si un 409 ouvre une nouvelle conversation (sans historique) :
                     // on renvoie le message complet, projet compris.
                     freshMessage: () => fullPrompt(true)
-                });
+                });}catch(error){
+                    if(!error.localToolProtocol)throw error;
+                    protocolFailure=error;
+                    correction={error:String(error.message).slice(0,800)};
+                    ui.debug("Réponse d’outil invalide : correction bornée au protocole, sans exécution ni relance réseau automatique.");
+                    continue;
+                }
                 // Only cache a known full bootstrap; a compacted/replaced conversation must bootstrap again.
+                if(!originalChat||originalChat===state.chatIds.agent)readDelivery.remember(lastObservation,{...deliveryScope,id:state.chatIds.agent},CONFIG.maxObservationChars);
                 if(!reuseInstructions&&(!originalChat||originalChat===state.chatIds.agent)){
                     promptCache.remember(state.chatIds.agent,signature);
                 }
@@ -720,6 +735,10 @@ async function runAgent(task, options = {}) {
             return { completed: false, message: "Tâche interrompue." };
         }
         if (!action) {
+            if(protocolFailure){
+                const message=`Le dernier appel local n’a pas pu être validé : ${protocolFailure.message}. La tâche est suspendue ; les modifications déjà effectuées sont conservées.`;
+                await finish(message);return {completed:false,message};
+            }
             if (state.ecoMode) {
                 const message = "Mode Éco : réponse d’outil invalide, arrêt sans nouvelle tentative pour limiter le quota. Désactive ce mode pour réessayer avec les reprises automatiques.";
                 await finish(message);
@@ -736,14 +755,21 @@ async function runAgent(task, options = {}) {
             updatePlan({ steps: action.plan.map((step, index) => ({ step, status: index === 0 ? "in_progress" : "pending" })) });
         }
 
-        if (action.type === "final") {
-            if(!state.motionDesign&&!recoveredMcpDenial&&!state.ecoMode&&
-                require("./mcp-access").untestedMcpDenial(action.message,mcpCatalog,observations)){
+        if (action.type === "final"&&!state.motionDesign&&!recoveredMcpDenial&&!state.ecoMode&&!options.readOnly&&
+            require("./mcp-access").untestedMcpDenial(action.message,mcpCatalog,observations,task)) {
+            const candidate=require("./mcp-access").selectMcpTool(mcpCatalog,task+" "+action.message);
+            if(candidate){
                 recoveredMcpDenial=true;
                 observations.push({tool:"local_mcp_protocol",ok:false,error:
-                    "Tu déclares manquer d’accès à une application présente dans le catalogue MCP, sans appel MCP local dans cette tâche. Les connecteurs sont exécutés par FranceStudent IDE, indépendamment du fournisseur IA. Vérifie avec mcp_call : describe:true découvre le schéma sans exécution, puis utilise un outil pertinent sous les permissions existantes. Ne déduis pas l’absence de connexion de ton environnement natif. Respecte les refus/annulations. Si le connecteur échoue réellement, explique son résultat exact sans inventer de réussite. Cette correction n’est envoyée qu’une fois."});
-                continue;
+                    "L’IDE fournit ci-dessous le schéma réel d’un outil du catalogue MCP local, sans appel à l’application. Utilise les outils disponibles pour vérifier la connexion demandée ; ce schéma seul ne prouve pas que l’application répond. Respecte les refus/annulations et explique tout échec réel. Cette récupération n’est tentée qu’une fois."});
+                // Go through the normal tool path: validation, hooks, cancellation, UI and observations.
+                // describe:true only reads registered schema; it never executes an application command.
+                action={type:"tool",name:"mcp_call",args:{...candidate,describe:true},reason:"Découvrir les arguments du connecteur MCP disponible"};
+                validateToolCall(action);
             }
+        }
+
+        if (action.type === "final") {
             if (!recoveredUnsupportedTool && /Unsupported tool ignored by the backend/i.test(action.message) &&
                 !observations.some(o => ["write_file", "run_command"].includes(o.tool) && (!o.ok || o.result?.denied))) {
                 recoveredUnsupportedTool = true;
@@ -797,6 +823,16 @@ async function runAgent(task, options = {}) {
             continue;
         }
 
+        const mcpKey=action.name==="mcp_call"&&action.args.describe!==true?mcpAttemptKey(action.args):null;
+        if(mcpKey&&uncertainMcpCalls.has(mcpKey)){
+            observations.push({tool:action.name,args:recordArgs(action.args),ok:false,error:"Cet appel MCP a déjà été envoyé sans résultat confirmé. Il n’est pas relancé pour éviter une action en double. Vérifie l’état avec un autre outil de lecture, ou explique le blocage."});
+            ui.result("Appel MCP non répété : résultat précédent incertain.",{tone:"error"});
+            if(++stuck>=2){
+                const message="L’agent insiste sur une action MCP dont le résultat est incertain. La tâche est suspendue pour éviter une exécution en double et des requêtes inutiles. Les modifications déjà effectuées sont conservées.";
+                await finish(message);return {completed:false,message};
+            }
+            continue;
+        }
         if (action.calls) {
             // Lectures seules : exécutées en parallèle, observations et affichage dans l'ordre des appels.
             // Hooks preToolUse lancés avant chaque appel, dans l'ordre : un appel bloqué n'est pas exécuté.
@@ -914,16 +950,18 @@ async function runAgent(task, options = {}) {
             const sources = action.name === "web_fetch" && result.status >= 200 && result.status < 300
                 ? [{ url: result.final_url || result.url, title: result.title || result.final_url || result.url, consulted: true }]
                 : ["web_search","web_search_result"].includes(action.name) ? (result.results || []).map(s => ({ url: s.url, title: s.title, consulted: false })) : [];
-            ui.result(summarizeResult(action.name, result), { sources, tone: result.denied || result.interrupted || (typeof result.exit_code === "number" && result.exit_code !== 0) ? "error" : null });
+            ui.result(summarizeResult(action.name, result), { sources, tone: result.denied || result.interrupted || result.is_error || (typeof result.exit_code === "number" && result.exit_code !== 0) ? "error" : null });
 
             observations.push({
                 tool: action.name,
                 args: recorded,
-                ok: !result.denied,
+                ok: !result.denied&&!result.interrupted&&!result.is_error&&!(typeof result.exit_code==="number"&&result.exit_code!==0),
                 result
             });
         } catch (error) {
             ui.result(error.message, { tone: "error" });
+
+            if(mcpKey&&error.executionUncertain)uncertainMcpCalls.add(mcpKey);
 
             observations.push({
                 tool: action.name,

@@ -4,15 +4,17 @@
 
 ## Joindre un fichier
 
-### Bêta expérimentale facultative
+Les images classiques strictement identiques d’un même envoi partagent une seule transmission et une seule entrée de vision, avec correspondance explicite de leurs positions. Toutes les images distinctes sont conservées. Cela n’ajoute aucune réduction de résolution ni compression destructive : les limites de préparation existantes restent identiques, et les originaux sont inchangés. Une image jointe à nouveau dans une demande suivante est retransmise explicitement, sans supposer que le fournisseur a gardé ses pixels.
 
-Le nouveau traitement décrit ci-dessous est **désactivé par défaut**. Pour le tester, active **Pièces jointes locales — Bêta expérimentale** dans les paramètres IA. Une confirmation présente ses limites. Sans activation, la sélection des ZIP et l’index local ne sont pas utilisés : les pièces jointes suivent le traitement habituel. La désactivation s’applique aux prochains envois.
+### Préparation automatique
+
+La préparation locale est utilisée automatiquement lorsqu’elle est disponible. En mode agent, les archives et gros documents sont indexés sur l’ordinateur et lus à la demande. Si cette préparation échoue ou que l’index est plein, l’IDE utilise la lecture classique ; les fichiers déjà sélectionnés dans un ZIP restent les seuls accessibles. Annuler la sélection n’ajoute pas l’archive. L’ancien réglage bêta n’est plus nécessaire.
 
 Pour un ZIP, une fenêtre propose les fichiers contenus avant l’envoi : recherche, cases à cocher, Tout sélectionner ou Tout décocher. Rien n’est envoyé à l’IA pendant cet inventaire local. Seuls les éléments choisis sont accessibles à l’agent.
 
 En mode agent, les archives et textes volumineux sont indexés sur l’ordinateur. L’IA reçoit l’inventaire, puis les passages ou images qu’elle demande ; elle peut poursuivre une lecture jusqu’à la fin sans transmettre tout le ZIP à chaque appel. Extraction, recherche et pagination n’utilisent pas de modèle IA. Le contenu demandé et son analyse par l’IA restent comptabilisés par le service.
 
-L’index est en mémoire : il expire après deux heures sans utilisation, au redémarrage ou si sa limite de mémoire est atteinte (128 Mo, sans plafond de nombre ajouté). Un contenu expiré nécessite un nouvel envoi ; l’agent ne cherche jamais l’original sur le PC. Les limites de sécurité et de conversion restent applicables.
+L’index est en mémoire : il expire après deux heures sans utilisation ou au redémarrage. Sa limite de 128 Mo ne supprime pas les documents actifs : les pièces suivantes utilisent la lecture classique lorsqu’il n’y a plus de place. Un contenu expiré nécessite un nouvel envoi ; l’agent ne cherche jamais l’original sur le PC. Les limites de sécurité et de conversion restent applicables.
 
 Les PDF sont consultés page par page en mode agent : texte extrait localement, puis rendu de la page uniquement si nécessaire. Une page scannée sans texte est envoyée à la vision du modèle ; l’extraction locale n’est pas présentée comme une analyse visuelle. Toutes les pages restent accessibles dans les limites de sécurité.
 
@@ -37,7 +39,7 @@ file d’attente. Déposer un fichier l’ajoute au brouillon sans envoyer le me
 
 | Famille | Informations transmises au modèle |
 | --- | --- |
-| PDF, scans inclus | Une image PNG par page, dans l’ordre |
+| PDF, scans inclus | En mode agent : texte extrait page par page, image pour une page scannée ou demandée visuellement ; repli classique par images si nécessaire |
 | SVG | Source complète et rendu PNG sans scripts ni références externes |
 | PNG, JPEG, WebP, BMP, TIFF, ICO, AVIF et images décodables par Sharp | Images adaptées aux limites de l’API ; TIFF multipages jusqu’à 40 pages |
 | GIF et images animées | Première image, avec mention de la lecture partielle lorsque préparées comme document |
@@ -49,7 +51,7 @@ file d’attente. Déposer un fichier l’ajoute au brouillon sans envoyer le me
 | ODT, OTT, ODP, OTP, ODG, OTG, RTF | Texte, notes et images extractibles |
 | EPUB | Chapitres dans l’ordre de lecture et images extractibles |
 | EML, MSG | En-têtes utiles, corps et conversion récursive des pièces jointes |
-| ZIP, TAR, GZIP/TGZ, 7z, RAR, XZ, BZIP2, Zstandard, LZMA, CAB, ISO, AR, DEB, RPM reconnus par 7-Zip | Liste des fichiers et conversion récursive de leur contenu, sans extraction sur le disque |
+| ZIP, TAR, GZIP/TGZ, 7z, RAR, XZ, BZIP2, Zstandard, LZMA, CAB, ISO, AR, DEB, RPM reconnus par 7-Zip | Inventaire local puis lecture des fichiers utiles en mode agent ; conversion récursive en repli classique, sans extraction sur le disque. Les ZIP respectent la sélection de l’utilisateur |
 | Texte, code, CSV, TSV, JSON, XML, HTML, Markdown, ICS, VCF, sous-titres… | Contenu textuel ; UTF-8, UTF-16 avec BOM et Windows-1252 pour les fichiers texte reconnus |
 | Audio et vidéo reconnus par MediaInfo | Métadonnées et informations sur les pistes ; lecture partielle, sans transcription du son ni analyse des images vidéo |
 | Autres binaires, fichiers endommagés ou protégés | Rapport explicitement partiel : motif, taille, type, SHA-256, signature et échantillon de chaînes lisibles |

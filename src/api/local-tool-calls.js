@@ -5,6 +5,7 @@
 function createLocalToolCalls() {
     const calls = new Map();
     const indices = new Map();
+    const chatIndices=new Map();
     function item(data, done) {
         const value = data.item;
         if (value?.type !== "function_call") return;
@@ -15,6 +16,20 @@ function createLocalToolCalls() {
             arguments: value.arguments ?? previous.arguments ?? "", done: done || previous.done });
     }
     function receive(name, data) {
+        // FranceStudent may relay OpenAI Chat Completions instead of Responses events.
+        for(const choice of Array.isArray(data.choices)?data.choices:[]){
+            const toolCalls=choice.delta?.tool_calls??choice.message?.tool_calls;
+            for(const [position,value] of (Array.isArray(toolCalls)?toolCalls:[]).entries()){
+                const index=`${choice.index??0}:${value.index??position}`,key=chatIndices.get(index)||value.id||`chat:${index}`;
+                chatIndices.set(index,key);const previous=calls.get(key)||{arguments:""};
+                const fn=value.function||{};
+                calls.set(key,{...previous,name:fn.name??previous.name,arguments:choice.message?fn.arguments??previous.arguments:previous.arguments+(fn.arguments||""),done:Boolean(choice.message)||previous.done});
+            }
+            if(choice.finish_reason==="tool_calls")for(const [index,key] of chatIndices)if(index.startsWith(`${choice.index??0}:`))calls.get(key).done=true;
+        }
+        for(const value of Array.isArray(data.message?.tool_calls)?data.message.tool_calls:[]){
+            item({item:{type:"function_call",id:value.id,name:value.function?.name,arguments:value.function?.arguments}},true);
+        }
         if (name === "response.output_item.added" || name === "response.output_item.done") {
             item(data, name.endsWith(".done"));
         } else if (name === "response.function_call_arguments.delta" || name === "response.function_call_arguments.done") {
@@ -30,19 +45,23 @@ function createLocalToolCalls() {
         } else if (name === "response.completed") {
             for (const [index, value] of (data.response?.output || []).entries()) item({ item: value, output_index: index }, true);
         }
+        if(calls.size>64||[...calls.values()].reduce((total,call)=>total+String(call.arguments||"").length,0)>4*1024*1024){
+            throw Object.assign(new Error("Réponse d’outils trop volumineuse. Aucun outil local exécuté."),{status:400,localToolProtocol:true});
+        }
     }
     function action() {
         // Lazy import avoids the registry -> subagent -> API dependency cycle.
         const { TOOLS, validateToolCall } = require("../tools/registry");
         for (const call of calls.values()) {
             const name = String(call.name || "").replace(/^functions\./, "");
-            if (!Object.hasOwn(TOOLS, name)) continue;
-            if (!call.done) throw new Error(`Appel local incomplet : ${name}. Aucun outil exécuté.`);
+            const mcp=!Object.hasOwn(TOOLS,name)?require("../agent/mcp-access").resolveNativeMcp(name,require("../mcp/manager").manager.catalog()):null;
+            if (!Object.hasOwn(TOOLS, name)&&!mcp) continue;
+            if (!call.done) throw Object.assign(new Error(`Appel local incomplet : ${name}. Aucun outil exécuté.`),{status:400,localToolProtocol:true});
             let args;
             try { args = JSON.parse(call.arguments); }
-            catch (cause) { throw new Error(`Arguments JSON invalides pour l’outil local ${name}.`, { cause }); }
-            const value = { type: "tool", name, args, reason: `Exécuter localement l’outil ${name}.` };
-            validateToolCall(value);
+            catch (cause) { throw Object.assign(new Error(`Arguments JSON invalides pour l’outil local ${name}.`, { cause }),{status:400,localToolProtocol:true}); }
+            const value = { type: "tool", name:mcp?"mcp_call":name, args:mcp?{server:mcp.server,tool:mcp.tool,arguments:args}:args, reason: `Exécuter localement l’outil ${name}.` };
+            try{validateToolCall(value);}catch(error){error.status=400;error.localToolProtocol=true;throw error;}
             // One action per agent turn. Remaining calls must be requested again
             // after the agent has observed this action's real result.
             return value;

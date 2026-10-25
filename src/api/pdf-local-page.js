@@ -7,7 +7,7 @@ async function readPdfPage(bytes,pageNumber=1,visual=false){
         standardFontDataUrl:path.join(root,"standard_fonts")+"/",cMapUrl:path.join(root,"cmaps")+"/",cMapPacked:true,wasmUrl:path.join(root,"wasm")+"/",verbosity:0});
     try{
         const document=await task.promise;
-        if(pageNumber>document.numPages)throw new Error(`Page absente : ce PDF contient ${document.numPages} pages.`);
+        if(pageNumber>document.numPages)throw Object.assign(new Error(`Page absente : ce PDF contient ${document.numPages} pages.`),{code:"PDF_PAGE_RANGE"});
         const page=await document.getPage(pageNumber);
         try{
             const content=await page.getTextContent();

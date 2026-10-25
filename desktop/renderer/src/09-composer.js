@@ -192,15 +192,25 @@ async function prepareImage(file,details={}) {
     throw new Error(`image trop lourde même après compression (max ${formatBytes(MAX_IMAGE_BYTES)})`);
 }
 
-async function addAttachments(fileList) {
+let attachmentPreparationQueue=Promise.resolve();
+function addAttachments(fileList){
+    const files=Array.from(fileList||[]);
+    const next=attachmentPreparationQueue.then(()=>prepareAttachments(files));
+    attachmentPreparationQueue=next.catch(()=>{});return next;
+}
+async function prepareAttachments(fileList) {
     for (const file of Array.from(fileList || [])) {
         const name = file.name || (file.type.startsWith("image/") ? "image-collée.png" : "fichier");
-        // Même fichier ajouté deux fois (double glisser-déposer, re-sélection) : ignoré.
-        if (pendingAttachments.some((a) => a.name === name && a.size === file.size)) continue;
+        // Names and sizes alone do not prove identity (notably repeated screenshot names).
+        const candidates=pendingAttachments.filter(a=>a.name===name&&a.size===file.size);
         try {
             if (file.size === 0) throw new Error("fichier vide");
-            if((/\.zip$/i.test(name)||["application/zip","application/x-zip-compressed"].includes(file.type))&&(await api.preferences()).localAttachmentsExperimental===true){
-                const selection=await chooseZipFiles(await prepareFile(file,name));
+            if(candidates.length&&file.size<=MAX_FILE_BYTES){const originalData=await readAsDataUrl(file);if(candidates.some(a=>a.data===originalData))continue;}
+            if(/\.zip$/i.test(name)||["application/zip","application/x-zip-compressed"].includes(file.type)){
+                const attachment=await prepareFile(file,name);
+                let selection;
+                try{selection=await chooseZipFiles(attachment);}
+                catch{selection={...attachment,classicPreparation:true};studioFeedback(`${name} : inventaire local indisponible, lecture classique utilisée.`);}
                 if(selection)pendingAttachments.push(selection);
                 continue;
             }

@@ -201,7 +201,7 @@ function renderResume(snap, summaries) {
     return [
         `<!-- empreinte: ${snap.fingerprint} -->`,
         "# RESUME DU PROJET",
-        `Généré le ${stamp}. Index local actualisé au chargement ; résumé IA uniquement sur demande explicite (/index).`,
+        `Généré le ${stamp}. Analyse IA actualisée au chargement si nécessaire, avec réutilisation du cache (/index pour forcer).`,
         "## Arborescence\n" + (lines.join("\n") || "- (vide)"),
         "## Résumé des fichiers\n" + (summaries || "_Aucun fichier lisible._")
     ].join("\n\n");
@@ -283,10 +283,10 @@ function splitSections(text, rels) {
 
 /**
  * Charge le projet : reprend le RESUME.md si rien n'a changé,
- * sinon prépare un index local sans appel IA. La génération IA exige une
- * demande explicite (summarize:true) ; /index (force) refait tout.
+ * sinon actualise le résumé IA avec les seuls fichiers modifiés.
+ * summarize:false garde un chargement local ; /index (force) refait tout.
  */
-async function load(workspace, { force = false, summarize = force } = {}) {
+async function load(workspace, { force = false, summarize = true } = {}) {
     const snap = await snapshot(workspace);
     let resume = force ? null : await readCache(snap.fingerprint);
     let status = "Résumé du projet repris (inchangé)";

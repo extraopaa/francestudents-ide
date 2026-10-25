@@ -9,10 +9,8 @@ function prune(){
 function save(name,entries){
     prune();const size=entries.reduce((total,item)=>total+(item.bytes?.length||Buffer.byteLength(item.text||"")),0);
     if(size>MAX_BYTES)throw new Error("Pièce jointe trop volumineuse pour l’index local.");
-    let used=[...records.values()].reduce((sum,item)=>sum+item.size,0);
-    while(records.size&&used+size>MAX_BYTES){
-        const id=records.keys().next().value;used-=records.get(id).size;records.delete(id);
-    }
+    const used=[...records.values()].reduce((sum,item)=>sum+item.size,0);
+    if(used+size>MAX_BYTES)throw new Error("Index local plein ; conserver les pièces déjà indexées et utiliser la lecture classique pour la suivante.");
     const id=randomUUID();records.set(id,{name,entries,size,scope:scope(),at:Date.now()});
     return {id,...list(id,0)};
 }
@@ -46,8 +44,15 @@ async function read(args){
     if(entry.error)return {path:entry.name,error:entry.error};
     let converted;
     if(entry.text!==undefined)converted={text:entry.text,images:[]};
-    else if(require("./pdf-text").isPdf(entry.bytes)||/\.pdf$/i.test(entry.name))converted=await require("./pdf-local-page").readPdfPage(entry.bytes,args.page||1,args.visual===true);
-    else converted=await require("./file-conversion").convertAttachment({name:entry.name,dataUrl:`data:application/octet-stream;base64,${entry.bytes.toString("base64")}`},{depth:1,budget:{bytes:entry.bytes.length},localIndex:true});
+    else if(require("./pdf-text").isPdf(entry.bytes)||/\.pdf$/i.test(entry.name)){
+        try{converted=await require("./pdf-local-page").readPdfPage(entry.bytes,args.page||1,args.visual===true);}
+        catch(error){
+            if(error.code==="PDF_PAGE_RANGE")throw error;
+            converted=await require("./file-conversion").convertAttachment({name:entry.name,dataUrl:`data:application/pdf;base64,${entry.bytes.toString("base64")}`},{depth:1,budget:{bytes:entry.bytes.length},localIndex:false});
+            converted.localFallback=true;
+        }
+    }
+    else converted=await require("./file-conversion").convertAttachment({name:entry.name,dataUrl:`data:${entry.type||"application/octet-stream"};base64,${entry.bytes.toString("base64")}`},{depth:1,budget:{bytes:entry.bytes.length},localIndex:true});
     const text=converted.text||"",max=args.max_chars||8000;
     let result;
     if(args.query){
@@ -68,6 +73,7 @@ async function read(args){
         if(!entry.imagesSent)entry.imagesSent=new Set();entry.imagesSent.add(imageKey);result.images_queued=converted.images.length;
     }
     if(converted.partial)result.partial=true;
+    if(converted.localFallback)result.local_fallback="Lecture classique utilisée : préparation locale indisponible.";
     return result;
 }
 module.exports={registerArchive,registerText,read};

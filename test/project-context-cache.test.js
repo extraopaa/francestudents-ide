@@ -11,7 +11,7 @@ const api = require("../src/api/api");
 const { setUiBackend, getUiBackend } = require("../src/ui-bridge");
 const projectContext = require("../src/project/project-context");
 
-test("opening and reopening a changed project never calls AI without an explicit summary request",async()=>{
+test("explicit local-only loading never calls AI, while a forced summary remains available",async()=>{
     const {root,workspace,data}=await makeDirs();
     const previous={projectPath:memory.projectPath,request:api.requestModel};let calls=0;
     memory.projectPath=name=>path.join(data,name);
@@ -19,11 +19,11 @@ test("opening and reopening a changed project never calls AI without an explicit
     setUiBackend({...getUiBackend(),spinner:()=>({stop(){}})});
     try{
         await fs.writeFile(path.join(workspace,"a.js"),"const first = 1;\n");
-        const first=await projectContext.load(workspace);
+        const first=await projectContext.load(workspace,{summarize:false});
         assert.equal(calls,0);assert.match(first.status,/aucun appel IA/);
         assert.match(projectContext.promptContext(),/const first = 1/);
         await fs.writeFile(path.join(workspace,"a.js"),"const updated = 2;\n");
-        await projectContext.load(workspace);assert.equal(calls,0);
+        await projectContext.load(workspace,{summarize:false});assert.equal(calls,0);
         assert.match(projectContext.promptContext(),/const updated = 2/);
         await projectContext.load(workspace,{force:true});assert.equal(calls,1);
         await projectContext.load(workspace);assert.equal(calls,1);
@@ -32,6 +32,21 @@ test("opening and reopening a changed project never calls AI without an explicit
         memory.projectPath=previous.projectPath;api.requestModel=previous.request;
         setUiBackend(null);projectContext.clear();await fs.rm(root,{recursive:true,force:true});
     }
+});
+
+test("automatic analysis summarizes on first load, reuses an unchanged cache and updates changed files",async()=>{
+    const {root,workspace,data}=await makeDirs();
+    const previous={projectPath:memory.projectPath,request:api.requestModel};let calls=0;
+    memory.projectPath=name=>path.join(data,name);api.requestModel=async()=>{calls++;return `### a.js\nAutomatic summary ${calls}`;};
+    setUiBackend({...getUiBackend(),spinner:()=>({stop(){}})});
+    try{
+        await fs.writeFile(path.join(workspace,"a.js"),"const first = 1;");
+        await projectContext.load(workspace);assert.equal(calls,1);
+        await projectContext.load(workspace);assert.equal(calls,1);
+        await fs.writeFile(path.join(workspace,"a.js"),"const changed = 2;");
+        await projectContext.load(workspace);assert.equal(calls,2);
+        assert.match(projectContext.resumeText(),/Automatic summary 2/);
+    }finally{memory.projectPath=previous.projectPath;api.requestModel=previous.request;setUiBackend(null);projectContext.clear();await fs.rm(root,{recursive:true,force:true});}
 });
 
 test("changer la taille des extraits invalide les résumés du cache", async () => {

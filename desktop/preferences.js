@@ -5,7 +5,7 @@ const defaults = { contextMaxFiles: 500, contextBudgetChars: 400000, contextFile
 const bounds = { contextMaxFiles: [20, 20000], contextBudgetChars: [20000, 5000000], contextFileChars: [1000, 200000], agentContextChars: [5000, 200000] };
 function get() {
     const saved = settings.load();
-    return { ...defaults, ...(saved.projectContext || {}), defaultModel: saved.defaultModel ?? null,localAttachmentsExperimental:saved.localAttachmentsExperimental===true };
+    return { ...defaults, ...(saved.projectContext || {}), defaultModel: saved.defaultModel ?? null };
 }
 function apply() {
     const values = get();
@@ -25,8 +25,7 @@ function save(input) {
     }
     const defaultModel = input.defaultModel === "" || input.defaultModel == null ? null : Number(input.defaultModel);
     if (defaultModel !== null && (!Number.isSafeInteger(defaultModel) || defaultModel === 0)) throw new Error("Modèle invalide.");
-    if(typeof input.localAttachmentsExperimental!=="boolean")throw new Error("Option expérimentale invalide.");
-    settings.save({ projectContext: values, defaultModel,localAttachmentsExperimental:input.localAttachmentsExperimental });
+    settings.save({ projectContext: values, defaultModel });
     return apply();
 }
 module.exports = { get, apply, save, defaults, bounds };

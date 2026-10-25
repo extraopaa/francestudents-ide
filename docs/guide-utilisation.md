@@ -4,7 +4,7 @@
 
 Un dossier, une idée et une conversation : voici comment démarrer. Les captures utilisent le projet fictif **Aurora**, sans compte personnel.
 
-À partir de la 1.4.3, ouvrir un projet prépare un index local et reprend le cache disponible, sans appel IA pour générer un résumé. Une demande envoyée dans le chat utilise ensuite les fichiers nécessaires. Pour demander explicitement la génération d’un résumé IA du projet, saisis `/index` : cette commande peut consommer du quota.
+L’analyse IA automatique du projet est rétablie pour la prochaine version : à l’ouverture, le résumé inchangé est repris depuis le cache ; seuls les fichiers modifiés ou non encore résumés sont analysés. Cette analyse peut consommer du quota. `/index` permet de forcer une nouvelle génération complète.
 
 ## 1. Installer et se connecter
 

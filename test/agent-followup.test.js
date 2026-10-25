@@ -28,6 +28,21 @@ const baseContext = {
     correction: null
 };
 
+test("repeat file reads use a short reference while recovery prompts retain the actual contents",{concurrency:false},async()=>{
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-delivery-")),content="IMPORTANT_CONTENT ".repeat(150);
+    fs.writeFileSync(path.join(dir,"a.txt"),content);
+    const previous={request:api.requestModel,workspace:state.workspace,log:console.log};resetConversation();state.workspace=dir;
+    const sent=[];api.requestModel=async(message,options)=>{
+        sent.push({message,options});state.chatIds.agent="delivery-test";state.chatId="delivery-test";
+        return sent.length===1?JSON.stringify({type:"tool",name:"read_file",args:{path:"a.txt",start_line:1,end_line:160},reason:"Check contents again"}):JSON.stringify({type:"final",message:"Done",completed:true});
+    };console.log=()=>{};
+    try{
+        await runAgent("Lis a.txt et explique son contenu.");
+        assert.equal(sent.length,2);assert.match(sent[1].message,/same_as_previous_read/);
+        assert.ok(!sent[1].message.includes(content));assert.ok(sent[1].options.freshMessage().includes(content));
+    }finally{console.log=previous.log;api.requestModel=previous.request;state.workspace=previous.workspace;resetConversation();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
 test("successive user tasks reuse bootstrap but a model switch restores the complete instructions", { concurrency:false }, async()=>{
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-quota-integration-"));
     const previous={request:api.requestModel,workspace:state.workspace,model:state.model,log:console.log};

@@ -1,6 +1,12 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.4":{headline:"Moins de répétitions, plus de travail utile.",items:[
+        {icon:"clock",title:"Des échanges plus légers",text:"Les lectures identiques et les longs journaux réussis évitent les répétitions inutiles. Les détails restent accessibles à l’agent."},
+        {icon:"tools",title:"Tes fichiers préparés sur ton ordinateur",text:"Choisis les fichiers utiles dans un ZIP. La préparation locale devient automatique, avec un retour au traitement classique si nécessaire."},
+        {icon:"chat",title:"Des connecteurs mieux guidés",text:"Les modèles reçoivent les vrais arguments des outils MCP. Les erreurs et les actions dont le résultat est incertain sont mieux prises en compte."},
+        {icon:"spark",title:"Ton projet analysé automatiquement",text:"L’analyse IA revient à l’ouverture quand elle est nécessaire, avec réutilisation du cache. Cette analyse peut consommer du quota."}
+    ]},
     "1.4.3":{headline:"Ouvre ton projet, garde ton quota.",items:[
         {icon:"clock",title:"Aucun résumé IA lancé à l’ouverture",text:"L’IDE prépare un index local et reprend le cache disponible. La génération d’un résumé IA se demande explicitement avec /index."},
         {icon:"chat",title:"Le quota expliqué clairement",text:"Les messages de quota pendant l’indexation affichent une carte lisible, l’heure de reprise et le bouton de vérification d’un reset."},

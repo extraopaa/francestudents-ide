@@ -13,7 +13,7 @@ const path = require("path");
 const { CONFIG } = require("./config");
 
 const FILE_NAME = "settings.json";
-const DEFAULTS = { version: 1, autoApproveAlways: false, autoApproveCommandsAlways: false, fullAccessAlways: false,localAttachmentsExperimental:false };
+const DEFAULTS = { version: 1, autoApproveAlways: false, autoApproveCommandsAlways: false, fullAccessAlways: false };
 
 function file() {
     return path.join(CONFIG.dataDir, FILE_NAME);
@@ -27,7 +27,6 @@ function load() {
             ...DEFAULTS,
             ...raw,
             autoApproveAlways: raw.autoApproveAlways === true,
-            localAttachmentsExperimental:raw.localAttachmentsExperimental===true,
             fullAccessAlways: raw.fullAccessAlways === true,
             autoApproveCommandsAlways: raw.autoApproveCommandsAlways === true
         };

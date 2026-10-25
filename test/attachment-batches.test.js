@@ -6,6 +6,37 @@ const { requestModel } = require("../src/api/api");
 const { state } = require("../src/state");
 const { auth } = require("../src/api/auth");
 
+test("identical image IDs are transmitted once with explicit original-position mapping",()=>{
+    const plan=createAttachmentBatches(["image-a","image-a","image-b","image-b","image-c"],[],"Original document text",2000);
+    assert.deepEqual(plan.batches.flatMap(batch=>batch.images),["image-a","image-b","image-c"]);
+    const text=plan.batches.map(batch=>batch.text).join("");
+    assert.match(text,/Positions originales 1, 2 : image unique 1/);
+    assert.match(text,/Positions originales 3, 4 : image unique 2/);
+    assert.match(text,/Positions originales 5 : image unique 3/);
+    assert.match(text,/Original document text/);
+});
+
+test("duplicate classic images share one upload and vision input, while distinct images and explicit resends survive",async()=>{
+    const sharp=require("sharp");
+    auth.accessToken="test-token";auth.expiresAt=Date.now()+300000;auth.deviceId="test-device";
+    const images=await Promise.all(["blue","red"].map(async background=>"data:image/png;base64,"+(await sharp({create:{width:48,height:32,channels:3,background}}).png().toBuffer()).toString("base64")));
+    const previous=global.fetch;let uploads=0;const bodies=[];
+    state.chatIds.chat=null;state.pendingFiles=[];state.pendingImages=[images[0],images[0],images[1]];
+    global.fetch=async(url,options)=>{
+        if(String(url).endsWith("/files/upload")){uploads++;return Response.json({uuid:`11111111-2222-3333-4444-${String(uploads).padStart(12,"0")}`});}
+        if(String(url).endsWith("/usage"))return Response.json({contextUsagePercent:1});
+        const body=JSON.parse(options.body);bodies.push(body);
+        return response(body.images.length?JSON.stringify({images:body.images.map((_,index)=>({index:index+1,status:"seen",description:"A colored rectangle on a simple background."}))}):"ok","dedup-images");
+    };
+    try{
+        assert.equal(await requestModel("Compare the three images",{conversationMode:"chat"}),"ok");
+        assert.equal(uploads,2);assert.equal(bodies[0].images.length,2);assert.match(bodies[0].initialContent,/Positions originales 1, 2/);
+        state.pendingImages=[images[0]];
+        await requestModel("Look again at this explicit attachment",{conversationMode:"chat"});
+        assert.equal(uploads,3);assert.equal(bodies.filter(body=>body.images.length).length,2);
+    }finally{global.fetch=previous;state.pendingFiles=[];state.pendingImages=[];state.chatIds.chat=null;}
+});
+
 test("mixed attachments share a limit of four, text is preserved", () => {
     const text = "abc😀".repeat(1800);
     const plan = createAttachmentBatches(["i1", "i2", "i3"], ["f1", "f2", "f3"], text, 2000);

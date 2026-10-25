@@ -40,6 +40,17 @@ test.after(() => {
     global.fetch = originalFetch;
 });
 
+test("malformed SSE values and oversized events stop without automatic retries",async()=>{
+    prepareAuth();const previous=global.fetch;
+    try{
+        for(const payload of ["null","[]",JSON.stringify({delta:"x".repeat(8*1024*1024+1)})]){
+            let calls=0;global.fetch=async()=>{calls++;return new Response(`event: response.output_text.delta\ndata: ${payload}\n\ndata: [DONE]\n\n`);};
+            await assert.rejects(requestModel("Test malformed stream",{conversationMode:"agent"}),error=>error.status===400);
+            assert.equal(calls,1);
+        }
+    }finally{global.fetch=previous;}
+});
+
 test("visual receipt repairs formatting once in the same chat without sending the image twice",async()=>{
     prepareAuth();const image="11111111-2222-3333-4444-123456789012",bodies=[];
     state.chatIds.agent=null;state.pendingImages=[image];state.pendingFiles=[];

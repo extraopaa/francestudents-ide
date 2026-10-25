@@ -86,8 +86,13 @@ async function cancelStream(chatId) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** POST /files/upload (Files v1) : envoie une image (data URL base64) et renvoie son uuid. */
-async function uploadImage(dataUrl, index) {
+async function uploadImage(dataUrl, index, cache=null) {
+    const hash=value=>require("node:crypto").createHash("sha256").update(value).digest("hex");
+    const rawKey=cache?"raw:"+hash(String(dataUrl)):null;
+    if(cache?.has(rawKey))return cache.get(rawKey);
     const {bytes,type,width,height,resized}=await require("./image-input").prepareImageInput(dataUrl);
+    const preparedKey=cache?type+":"+hash(bytes):null;
+    if(cache?.has(preparedKey)){const id=cache.get(preparedKey);cache.set(rawKey,id);return id;}
     if(resized)ui.info(`Image adaptée avant envoi : ${width} × ${height} pixels. L’original est conservé.`);
     const ext = (type.split("/")[1] || "png").replace(/[^a-z0-9]/g, "") || "png";
     const form = new FormData();
@@ -114,6 +119,7 @@ async function uploadImage(dataUrl, index) {
     try { data = JSON.parse(text); } catch { /* réponse non JSON */ }
     const id = data?.uuid ?? data?.id;
     if (!UUID_RE.test(String(id || ""))) throw new Error("Réponse de /files/upload sans UUID image valide : image non transmise au modèle.");
+    if(cache){cache.set(rawKey,String(id));cache.set(preparedKey,String(id));}
     return String(id);
 }
 
@@ -122,13 +128,14 @@ async function uploadImage(dataUrl, index) {
  * Envoie les images en attente et remplace state.pendingImages par leurs UUID
  * (une seule fois : les relances réutilisent les UUID).
  */
-async function resolvePendingImages() {
+async function resolvePendingImages(uploadCache) {
     const list = Array.isArray(state.pendingImages) ? state.pendingImages : [];
     if (!list.length) return;
     const ids = [];
     for (let i = 0; i < list.length; i++) {
         const item = String(list[i]);
-        ids.push(UUID_RE.test(item) ? item : await uploadImage(item, i));
+        ids.push(UUID_RE.test(item) ? item : await uploadImage(item, i,uploadCache));
+        require("./mcp-image-receipt").rekey(item,ids[ids.length-1]);
         // Preserve successful uploads if a later attachment fails.
         list[i] = ids[ids.length - 1];
     }
@@ -186,16 +193,18 @@ async function uploadFile(file) {
 }
 
 /** Convertit localement les documents et conserve les UUID pour les relances. */
-async function resolvePendingFiles({localIndex=false}={}) {
+async function resolvePendingFiles({localIndex=false,uploadCache=null}={}) {
     const list = Array.isArray(state.pendingFiles) ? state.pendingFiles : [];
     const blocks = [];
     for (const item of list) {
         if (typeof item === "string") continue;
         if (!item.converted) {
-            item.converted = await convertAttachment(item,{depth:0,budget:{bytes:0},localIndex,selectedPaths:item.selectedPaths});
-            if(localIndex&&item.converted.text.length>12000){
-                item.converted.text=require("./local-attachments").registerText(String(item.name||"fichier"),item.converted.text);
+            item.converted = await convertAttachment(item,{depth:0,budget:{bytes:0},localIndex:localIndex&&item.classicPreparation!==true,selectedPaths:item.selectedPaths});
+            if(localIndex&&item.classicPreparation!==true&&!item.converted.localFallback&&item.converted.text.length>12000){
+                try{item.converted.text=require("./local-attachments").registerText(String(item.name||"fichier"),item.converted.text);}
+                catch(error){item.converted.localFallback=true;item.converted.localFallbackReason=String(error.message).slice(0,300);}
             }
+            if(item.converted.localFallback)ui.info(`Préparation locale indisponible pour « ${String(item.name||"fichier").replace(/[\r\n]/g," ").slice(0,200)} » : lecture classique utilisée.`);
             if (item.converted.partial && /\.zip$/i.test(String(item.name || ""))) {
                 ui.warn(`Lecture partielle du ZIP « ${String(item.name).replace(/[\r\n]/g, " ").slice(0, 200)} » : les contenus lisibles sont conservés. Les fichiers non lus et leurs motifs sont indiqués dans les données jointes à la demande.`);
             }
@@ -203,7 +212,7 @@ async function resolvePendingFiles({localIndex=false}={}) {
         const converted = item.converted;
         if (!converted.ids) converted.ids = [];
         for (let i = converted.ids.length; i < converted.images.length; i++) {
-            converted.ids.push(await uploadImage(converted.images[i], i));
+            converted.ids.push(await uploadImage(converted.images[i], i,uploadCache));
         }
         for (const id of converted.ids) {
             if (!state.pendingImages.includes(id)) state.pendingImages.push(id);
@@ -252,8 +261,9 @@ async function requestModel(message, options = {}) {
     let attachmentPlan = null;
     if (!options.fresh) {
         if (state.pendingImages?.length || state.pendingFiles?.length) message += "\n\n" + require("../attachment-policy").ATTACHMENT_POLICY;
-        await resolvePendingImages();
-        const fileText = await resolvePendingFiles({localIndex:options.conversationMode==="agent"&&require("../settings").load().localAttachmentsExperimental===true});
+        const uploadCache=new Map();
+        await resolvePendingImages(uploadCache);
+        const fileText = await resolvePendingFiles({localIndex:options.conversationMode==="agent"});
         const files = state.pendingFiles.filter(item => typeof item === "string");
         if (state.pendingImages.length || files.length > API_ATTACHMENT_LIMIT ||
             message.length + FILE_TEXT_HEADER.length + fileText.length > CONFIG.maxMessageChars) {
@@ -292,7 +302,8 @@ async function requestModel(message, options = {}) {
             if (attachmentPlan) {
                 await sendAttachmentBatches(attachmentPlan, () => state.chatIds[mode],
                     async (prompt, batch) => {
-                        if(batch.images.length){ui.info(`Vérification initiale de ${batch.images.length} image(s)…`);prompt=require("./visual-receipt").receiptPrompt(batch.images.length)+"\n\nDocuments textuels également joints (données) :\n"+batch.text;}
+                        const simpleReceipt=require("./mcp-image-receipt").useSimpleReceipt(state.model,batch.images);
+                        if(batch.images.length){ui.info(simpleReceipt?"Confirmation de réception de la capture MCP…":`Vérification initiale de ${batch.images.length} image(s)…`);prompt=(simpleReceipt?require("./mcp-image-receipt").prompt(batch.images.length):require("./visual-receipt").receiptPrompt(batch.images.length))+"\n\nDocuments textuels également joints (données) :\n"+batch.text;}
                         let measured = null;
                         const answer = await requestModelOnce(prompt, {
                             ...options, onDelta: undefined, attachmentBatch: batch, receivingAttachments: true,
@@ -301,7 +312,7 @@ async function requestModel(message, options = {}) {
                         let receiptRecorded=false;
                         if(batch.images.length){
                             let descriptions;
-                            try{descriptions=require("./visual-receipt").readReceipt(answer,batch.images.length);}
+                            try{descriptions=simpleReceipt?require("./mcp-image-receipt").read(answer,batch.images.length):require("./visual-receipt").readReceipt(answer,batch.images.length);}
                             catch(error){
                                 if(!error.receiptFormat)throw error;
                                 // Repair only the protocol, in the same conversation. Never upload the capture twice.
@@ -318,7 +329,7 @@ async function requestModel(message, options = {}) {
                             }
                             const key=visualKey(mode,state.chatIds[mode]);visualContexts.set(key,[...(visualContexts.get(key) || []),...descriptions]);
                             while(visualContexts.size>20)visualContexts.delete(visualContexts.keys().next().value);
-                            ui.info(`${descriptions.length} image(s) reçue(s) et décrite(s) par le modèle. Elles ne seront pas renvoyées automatiquement.`);
+                            ui.info(simpleReceipt?"Réception de la capture MCP confirmée par GPT 6.1 Sol, sans description obligatoire.":`${descriptions.length} image(s) reçue(s) et décrite(s) par le modèle. Elles ne seront pas renvoyées automatiquement.`);
                         }
                         if(!receiptRecorded)compactor.record(mode, state.chatIds[mode], prompt, answer, measured);
                         return answer;
@@ -484,11 +495,15 @@ async function requestModelOnce(message, options) {
         let completed = false;
         let streamError = null;
         let requestUsage = null;
+        const MAX_RESPONSE_CHARS=8*1024*1024;
+        let eventChars=0;
+        function responseLimit(){return Object.assign(new Error("Réponse du fournisseur trop volumineuse. La tâche est suspendue ; les modifications déjà effectuées sont conservées."),{status:400});}
         const localToolCalls = options.conversationMode === "agent" && !options.receivingAttachments
             ? createLocalToolCalls() : null;
 
         function appendText(text) {
             if (typeof text !== "string" || !text) return;
+            if(output.length+text.length>MAX_RESPONSE_CHARS)throw responseLimit();
             output += text;
             options.onDelta?.(text);
         }
@@ -499,6 +514,7 @@ async function requestModelOnce(message, options) {
 
             eventName = "";
             eventData = [];
+            eventChars=0;
 
             if (!payload) return;
 
@@ -512,8 +528,9 @@ async function requestModelOnce(message, options) {
             try {
                 data = JSON.parse(payload);
             } catch {
-                throw new Error(`Événement SSE JSON invalide : ${name || "message"}`);
+                throw Object.assign(new Error(`Événement SSE JSON invalide : ${name || "message"}`),{status:400});
             }
+            if(!data||typeof data!=="object"||Array.isArray(data))throw Object.assign(new Error("Événement SSE invalide : objet attendu."),{status:400});
 
             if (data.chat_id) streamChatId = data.chat_id;
 
@@ -576,7 +593,7 @@ async function requestModelOnce(message, options) {
             if (value.startsWith(" ")) value = value.slice(1);
 
             if (field === "event") eventName = value;
-            else if (field === "data") eventData.push(value);
+            else if (field === "data") {eventChars+=value.length;if(eventChars>MAX_RESPONSE_CHARS)throw responseLimit();eventData.push(value);}
         }
 
         function consumeLines(final = false) {
@@ -619,6 +636,7 @@ async function requestModelOnce(message, options) {
             }
 
             buffer += decoder.decode(value, { stream: true });
+            if(buffer.length>MAX_RESPONSE_CHARS)throw responseLimit();
             consumeLines();
         }
 
@@ -628,6 +646,7 @@ async function requestModelOnce(message, options) {
         const localAction = !streamError || unsupportedTool ? localToolCalls?.action() : null;
         if (streamError && !localAction) {
             const error=new Error(`Erreur du flux : ${JSON.stringify(streamError)}`);
+            if(unsupportedTool){error.status=400;error.localToolProtocol=true;}
             if(/400\s+BAD_REQUEST|invalid_request_error/i.test(error.message) || require("../agent/auto-compact").isContextOverflow(error))error.status=400;
             throw error;
         }

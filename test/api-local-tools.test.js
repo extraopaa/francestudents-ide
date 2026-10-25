@@ -26,6 +26,33 @@ function prepare() {
 }
 test.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
 
+test("incomplete native tools fail once at the API layer instead of being billed as network retries",async()=>{
+    prepare();state.chatIds.agent=null;const original=global.fetch;let calls=0;
+    global.fetch=async()=>{calls++;return stream(event("response.output_item.added",{item:{type:"function_call",id:"incomplete",name:"write_file",arguments:'{"path":'},output_index:0}));};
+    try{
+        await assert.rejects(requestModel("Create file",{conversationMode:"agent"}),error=>error.status===400&&error.localToolProtocol===true);
+        assert.equal(calls,1);
+    }finally{global.fetch=original;}
+});
+
+test("OpenAI Responses and Chat Completions MCP calls map to the same permission-checked local action",()=>{
+    const manager=require("../src/mcp/manager").manager,previous=manager.catalog;
+    manager.catalog=()=>'- server "blender", tool "get_scene_info"';
+    try{
+        const responses=createLocalToolCalls();
+        responses.receive("response.output_item.done",{item:{type:"function_call",id:"mcp-response",name:"mcp__blender__get_scene_info",arguments:'{"include_objects":true}'}});
+        assert.deepEqual(responses.action().args,{server:"blender",tool:"get_scene_info",arguments:{include_objects:true}});
+        const chat=createLocalToolCalls();
+        chat.receive("message",{choices:[{index:0,delta:{tool_calls:[{index:0,id:"mcp-chat",function:{name:"get_scene_info",arguments:'{"include_'}}]}}]});
+        assert.throws(()=>chat.action(),/incomplet/);
+        chat.receive("message",{choices:[{index:0,delta:{tool_calls:[{index:0,function:{arguments:'objects":true}'}}]},finish_reason:"tool_calls"}]});
+        assert.equal(chat.action().name,"mcp_call");assert.deepEqual(chat.action().args,responses.action().args);
+        const ambiguous=createLocalToolCalls();manager.catalog=()=>'- server "one", tool "get_scene_info"\n- server "two", tool "get_scene_info"';
+        ambiguous.receive("completed",{message:{tool_calls:[{id:"ambiguous",function:{name:"get_scene_info",arguments:"{}"}}]}});
+        assert.equal(ambiguous.action(),null);
+    }finally{manager.catalog=previous;}
+});
+
 test("native calls become validated local JSON, without execution at the API layer", async () => {
     prepare();
     const original = global.fetch;

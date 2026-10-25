@@ -209,7 +209,7 @@ function normalizeAttachments(list) {
             if (!/^data:[^,]*;base64,/i.test(item.data)) continue;
             if (item.data.length > MAX_FILE_DATA_URL_CHARS) continue;
             if(item.selectedPaths!==undefined&&(!Array.isArray(item.selectedPaths)||item.selectedPaths.length>10000||item.selectedPaths.some(value=>typeof value!=="string"||value.length>65536)))throw new Error("Sélection ZIP invalide.");
-            files.push({ name, dataUrl: item.data,...(item.selectedPaths!==undefined?{selectedPaths:item.selectedPaths}:{}) });
+            files.push({ name, dataUrl: item.data,classicPreparation:item.classicPreparation===true,...(item.selectedPaths!==undefined?{selectedPaths:item.selectedPaths}:{}) });
             names.push(name);
         } else {
             let content = item.data;

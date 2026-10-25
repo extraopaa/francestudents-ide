@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),{_electron}=require("playwright-core");
-test("opening a project makes no AI summary request; explicit indexing quota failure gets a readable card",{timeout:45000},async()=>{
+test("automatic project analysis reports quota failures clearly on opening, reopening and explicit indexing",{timeout:45000},async()=>{
     const root=path.resolve(__dirname,".."),dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-project-quota-")),workspace=path.join(dir,"project"),harness=path.join(dir,"launch.cjs");
     fs.mkdirSync(workspace);fs.writeFileSync(path.join(workspace,"app.js"),"console.log('local context');");
     const mod=name=>JSON.stringify(path.join(root,name)),resetAt=new Date(Date.now()+3*3600000).toISOString();
@@ -13,18 +13,18 @@ test("opening a project makes no AI summary request; explicit indexing quota fai
         await page.locator("#startup-loading").waitFor({state:"hidden"});
         if(await page.locator("#guide-close").isVisible())await page.locator("#guide-close").click();
         await page.evaluate(dir=>window.frst.openProject(dir),workspace);
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),0);
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),1);
         fs.writeFileSync(path.join(workspace,"app.js"),"console.log('changed locally');");
         await page.evaluate(dir=>window.frst.openProject(dir),workspace);
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),0);
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),2);
         await page.evaluate(()=>window.frst.submit("/index"));
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),1);
-        const card=page.locator(".budget-notice");await card.waitFor();
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),3);
+        const card=page.locator(".budget-notice").last();await card.waitFor();
         assert.match(await card.innerText(),/Budget de chat épuisé/);
         assert.match(await card.locator(".budget-context").innerText(),/contexte local partiel/);
         assert.equal(await card.getByRole("button",{name:"J’ai reçu un reset"}).count(),1);
         assert.equal(await card.locator("details").getAttribute("open"),null);
         assert.doesNotMatch(await card.innerText(),/HTTP 429/);
-        await page.screenshot({path:path.join(root,"release/startup-quota-v1.4.3.png")});
+        await page.screenshot({path:path.join(root,`release/startup-quota-v${require("../package.json").version}.png`)});
     }finally{await app.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

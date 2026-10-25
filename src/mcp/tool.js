@@ -58,7 +58,9 @@ async function run(args) {
             if(typeof image.data!=="string" || image.data.length>Math.ceil(MAX_IMAGE_INPUT_BYTES/3)*4)throw new Error("Image MCP vide ou trop volumineuse.");
             const prepared=await prepareImageInput(`data:${image.mimeType};base64,${image.data}`);
             if(!Array.isArray(state.pendingImages))state.pendingImages=[];
-            state.pendingImages.push(`data:${prepared.type};base64,${prepared.bytes.toString("base64")}`);
+            const dataUrl=`data:${prepared.type};base64,${prepared.bytes.toString("base64")}`;
+            require("../api/mcp-image-receipt").mark(dataUrl);
+            state.pendingImages.push(dataUrl);
             vision.push({queued:true,width:prepared.width,height:prepared.height,resized:prepared.resized,
                 ...(prepared.resized?{readability_warning:`Image réduite de ${prepared.originalWidth} × ${prepared.originalHeight} à ${prepared.width} × ${prepared.height}. Les petits détails peuvent être illisibles : demander une capture de zone pour les vérifier.`}:{})});
         }catch(error){vision.push({queued:false,error:error.message});}

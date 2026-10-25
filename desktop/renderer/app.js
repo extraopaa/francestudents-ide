@@ -2325,15 +2325,25 @@ async function prepareImage(file,details={}) {
     throw new Error(`image trop lourde même après compression (max ${formatBytes(MAX_IMAGE_BYTES)})`);
 }
 
-async function addAttachments(fileList) {
+let attachmentPreparationQueue=Promise.resolve();
+function addAttachments(fileList){
+    const files=Array.from(fileList||[]);
+    const next=attachmentPreparationQueue.then(()=>prepareAttachments(files));
+    attachmentPreparationQueue=next.catch(()=>{});return next;
+}
+async function prepareAttachments(fileList) {
     for (const file of Array.from(fileList || [])) {
         const name = file.name || (file.type.startsWith("image/") ? "image-collée.png" : "fichier");
-        // Même fichier ajouté deux fois (double glisser-déposer, re-sélection) : ignoré.
-        if (pendingAttachments.some((a) => a.name === name && a.size === file.size)) continue;
+        // Names and sizes alone do not prove identity (notably repeated screenshot names).
+        const candidates=pendingAttachments.filter(a=>a.name===name&&a.size===file.size);
         try {
             if (file.size === 0) throw new Error("fichier vide");
-            if((/\.zip$/i.test(name)||["application/zip","application/x-zip-compressed"].includes(file.type))&&(await api.preferences()).localAttachmentsExperimental===true){
-                const selection=await chooseZipFiles(await prepareFile(file,name));
+            if(candidates.length&&file.size<=MAX_FILE_BYTES){const originalData=await readAsDataUrl(file);if(candidates.some(a=>a.data===originalData))continue;}
+            if(/\.zip$/i.test(name)||["application/zip","application/x-zip-compressed"].includes(file.type)){
+                const attachment=await prepareFile(file,name);
+                let selection;
+                try{selection=await chooseZipFiles(attachment);}
+                catch{selection={...attachment,classicPreparation:true};studioFeedback(`${name} : inventaire local indisponible, lecture classique utilisée.`);}
                 if(selection)pendingAttachments.push(selection);
                 continue;
             }
@@ -6698,7 +6708,6 @@ $("mcp-editor-form").onsubmit = async event => {
 /* ---------- Paramètres recherchables et contexte ---------- */
 const preferenceFields = { contextMaxFiles:"context-max-files", contextBudgetChars:"context-budget", contextFileChars:"context-file-chars", agentContextChars:"context-agent-chars" };
 function showPreferences(data) {
-    $("set-local-attachments-experimental").checked=data.localAttachmentsExperimental===true;
     for (const [key, id] of Object.entries(preferenceFields)) $(id).value = data[key];
     $("settings-default-model").value = data.defaultModel == null ? "" : String(data.defaultModel);
     renderContextEstimate();
@@ -6740,16 +6749,6 @@ $("preferences-save").onclick = async () => {
     catch (error) { $("settings-message").textContent = error.message; }
 };
 const defaultModelStatus = document.createElement("p");
-$("set-local-attachments-experimental").onchange=async event=>{
-    const control=event.target,next=control.checked;control.disabled=true;
-    try{
-        if(next&&!await confirmStudioAction("Cette bêta change la préparation des ZIP, PDF et gros documents. L’index est temporaire et l’économie réelle de quota n’est pas garantie. Tu peux la désactiver pour les prochains envois.",{title:"Tester les pièces jointes locales ?",confirmLabel:"Activer la bêta",danger:false})){control.checked=false;return;}
-        const values=await api.preferences("save",{localAttachmentsExperimental:next});
-        control.checked=values.localAttachmentsExperimental===true;
-        $("local-attachments-experimental-status").textContent=next?"Bêta activée pour les prochains envois.":"Bêta désactivée : fonctionnement habituel pour les prochains envois.";
-    }catch(error){control.checked=!next;$("local-attachments-experimental-status").textContent=error.message;}
-    finally{control.disabled=false;}
-};
 defaultModelStatus.id = "settings-default-model-status";
 defaultModelStatus.className = "settings-help";
 defaultModelStatus.setAttribute("role", "status");

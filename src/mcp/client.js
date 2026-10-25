@@ -14,6 +14,7 @@ const PROTOCOL_VERSION = "2025-06-18";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_STDERR_CHARS = 4000;
 const MAX_LIST_PAGES = 20;
+const MAX_MESSAGE_CHARS = 64 * 1024 * 1024;
 
 class McpError extends Error {
     constructor(message, code) {
@@ -45,14 +46,21 @@ function createClient({
     function failAll(error) {
         for (const entry of pending.values()) {
             clearTimeout(entry.timer);
-            entry.reject(error);
+            entry.reject(entry.method==="tools/call"?Object.assign(new McpError(error.message,error.code),{executionUncertain:true}):error);
         }
         pending.clear();
     }
 
     function send(message) {
         if (!child || closed) throw new McpError(`${name} : serveur arrêté.`);
-        child.stdin.write(`${JSON.stringify(message)}\n`);
+        if(child.stdin.destroyed||child.stdin.writableEnded)throw new McpError(`${name} : canal MCP fermé.`);
+        child.stdin.write(`${JSON.stringify(message)}\n`,error=>{if(error)transportFailure(error);});
+    }
+
+    function transportFailure(error){
+        if(closed)return;
+        failAll(new McpError(`${name} : connexion MCP interrompue (${String(error.message||error).slice(0,300)}). Vérifie l’état de l’application avant de répéter une action.`));
+        buffer="";close();
     }
 
     function onLine(line) {
@@ -118,10 +126,10 @@ function createClient({
             const id = nextId++;
             const timer = setTimeout(() => {
                 pending.delete(id);
-                reject(new McpError(`${name} : délai dépassé (${method}).`));
+                reject(Object.assign(new McpError(`${name} : délai dépassé (${method}).${method==="tools/call"?" L’état de l’action est inconnu ; vérifie l’application avant de la répéter.":""}`),{executionUncertain:method==="tools/call"}));
             }, ms);
 
-            pending.set(id, { resolve, reject, timer });
+            pending.set(id, { resolve, reject, timer,method });
 
             try {
                 send({ jsonrpc: "2.0", id, method, ...(params !== undefined ? { params } : {}) });
@@ -151,6 +159,8 @@ function createClient({
 
         child.stdout.setEncoding("utf8");
         child.stdout.on("data", chunk => {
+            if(closed)return;
+            if(buffer.length+chunk.length>MAX_MESSAGE_CHARS){transportFailure(new Error("réponse MCP trop volumineuse"));return;}
             buffer += chunk;
             let index;
             while ((index = buffer.indexOf("\n")) >= 0) {
@@ -159,6 +169,7 @@ function createClient({
                 onLine(line);
             }
         });
+        for(const pipe of [child.stdin,child.stdout,child.stderr])pipe?.on("error",transportFailure);
 
         if (child.stderr) {
             child.stderr.setEncoding("utf8");

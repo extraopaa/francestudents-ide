@@ -16,7 +16,7 @@ Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 > **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
 
-**Nouveautés 1.4.3 :** l’ouverture du projet prépare un index local, sans lancer de résumé IA ni consommer de quota pour cette génération. Le résumé IA se demande avec `/index` ; les erreurs de quota s’affichent dans une carte lisible. La [bêta des pièces jointes locales](docs/attachments.md) reste désactivée par défaut.
+**Nouveautés 1.4.4 :** moins de répétitions dans les échanges IA, [pièces jointes préparées localement](docs/attachments.md) pour tous avec repli automatique, choix des fichiers dans les ZIP et meilleur guidage des connecteurs MCP. L’analyse IA automatique du projet revient avec son cache ; elle peut consommer du quota. Le gain dépend des fichiers, du modèle et de la tâche.
 
 ## Le mode Code
 

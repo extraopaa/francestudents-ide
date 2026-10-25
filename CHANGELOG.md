@@ -2,6 +2,23 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.4] — Moins de répétitions, des connecteurs mieux guidés
+
+- Lorsqu’un modèle nie l’accès à une application MCP sans l’avoir essayé, récupération locale du schéma réel d’un outil avant la reprise unique. Validation, hooks, annulation et affichage habituels conservés ; aucune commande de l’application exécutée automatiquement par cette découverte. Pas de reprise en mode plan/Éco ni après un refus ou une tentative réelle, y compris dans un lot.
+
+- Images classiques : uploads identiques réutilisés uniquement au sein du même envoi ; copies strictement identiques transmises une seule fois à la vision, avec correspondance explicite des positions d’origine. Aucun rééchantillonnage supplémentaire ni cache interconversation ; un nouvel envoi explicite est toujours traité.
+- Ajout des pièces jointes sérialisé pour éviter les traitements concurrents ; même nom et même taille ne suffisent plus à supprimer un fichier dont le contenu diffère. Les petites lectures restent inchangées si une référence serait plus coûteuse que leur contenu.
+- Analyse IA automatique du projet rétablie à la demande du contributeur : reprise du résumé inchangé, actualisation des seuls fichiers modifiés, /index pour forcer. Cette analyse peut consommer du quota.
+- Consommation : lectures répétées identiques référencées dans la même conversation, sans modifier les résultats conservés ni les prompts de reprise. Gros JSON MCP/EffectCraft minifiés sans changer chaînes ou nombres ; journaux de vérifications réussies allégés avec détail complet accessible localement. Échecs et avertissements gardent leur traitement détaillé.
+- Pièces jointes locales généralisées : sélection des ZIP et indexation ciblée automatiques pour tous, avec repli classique si la préparation locale est indisponible. Annuler la sélection n’envoie rien ; un index plein conserve les pièces déjà actives. Suppression de l’ancien réglage bêta.
+- Préchargement des fichiers cités limité à un premier extrait de 160 lignes ; l’agent conserve les outils pour lire toute la suite selon le besoin.
+- Fiabilité : erreurs de canal MCP contenues, appels dont le résultat est incertain non répétés automatiquement dans la tâche, véritables erreurs MCP signalées comme échecs. Correction des réponses d’outils invalides limitée au budget du protocole, sans relances réseau aveugles ni repli supplémentaire payant.
+- Réponses SSE/MCP et arguments d’outils bornés pour limiter les risques de saturation mémoire ; événements SSE invalides rejetés avec une erreur lisible.
+- Pour les captures MCP avec GPT 6.1 Sol uniquement : question courte de réception, réponse Oui/Non, sans description ni JSON obligatoires. Les autres modèles et pièces jointes conservent leur contrôle visuel existant. Une réception confirmée n’est pas présentée comme une description du contenu.
+- Traduction des appels natifs OpenAI portant le nom d’un outil MCP disponible en appels `mcp_call` locaux, avec les permissions et l’isolation Code/Motion habituelles. Les noms ambigus ne sont pas choisis automatiquement.
+- Lecture des appels `tool_calls` Chat Completions en plus des événements Responses, sans exécuter d’appel incomplet.
+- Exemple concret de découverte MCP dans les nouvelles demandes ; une description de schéma ne compte plus comme une connexion vérifiée à l’application. Reprise unique conservée, sans boucle de relances.
+
 ## [1.4.3] — Ouvrir le projet sans consommer de quota IA
 
 - Ouverture du projet sans génération IA automatique de RESUME.md : index local et cache existant uniquement ; résumé IA sur demande explicite avec /index, hors bêta également.

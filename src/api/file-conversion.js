@@ -28,6 +28,10 @@ async function convertAttachment(file, context = { depth: 0, budget: { bytes: 0 
         if (result.text.length > MAX_TEXT_CHARS) throw new Error("Texte extrait trop volumineux (2 millions de caractères maximum).");
         return result;
     } catch (error) {
+        if(context.localIndex){
+            const fallback=await convertAttachment(file,{...context,localIndex:false});
+            return {...fallback,localFallback:true,localFallbackReason:String(error.message).slice(0,300)};
+        }
         if(context.selectedPaths!==undefined)return {images:[],partial:true,text:documentText(name,`Lecture de la sélection impossible : ${String(error.message).slice(0,500)}. Aucun aperçu binaire global n’est transmis afin de préserver les fichiers non sélectionnés.`)};
         return binaryFallback(name, bytes, type, error.message);
     }
@@ -151,7 +155,7 @@ async function withMedia(name, document, context) {
         const entries=[{name:`${name}.texte.txt`,text:document.text||"",size:Buffer.byteLength(document.text||"")}];
         for(const [index,media] of document.media.entries()){
             const match=/^data:([^;,]+);base64,(.*)$/s.exec(media.dataUrl);
-            if(match){const bytes=Buffer.from(match[2],"base64");entries.push({name:`medias/${index+1}-${media.name||"image"}`,bytes,size:bytes.length});}
+            if(match){const bytes=Buffer.from(match[2],"base64");entries.push({name:`medias/${index+1}-${media.name||"image"}`,type:match[1],bytes,size:bytes.length});}
         }
         const result=require("./local-attachments").registerArchive(name,entries);
         if(document.partial)result.partial=true;
