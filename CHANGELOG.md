@@ -2,6 +2,12 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.5] — Dictée locale et quota mieux maîtrisé
+
+- Dictée vocale transcrite sur l’ordinateur avec Whisper et le processeur, sans envoyer l’audio à FranceStudent ni consommer le quota. Le modèle (environ 100 Mo) est téléchargé une fois avant l’accès au micro ; la transcription reste un brouillon modifiable.
+- L’ouverture d’un projet et les changements de fichiers mettent à jour l’index local sans appel IA. La génération d’un résumé IA est explicite avec `/index` et réutilise le cache.
+- Le moteur local est isolé dans un worker annulable ; l’audio et les échantillons sont effacés après traitement.
+
 ## [1.4.4] — Moins de répétitions, des connecteurs mieux guidés
 
 - Lorsqu’un modèle nie l’accès à une application MCP sans l’avoir essayé, récupération locale du schéma réel d’un outil avant la reprise unique. Validation, hooks, annulation et affichage habituels conservés ; aucune commande de l’application exécutée automatiquement par cette découverte. Pas de reprise en mode plan/Éco ni après un refus ou une tentative réelle, y compris dans un lot.

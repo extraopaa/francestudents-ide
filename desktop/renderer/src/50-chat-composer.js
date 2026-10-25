@@ -11,7 +11,7 @@ function chatControlContent(button, icon, label) {
 composerModelRow.append($("btn-model"));
 const dictationButton = document.createElement("button");
 dictationButton.type = "button"; dictationButton.id = "chat-dictation";
-dictationButton.title = "Dicter un message · Bêta"; dictationButton.setAttribute("aria-label", dictationButton.title);
+dictationButton.title = "Dictée locale · Bêta"; dictationButton.setAttribute("aria-label", dictationButton.title);
 dictationButton.setAttribute("aria-pressed", "false");
 dictationButton.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span class="dictation-beta" aria-hidden="true">β</span>';
 composerModelRow.append(dictationButton);
@@ -35,24 +35,28 @@ function cancelChatDictation() {
     api.dictate("cancel").catch(() => {});
     chatDictation = null; paintDictation(false);
 }
-function paintDictation(recording, processing = false) {
+function paintDictation(recording, processing = false, preparing = false) {
     dictationButton.classList.toggle("recording", recording);
     dictationButton.setAttribute("aria-pressed", String(recording));
-    dictationButton.title = recording ? "Terminer et transcrire la dictée" : processing ? "Annuler la transcription" : "Dicter un message · Bêta";
+    dictationButton.title = recording ? "Terminer et transcrire localement" : preparing ? "Annuler la préparation du modèle local" : processing ? "Annuler la transcription locale" : "Dictée locale · Bêta";
     dictationButton.setAttribute("aria-label", dictationButton.title);
 }
 async function startChatDictation() {
-    if (!ui.status.booted) { openConnectionGuide(1); return; }
     let consent = false;
-    try { consent = localStorage.getItem("frst.dictation.consent") === "yes"; } catch { /* Ask again without persistent storage. */ }
+    try { consent = localStorage.getItem("frst.dictation.local-consent-v1") === "yes"; } catch { /* Ask again without persistent storage. */ }
     if (!consent) {
-        if (!await confirmStudioAction("Après ton clic, le micro enregistre jusqu’à 2 minutes. L’audio est envoyé à FranceStudent pour transcription et peut consommer le quota de transcription. Le texte reste un brouillon que tu peux modifier avant d’envoyer.", { title: "Dictée vocale · Bêta", confirmLabel: "Activer le micro", danger: false })) return;
-        try { localStorage.setItem("frst.dictation.consent", "yes"); } catch { /* Consent applies to this recording. */ }
+        if (!await confirmStudioAction("La reconnaissance vocale s’effectue sur ton ordinateur, sans envoyer l’audio ni consommer de quota FranceStudent. Le modèle est téléchargé une fois avant l’activation du micro (environ 100 Mo), puis reste disponible hors ligne. Le micro enregistre jusqu’à 2 minutes en mémoire. Le texte reste un brouillon à corriger avant d’envoyer.", { title: "Dictée locale · Bêta", confirmLabel: "Préparer et activer le micro", danger: false })) return;
+        try { localStorage.setItem("frst.dictation.local-consent-v1", "yes"); } catch { /* Consent applies to this recording. */ }
     }
     if (chatDictation) return;
-    const session = { canceled: false, key: composerContextKey, chunks: [] };
+    const session = { canceled: false, key: composerContextKey, chunks: [], stage: "preparing" };
     chatDictation = session;
     try {
+        paintDictation(false, true, true);
+        studioFeedback("Préparation de la dictée locale… Premier téléchargement si nécessaire, avant d’activer le micro. Clique sur le micro pour annuler.");
+        await api.dictate("prepare");
+        if (session.canceled) return;
+        session.stage = "recording";
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         session.stream = stream;
         if (session.canceled) { stream.getTracks().forEach(track => track.stop()); return; }
@@ -61,7 +65,7 @@ async function startChatDictation() {
         recorder.onstop = async () => {
             stream.getTracks().forEach(track => track.stop()); clearTimeout(session.timer);
             if (session.canceled) return;
-            paintDictation(false, true); studioFeedback("Transcription en cours… Clique sur le micro pour annuler.");
+            paintDictation(false, true); studioFeedback("Transcription locale en cours… Clique sur le micro pour annuler.");
             let audioContext;
             try {
                 audioContext = new AudioContext();
@@ -72,17 +76,25 @@ async function startChatDictation() {
                 const samples = (await offline.startRendering()).getChannelData(0), pcm = new Int16Array(samples.length);
                 for (let i = 0; i < samples.length; i++) pcm[i] = Math.max(-1, Math.min(1, samples[i])) * 32767;
                 if (session.canceled) return;
-                const text = await api.dictate("transcribe", pcm);
+                // The worker may have been released while the system microphone dialog was open.
+                await api.dictate("prepare");
+                if (session.canceled) { pcm.fill(0); return; }
+                let text;
+                try { text = await api.dictate("transcribe", pcm); } finally { pcm.fill(0); }
                 if (session.canceled || session.key !== composerContextKey) return;
                 if (text.trim()) { input.value += `${input.value && !/\s$/.test(input.value) ? " " : ""}${text}`; input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); }
                 studioFeedback(text.trim() ? "Dictée ajoutée au brouillon. Tu peux la corriger avant d’envoyer." : "Aucune parole reconnue. Ton brouillon est conservé.");
             } catch (error) { if (!session.canceled) studioFeedback(error.message || "La transcription a échoué. Ton brouillon est conservé."); }
-            finally { await audioContext?.close().catch(() => {}); if (chatDictation === session) { chatDictation = null; paintDictation(false); } }
+            finally { session.chunks = []; await audioContext?.close().catch(() => {}); if (chatDictation === session) { chatDictation = null; paintDictation(false); } }
         };
         recorder.onerror = () => { cancelChatDictation(); studioFeedback("L’enregistrement a échoué. Ton brouillon est conservé."); };
         recorder.start(1000); paintDictation(true); studioFeedback("Micro actif · parle, puis clique sur le micro pour transcrire (2 min maximum).");
         session.timer = setTimeout(() => { if (recorder.state === "recording") recorder.stop(); }, 120000);
-    } catch { cancelChatDictation(); studioFeedback("Micro indisponible ou autorisation refusée. Vérifie les réglages du système."); }
+    } catch (error) {
+        if (session.canceled) return;
+        cancelChatDictation();
+        studioFeedback(session.stage === "preparing" ? error.message || "Le modèle de dictée locale est indisponible. Ton brouillon est conservé." : "Micro indisponible ou autorisation refusée. Vérifie les réglages du système.");
+    }
 }
 dictationButton.onclick = () => {
     if (chatDictation?.recorder?.state === "recording") chatDictation.recorder.stop();

@@ -4,7 +4,7 @@
 
 Un dossier, une idée et une conversation : voici comment démarrer. Les captures utilisent le projet fictif **Aurora**, sans compte personnel.
 
-L’analyse IA automatique du projet est rétablie pour la prochaine version : à l’ouverture, le résumé inchangé est repris depuis le cache ; seuls les fichiers modifiés ou non encore résumés sont analysés. Cette analyse peut consommer du quota. `/index` permet de forcer une nouvelle génération complète.
+À l’ouverture, l’IDE prépare l’index local du projet sans appel IA. Pour demander un résumé IA et consommer du quota, lance `/index` dans le chat. Le résumé est ensuite réutilisé depuis le cache jusqu’à la prochaine demande explicite.
 
 ## 1. Installer et se connecter
 
@@ -91,7 +91,7 @@ Un problème ? Consulte le [dépannage](depannage.md). Pour le terminal, les ré
 
 Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. La jauge de contexte du chat a été retirée. La compaction automatique fonctionne en arrière-plan et conserve l’historique visible. Le suivi du quota du compte reste disponible dans Usage.
 
-Le bouton micro **Bêta** permet de dicter un brouillon. À la première utilisation, confirme l’envoi de l’audio à FranceStudent et autorise le microphone dans ton système. Clique à nouveau pour terminer et transcrire (2 minutes maximum). Pendant la transcription, le bouton permet d’annuler. Le texte est ajouté au brouillon sans envoi automatique. La transcription nécessite une connexion et peut consommer son quota FranceStudent ; annuler après l’envoi ne supprime pas nécessairement le job distant. Les enregistrements ne sont pas sauvegardés localement. Sur Mac, vérifie Réglages Système → Confidentialité et sécurité → Microphone si l’accès est refusé.
+Le bouton micro **Bêta** transcrit la voix sur ton ordinateur avec Whisper : l’audio n’est pas envoyé à FranceStudent et ne consomme pas son quota. À la première utilisation, confirme le téléchargement du modèle (environ 100 Mo), puis autorise le microphone dans ton système. Une fois le modèle installé, la transcription fonctionne hors ligne. Clique à nouveau pour terminer ou annuler (2 minutes maximum). Le texte reste dans le brouillon, sans envoi automatique ; l’enregistrement temporaire est effacé après traitement. Sur Mac, vérifie Réglages Système → Confidentialité et sécurité → Microphone si l’accès est refusé.
 
 Le bouton de niveau d’accès, à côté du modèle dans la saisie, permet de choisir **Sur approbation**, **Automatique** ou **Accès complet**. Le menu explique chaque mode ; une option permet de mémoriser le choix pour les prochaines sessions. Le même réglage reste accessible dans les paramètres et s’applique en Code comme en Motion. L’accès complet autorise aussi les actions hors du projet et approuve les actions déjà en attente ; il ne répond pas aux questions de l’agent à ta place.
 

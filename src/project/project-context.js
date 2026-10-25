@@ -284,14 +284,14 @@ function splitSections(text, rels) {
 /**
  * Charge le projet : reprend le RESUME.md si rien n'a changé,
  * sinon actualise le résumé IA avec les seuls fichiers modifiés.
- * summarize:false garde un chargement local ; /index (force) refait tout.
+ * Le chargement est local par défaut. Seul /index (force) demande une analyse IA.
  */
-async function load(workspace, { force = false, summarize = true } = {}) {
+async function load(workspace, { force = false, summarize = false } = {}) {
     const snap = await snapshot(workspace);
     let resume = force ? null : await readCache(snap.fingerprint);
     let status = "Résumé du projet repris (inchangé)";
 
-    if(!resume&&!summarize){
+    if(!resume&&!summarize&&!force){
         const cache=await readFileCache();
         const summaries=snap.items.filter(item=>{
             const entry=cache[item.rel];

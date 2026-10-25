@@ -34,6 +34,9 @@ test("EffectCraft real engine is controlled through the specialized agent chat",
                 }finally{if(id!==null)await window.frst.ptyKill(id);off();}
             },terminalCommand);
             assert.match(output,/FRST_42_PACKAGED/);
+            const speech=await page.evaluate(async()=>{const prepared=await window.frst.dictate("prepare");const text=await window.frst.dictate("transcribe",new Int16Array(1600).fill(1200));return {prepared,text};});
+            assert.equal(speech.prepared.local,true);
+            assert.equal(typeof speech.text,"string");
         }
         await page.locator("#input").fill("Code draft stays here");
         await page.locator("#btn-motion").click();await page.locator("#motion-consent-ok").click();

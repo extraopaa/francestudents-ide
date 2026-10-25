@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -52,7 +52,7 @@
   "author": "Hecone",
   "license": "ISC",
   "dependencies": {
-    "@breezystack/lamejs": "1.2.7",
+    "@huggingface/transformers": "4.3.1",
     "@kenjiuno/msgreader": "1.29.0",
     "@napi-rs/canvas": "0.1.100",
     "@xmldom/xmldom": "0.9.12",
@@ -119,6 +119,7 @@
     "appId": "fr.francestudent.code",
     "productName": "FranceStudent IDE",
     "asar": true,
+    "asarUnpack": ["node_modules/onnxruntime-node/bin/**/*"],
     "publish": [
       {
         "provider": "github",

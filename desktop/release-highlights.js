@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.5":{headline:"Ta voix reste sur ton ordinateur. Ton quota aussi.",items:[
+        {icon:"chat",title:"Dicte sans envoyer ton audio",text:"La voix est reconnue localement avec Whisper. Le modèle se télécharge une fois ; le texte apparaît comme brouillon modifiable."},
+        {icon:"clock",title:"L’index du projet ne coûte plus de quota",text:"L’ouverture et les changements de fichiers restent locaux. Lance /index si tu veux demander un résumé à l’IA."},
+        {icon:"spark",title:"Une transcription annulable",text:"Le traitement reste dans un worker séparé. Ton brouillon et les ressources du projet restent disponibles."}
+    ]},
     "1.4.4":{headline:"Moins de répétitions, plus de travail utile.",items:[
         {icon:"clock",title:"Des échanges plus légers",text:"Les lectures identiques et les longs journaux réussis évitent les répétitions inutiles. Les détails restent accessibles à l’agent."},
         {icon:"tools",title:"Tes fichiers préparés sur ton ordinateur",text:"Choisis les fichiers utiles dans un ZIP. La préparation locale devient automatique, avec un retour au traitement classique si nécessaire."},

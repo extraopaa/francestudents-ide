@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),{_electron}=require("playwright-core");
-test("automatic project analysis reports quota failures clearly on opening, reopening and explicit indexing",{timeout:45000},async()=>{
+test("opening a project stays local; explicit indexing reports quota failures clearly",{timeout:45000},async()=>{
     const root=path.resolve(__dirname,".."),dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-project-quota-")),workspace=path.join(dir,"project"),harness=path.join(dir,"launch.cjs");
     fs.mkdirSync(workspace);fs.writeFileSync(path.join(workspace,"app.js"),"console.log('local context');");
     const mod=name=>JSON.stringify(path.join(root,name)),resetAt=new Date(Date.now()+3*3600000).toISOString();
@@ -13,12 +13,12 @@ test("automatic project analysis reports quota failures clearly on opening, reop
         await page.locator("#startup-loading").waitFor({state:"hidden"});
         if(await page.locator("#guide-close").isVisible())await page.locator("#guide-close").click();
         await page.evaluate(dir=>window.frst.openProject(dir),workspace);
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),1);
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),0);
         fs.writeFileSync(path.join(workspace,"app.js"),"console.log('changed locally');");
         await page.evaluate(dir=>window.frst.openProject(dir),workspace);
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),2);
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),0);
         await page.evaluate(()=>window.frst.submit("/index"));
-        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),3);
+        assert.equal(await app.evaluate(()=>globalThis.summaryCalls),1);
         const card=page.locator(".budget-notice").last();await card.waitFor();
         assert.match(await card.innerText(),/Budget de chat épuisé/);
         assert.match(await card.locator(".budget-context").innerText(),/contexte local partiel/);

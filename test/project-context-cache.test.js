@@ -34,17 +34,19 @@ test("explicit local-only loading never calls AI, while a forced summary remains
     }
 });
 
-test("automatic analysis summarizes on first load, reuses an unchanged cache and updates changed files",async()=>{
+test("project loading is local by default; explicit analysis reuses cache and updates changed files",async()=>{
     const {root,workspace,data}=await makeDirs();
     const previous={projectPath:memory.projectPath,request:api.requestModel};let calls=0;
     memory.projectPath=name=>path.join(data,name);api.requestModel=async()=>{calls++;return `### a.js\nAutomatic summary ${calls}`;};
     setUiBackend({...getUiBackend(),spinner:()=>({stop(){}})});
     try{
         await fs.writeFile(path.join(workspace,"a.js"),"const first = 1;");
-        await projectContext.load(workspace);assert.equal(calls,1);
-        await projectContext.load(workspace);assert.equal(calls,1);
+        await projectContext.load(workspace);assert.equal(calls,0);
+        assert.match(projectContext.resumeText(),/Index local pr[êe]t/);
+        await projectContext.load(workspace,{summarize:true});assert.equal(calls,1);
+        await projectContext.load(workspace,{summarize:true});assert.equal(calls,1);
         await fs.writeFile(path.join(workspace,"a.js"),"const changed = 2;");
-        await projectContext.load(workspace);assert.equal(calls,2);
+        await projectContext.load(workspace,{summarize:true});assert.equal(calls,2);
         assert.match(projectContext.resumeText(),/Automatic summary 2/);
     }finally{memory.projectPath=previous.projectPath;api.requestModel=previous.request;setUiBackend(null);projectContext.clear();await fs.rm(root,{recursive:true,force:true});}
 });

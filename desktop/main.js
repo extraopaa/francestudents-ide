@@ -1106,7 +1106,6 @@ function registerIpc() {
         return { identity, percent: dto?.contextUsagePercent ?? null, tokens: dto?.tokenUsage?.totalTokenCount ?? null };
     });
     handle("dictate", (action, payload) => {
-        if (!booted || loginBusy) throw new Error("Connecte-toi à FranceStudent pour dicter.");
         return require("./dictation").dictate(action, payload);
     });
     handle("autoApprove", mode => {
@@ -1472,7 +1471,7 @@ if (!gotLock) {
         const cleanup = [() => projectStudio.stopAll(), () => require("../src/tools/browse").stopAll(),
             () => webResearch.stopAll(), () => previewServer.stop(), () => effectCraftHost.stop(),
             () => killAllTerminals(), () => lspManager?.stopAll(), () => require("../src/tools/command/jobs").manager.stopAll?.(),
-            () => require("../src/agent/worktrees").stopAll(), () => transcriptStore.flush()];
+            () => require("../src/agent/worktrees").stopAll(), () => require("./dictation").dictate("cancel"), () => transcriptStore.flush()];
         // A failing cleanup must not leave the app stuck in the Windows tray.
         let timer;
         Promise.race([Promise.allSettled(cleanup.map(action => Promise.resolve().then(action))),
