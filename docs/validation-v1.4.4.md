@@ -15,8 +15,22 @@ Préparation du 25 octobre 2026. La version généralise les pièces jointes loc
 - Application Windows empaquetée : démarrage, terminal PTY et vrai moteur EffectCraft contrôlés avec succès ; version 1.4.4 confirmée. Installateur Authenticode `NotSigned`, limite annoncée maintenue.
 - Les 22 fichiers applicatifs modifiés ont été comparés au contenu de l’ASAR, fins de ligne normalisées. Version, taille et SHA-512 de latest.yml vérifiées. Contrôle direct dans le paquet : première analyse IA automatique, seconde ouverture servie par cache, /index force une deuxième analyse ; sélection ZIP limitée à keep.txt ; extraction du PDF sans image puis rendu visuel explicite réussi. Le processus Node du script auxiliaire de démarrage est resté actif après ses assertions et a été arrêté ; les parcours Electron ordinaires et le contrôle empaqueté EffectCraft se terminent normalement.
 
-Les plateformes distantes sont en cours de préparation. Les résultats finaux sont consignés avant/après publication. Aucun test réel du service fournisseur ou d’un Blender utilisateur n’est revendiqué : les réponses correspondantes sont instrumentées.
+La [CI Node 22 Windows/Linux/macOS](https://github.com/extraopaa/francestudents-ide/actions/runs/40146356097) a réussi sur le commit applicatif `31b95d6234de73f47d4b27c151b26868c22277dd`. Chacune des plateformes exécute les 771 tests : Windows 768 réussis / 3 ignorés, Linux et macOS 764 réussis / 7 ignorés. Audit, lint, renderer, EffectCraft et construction du paquet réussis.
 
-## Distribution prévue
+La [construction Mac ARM64](https://github.com/extraopaa/francestudents-ide/actions/runs/40146358313) a réussi : 764 tests unitaires réussis et 7 ignorés, quatre parcours de mise à jour/sécurité/migration réussis, application empaquetée avec PTY et vrai EffectCraft contrôlés. Signature ad hoc vérifiée dans l’application et dans le DMG monté. Capture du mode motion inspectée visuellement. Aucune notarisation Apple ni validation sur un Mac M5 physique n’est revendiquée. Aucun test réel du service fournisseur ou d’un Blender utilisateur n’est revendiqué : les réponses correspondantes sont instrumentées.
 
-Windows x64 et Mac Apple Silicon ARM64, macOS 13 minimum ; six assets attendus. Windows reste non signé par un éditeur reconnu, Mac en bêta avec signature ad hoc et sans notarisation. Les mises à jour Windows utilisent latest.yml ; le Mac propose le téléchargement de son installateur.
+## Distribution publiée
+
+La [release 1.4.4](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.4.4) est publique, ni brouillon ni préversion. Source applicative : tag immuable `v1.4.4`, commit `31b95d6234de73f47d4b27c151b26868c22277dd`. Les commits ultérieurs de compte rendu ne changent pas les binaires.
+
+Les tailles et SHA-256 des six assets ont été comparés aux empreintes serveur GitHub avant et après publication. Les deux paquets Mac téléchargés correspondent aussi au manifeste du runner. SHA256SUMS.txt contient les cinq fichiers distribués hors manifeste lui-même, au format minuscules et deux espaces avant le nom.
+
+Le [workflow Windows de publication](https://github.com/extraopaa/francestudents-ide/actions/runs/40146848752) a réussi et conservé les assets déjà joints.
+
+| Fichier | Taille | SHA-256 |
+| --- | ---: | --- |
+| FranceStudentIDE-1.4.4-setup.exe | 190907808 | `804620bdeeb2d45ddd82f028f56a11b8f023d4f894b9bf1b978eb0929f3b025b` |
+| FranceStudentIDE-1.4.4-mac-arm64.dmg | 227346864 | `d3cb673f260f4c4fa3b4a59103577a52fc0d05b1dc92eb1fa5a8d36c241baa57` |
+| FranceStudentIDE-1.4.4-mac-arm64.zip | 219325170 | `93cf2b59ba10d31e9d269279f85c30ff949ad5ec0118e45e7fa27a6b8c3612fd` |
+
+Windows x64 et Mac Apple Silicon ARM64, macOS 13 minimum. Windows reste non signé par un éditeur reconnu, Mac en bêta avec signature ad hoc et sans notarisation. Les mises à jour Windows utilisent latest.yml ; le Mac propose le téléchargement de son installateur.
