@@ -57,6 +57,17 @@ test("parseAgentResponse limite le plan à 8 étapes et reason à 200 caractère
     assert.equal(action.reason.length, 200);
 });
 
+test("parseAgentResponse accepte des étapes de plan objets", () => {
+    const action = parseAgentResponse(JSON.stringify({
+        type: "tool",
+        name: "list_directory",
+        args: { path: "." },
+        plan: [{ step: "Explorer le projet", status: "in_progress" }, { step: "Vérifier" }],
+        reason: "Explorer le projet"
+    }));
+    assert.deepEqual(action.plan, ["Explorer le projet", "Vérifier"]);
+});
+
 test("parseAgentResponse lève une erreur sans objet JSON", () => {
     assert.throws(() => parseAgentResponse("pas de json"), /Aucun objet JSON/);
 });

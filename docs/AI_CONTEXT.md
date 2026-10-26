@@ -1,5 +1,9 @@
 # Contexte de reprise — développeurs et assistants IA
 
+## Dernière version
+
+La version **1.4.7** normalise localement les plans d’agent et impose l’outil de suppression multiplateforme `delete_path`, sans ajouter d’appel IA. Les builds Windows et Mac ARM64 reconstruisent EffectCraft depuis la source épinglée avant de créer les installateurs.
+
 Ce document est volontairement indépendant d’un fournisseur et d’un modèle. Il se lit comme du Markdown ordinaire. Commencer par [AGENTS.md](../AGENTS.md), puis consulter les sections utiles à la tâche.
 
 ## Mission du projet

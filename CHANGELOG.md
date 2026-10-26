@@ -2,6 +2,12 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.7] — Plans agent et suppressions plus fiables
+
+- Les mises à jour de plan acceptent les formats de réponse courants des modèles ; les longues listes sont limitées localement et un plan vide ne bloque plus le travail.
+- L’agent reçoit une consigne multiplateforme claire : supprimer avec l’outil sécurisé de l’IDE, jamais une commande shell dépendante de Windows ou Unix.
+- Aucun appel IA supplémentaire n’est ajouté pour normaliser un plan.
+
 ## [1.4.6] — Reprises agent moins coûteuses
 
 - Après un conflit de flux (HTTP 409), le nouveau fil reçoit la tâche et les résultats récents sans renvoyer l’index complet du projet.

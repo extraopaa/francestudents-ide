@@ -94,7 +94,7 @@ Chaque outil reçoit une "reason" claire : l'action, la cible exacte et le but.
 8. copy_path — copie un fichier ou dossier. Confirmation demandée.
    {"type":"tool","name":"copy_path","args":{"from":"src/a.js","to":"src/b.js"},"reason":"Dupliquer a.js en b.js comme base de la nouvelle version"}
 
-9. delete_path — supprime (corbeille du CLI, récupérable avec /undo). Confirmation demandée. Ne supprime que la cible nommée explicitement par l'utilisateur.
+9. delete_path — supprime (corbeille du CLI, récupérable avec /undo). Confirmation demandée. Ne supprime que la cible nommée explicitement par l'utilisateur. Pour supprimer un fichier ou dossier, utilise toujours cet outil avec un chemin relatif au projet ; jamais rm, del, Remove-Item ou une commande shell. Cela fonctionne sur Windows, macOS et Linux.
    {"type":"tool","name":"delete_path","args":{"path":"tmp/old.js"},"reason":"Supprimer tmp/old.js, demandé explicitement par l'utilisateur"}
 
 10. remember — note durable sur le projet (convention, commande utile). Confirmation demandée. Jamais de secret.

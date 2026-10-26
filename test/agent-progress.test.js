@@ -25,6 +25,28 @@ test("plan : statuts validés, copie du plan et progression transmise au bureau"
         assert.ok(events.some(([name]) => name === "agentActivity"));
     } finally { state.agentPlan = previous; setUiBackend(null); }
 });
+test("plan : normalise les étapes chaînes et les statuts omis", () => {
+    const previous = state.agentPlan;
+    const backend = createDesktopBackend(() => {});
+    setUiBackend(backend);
+    try {
+        const args = { steps: ["Explorer", { step: "Corriger" }] };
+        check(args);
+        assert.deepEqual(args.steps, [
+            { step: "Explorer", status: "pending" },
+            { step: "Corriger", status: "pending" }
+        ]);
+        const oversized = { steps: Array.from({ length: 15 }, (_, index) => `Étape ${index + 1}`) };
+        check(oversized);
+        assert.equal(oversized.steps.length, 12);
+        const empty = { steps: [] };
+        check(empty);
+        assert.deepEqual(empty.steps, []);
+        backend.startRun("Test plan");
+        const result = updatePlan({ steps: ["Explorer"] });
+        assert.equal(result.steps[0].step, "Explorer");
+    } finally { state.agentPlan = previous; setUiBackend(null); }
+});
 test("activité : outils, erreurs, sources consultées et instantanés indépendants", () => {
     const backend = createDesktopBackend(() => {});
     backend.startRun("Test");

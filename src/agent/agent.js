@@ -275,7 +275,10 @@ function parseAgentResponse(text) {
 
     if (action.plan !== undefined) {
         action.plan = Array.isArray(action.plan)
-            ? action.plan.filter(item => typeof item === "string" && item.trim() && item.trim().length <= 300).map(item => item.trim()).slice(0, 8)
+            ? action.plan.map(item => typeof item === "string"
+                ? item.trim()
+                : (item && typeof item.step === "string" ? item.step.trim() : ""))
+                .filter(item => item && item.length <= 300).slice(0, 8)
             : undefined;
     }
 

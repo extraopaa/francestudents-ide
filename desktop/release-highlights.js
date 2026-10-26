@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.7":{headline:"Des plans fiables, des suppressions adaptées à ton système.",items:[
+        {icon:"chat",title:"Le plan ne bloque plus ta tâche",text:"Les étapes en texte, sans statut ou trop nombreuses sont adaptées localement, sans requête IA supplémentaire."},
+        {icon:"tools",title:"La bonne suppression, sur chaque système",text:"L’agent utilise la corbeille et les confirmations de FranceStudent au lieu d’une commande rm ou del."}
+    ]},
     "1.4.6":{headline:"L’agent retrouve ses outils, sans gaspiller ton quota.",items:[
         {icon:"tools",title:"Ton projet reste accessible",text:"Si un modèle affirme à tort qu’il ne peut pas lire le projet ouvert, l’IDE vérifie le dossier puis lui fait reprendre la tâche."},
         {icon:"clock",title:"Des reprises plus légères",text:"Après un conflit de conversation, l’agent reprend sans renvoyer tout l’index du projet. Une réponse d’outil invalide n’entraîne plus de requête de secours supplémentaire."},
