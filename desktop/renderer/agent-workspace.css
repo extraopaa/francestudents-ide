@@ -1,9 +1,10 @@
 /* Agent workspace: reuse the existing Dark Modern theme and its tokens. */
-.agent-navigation { display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.agent-tabs { display: flex; gap: 12px; }
-.agent-tabs button { color: var(--fg-dim); background: transparent; border: 0; border-radius: 0; padding: 10px 2px; font-size: 11px; position: relative; }
-.agent-tabs button.selected { color: var(--fg-strong); }
-.agent-tabs button.selected::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--accent); }
+.agent-navigation { display: flex; align-items: center; justify-content: space-between; padding: 5px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.agent-tabs { display: flex; align-items: center; gap: 6px; }
+.agent-tabs button { color: var(--fg-dim); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 7px 11px; min-height: 32px; font-size: 11px; line-height: 16px; position: relative; cursor: pointer; transition: color .15s ease, background-color .15s ease, border-color .15s ease; }
+.agent-tabs button:hover { color: var(--fg-strong); background: var(--bg-hover); }
+.agent-tabs button.selected { color: var(--fg-strong); background: var(--bg-active); border-color: var(--border); box-shadow: 0 1px 2px #0002; }
+.agent-tabs button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .agent-tabs button span { font-size: 9px; border-radius: 3px; padding: 1px 4px; background: var(--bg-active); margin-left: 3px; }
 #agent-focus { background: transparent; border: 0; font-size: 18px; color: var(--fg-dim); padding: 3px 5px; }
 .agent-context-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; gap: 10px; font-size: 10px; color: var(--fg-dim); flex-shrink: 0; }

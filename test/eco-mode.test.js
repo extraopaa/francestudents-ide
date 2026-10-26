@@ -25,7 +25,8 @@ test("eco agent stops after four turns and reports incomplete work", async () =>
 });
 test("eco does not retry invalid tool responses or call a fallback model", async () => {
     const { result, calls } = await ecoRun(() => "invalid tool response");
-    assert.equal(calls, 1); assert.equal(result.completed, false); assert.match(result.message, /sans nouvelle tentative/);
+    assert.equal(calls, 1); assert.equal(result.completed, false); assert.match(result.message, /ne peut pas interpréter/);
+    assert.doesNotMatch(result.message, /lecture seule/);
 });
 test("eco prevents subagent execution", async () => {
     const { result, calls } = await ecoRun(() => JSON.stringify({ type: "tool", name: "task", args: { prompt: "Explore", description: "Explorer" }, reason: "Explorer" }));

@@ -72,6 +72,27 @@ test("failures and interruption never auto-complete", async () => {
     assert.equal(interrupted.steps.filter(step => step.status === "completed").length, 0);
 });
 
+test("a false claim of missing project access triggers one local read and a concise retry", async () => {
+    const recovered = await scenario([
+        final({ message: "Je n’ai pas accès aux fichiers de ton projet et je ne peux pas modifier le code." }),
+        final({ message: "J’ai repris la demande à partir du dossier vérifié." })
+    ]);
+    assert.equal(recovered.sent.length, 2);
+    assert.equal(recovered.executed.length, 1);
+    assert.deepEqual(recovered.executed[0], { path: "." });
+    assert.match(recovered.sent[1], /confirme l’accès à son contenu/);
+});
+
+test("a real user denial is never bypassed by workspace access recovery", async () => {
+    const denied = await scenario([
+        final({ message: "Je n’ai pas accès aux fichiers de ton projet." })
+    ], { denied: true });
+    assert.equal(denied.sent.length, 1);
+    assert.equal(denied.executed.length, 1);
+    assert.match(denied.result.message, /n’a pas abouti/);
+    assert.match(denied.result.message, /aucun refus n’a été contourné/);
+});
+
 test("forgotten checkboxes cause no extra paid requests in normal or Eco mode", async () => {
     const ignored = await scenario([tool({ plan }), final()]);
     assert.equal(ignored.sent.length, 2);

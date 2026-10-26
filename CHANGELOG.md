@@ -2,6 +2,12 @@
 
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
+## [1.4.6] — Reprises agent moins coûteuses
+
+- Après un conflit de flux (HTTP 409), le nouveau fil reçoit la tâche et les résultats récents sans renvoyer l’index complet du projet.
+- Une réponse d’outil invalide reçoit au plus la correction déjà prévue. Si le protocole reste invalide, l’IDE explique localement le blocage au lieu de lancer une requête modèle supplémentaire en lecture seule.
+- Si l’agent affirme sans preuve qu’il ne peut pas accéder aux fichiers du projet sélectionné, l’IDE vérifie une fois le dossier localement puis lui demande de poursuivre ; un refus utilisateur ou une véritable erreur d’accès n’est jamais contourné.
+
 ## [1.4.5] — Dictée locale et quota mieux maîtrisé
 
 - Dictée vocale transcrite sur l’ordinateur avec Whisper et le processeur, sans envoyer l’audio à FranceStudent ni consommer le quota. Le modèle (environ 100 Mo) est téléchargé une fois avant l’accès au micro ; la transcription reste un brouillon modifiable.

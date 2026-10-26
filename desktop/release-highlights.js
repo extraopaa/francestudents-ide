@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.4.6":{headline:"L’agent retrouve ses outils, sans gaspiller ton quota.",items:[
+        {icon:"tools",title:"Ton projet reste accessible",text:"Si un modèle affirme à tort qu’il ne peut pas lire le projet ouvert, l’IDE vérifie le dossier puis lui fait reprendre la tâche."},
+        {icon:"clock",title:"Des reprises plus légères",text:"Après un conflit de conversation, l’agent reprend sans renvoyer tout l’index du projet. Une réponse d’outil invalide n’entraîne plus de requête de secours supplémentaire."},
+        {icon:"chat",title:"Des onglets plus lisibles",text:"Conversation, Activité et Usage ont maintenant de vrais boutons avec plus d’espace."}
+    ]},
     "1.4.5":{headline:"Ta voix reste sur ton ordinateur. Ton quota aussi.",items:[
         {icon:"chat",title:"Dicte sans envoyer ton audio",text:"La voix est reconnue localement avec Whisper. Le modèle se télécharge une fois ; le texte apparaît comme brouillon modifiable."},
         {icon:"clock",title:"L’index du projet ne coûte plus de quota",text:"L’ouverture et les changements de fichiers restent locaux. Lance /index si tu veux demander un résumé à l’IA."},

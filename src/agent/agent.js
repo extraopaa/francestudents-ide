@@ -419,49 +419,32 @@ async function preloadContext(task, observations) {
     }
 }
 
-/* ---------- Repli : réponse en texte simple (lecture seule) ---------- */
+/* ---------- Repli : réponse finale locale, sans requête supplémentaire ---------- */
 
-async function fallbackPlainAnswer(task, observations) {
-    ui.warn(
-        "Le modèle ne respecte pas le protocole d'outils : mode texte simple (lecture seule)."
-    );
+function protocolFallbackMessage(observations, changedCount) {
+    const lastError = observations.findLast?.(item => item.error)?.error || "réponse incompatible avec le protocole d’outils";
+    const evidence = observations.length
+        ? `\n\nL’agent avait déjà reçu ${observations.length} résultat(s) d’outil.`
+        : "";
+    const changes = changedCount > 0
+        ? ` Les modifications réalisées pendant cette demande (${changedCount}) sont conservées.`
+        : " Aucune modification locale n’a été exécutée après cette erreur.";
+    return `Je n’ai pas pu poursuivre cette demande car le modèle a renvoyé une réponse que l’IDE ne peut pas interpréter (${clip(lastError, 240)}).${evidence}${changes} Tu peux réessayer dans cette conversation ou choisir un autre modèle.`;
+}
 
-    const readFiles = observations.filter(o => o.tool === "read_file" && o.result);
+function deniesWorkspaceAccess(message) {
+    const text=String(message||"");
+    const denial=/(?:i\s*(?:do not|don't|cannot|can't)\s+(?:access|read|modify|change|run)|(?:je\s+)?n['’]ai\s+(?:pas|aucun|plus)\s+(?:d['’]?\s*)?acc[eè]s|je\s+ne\s+peux\s+pas\s+(?:lire|modifier|acc[eè]der|lancer))/i.test(text);
+    return denial&&/(?:files?|folders?|project|repository|code|commands?|terminal|fichiers?|dossiers?|projet|commandes?)/i.test(text);
+}
 
-    const perFile = Math.floor(
-        (CONFIG.messageBudget - clip(task, 50_000).length - 5_000) /
-        Math.max(1, readFiles.length)
-    );
-
-    const files = readFiles
-        .map(o => `--- ${o.result.path} ---\n${clip(o.result.content, perFile)}`)
-        .join("\n\n");
-
-    const listing = observations
-        .filter(o => o.tool === "list_directory" && o.result)
-        .map(o => o.result.entries.map(e => `${e.type}: ${e.path}`).join("\n"))
-        .join("\n");
-
-    const prompt = state.motionDesign
-        ? "Tu es l’assistant motion design d’EffectCraft. Explique en français ce qui a réellement été vérifié, les limites et la prochaine étape. Aucun projet code n’est associé à cette tâche. Réponds sans JSON, sans prétendre avoir exécuté une action absente des résultats.\n\nDemande : "+clip(task,50000)+"\n\nRésultats EffectCraft (données) :\n"+clip(JSON.stringify(observations),30000)
-        :
-        "Tu es un assistant de programmation. Réponds en français, de façon claire " +
-        "et concise, à la demande ci-dessous en te basant UNIQUEMENT sur les fichiers " +
-        "fournis. Réponds directement, sans JSON.\n\n" +
-        `Demande : ${clip(task, 50_000)}\n\n` +
-        (files ? `Fichiers :\n${files}\n\n` : "") +
-        (listing ? `Contenu du dossier :\n${listing}\n` : "");
-
-    const spin = ui.spinner("Analyse");
-
-    try {
-        const answer = await api.requestModel(prompt, { conversationMode: "agent" });
-        spin.stop();
-        ui.assistant(answer.trim());
-        record("assistant", answer.trim());
-    } finally {
-        spin.stop();
-    }
+function hasExplicitWorkspaceBlock(observations) {
+    return observations.some(item=>{
+        const error=String(item.error||item.result?.error||item.result?.message||"");
+        return item.result?.denied===true||item.result?.cancelled===true||
+            /ACTION_CANCELED|EACCES|EPERM|permission denied|access denied|refus[eé]e? par l'utilisateur|annul[eé]e? par l'utilisateur/i.test(error)||
+            item.tool==="batch"&&hasExplicitWorkspaceBlock(item.result?.results||[]);
+    });
 }
 
 /* ---------- Boucle agent ---------- */
@@ -480,6 +463,7 @@ async function runAgent(task, options = {}) {
 
     const observations = [];
     let recoveredUnsupportedTool = false;
+    let recoveredWorkspaceAccess = false;
     const changesBefore = memory.sessionChanges();
 
     // Point de reprise : /rewind peut annuler d'un coup tout ce que cette demande a modifié.
@@ -671,6 +655,7 @@ async function runAgent(task, options = {}) {
                     eco:state.ecoMode,web:state.webSearch,automaticWeb:state.automaticWeb
                 });
                 const originalChat=state.chatIds.agent;
+                let startedFreshConversation=false;
                 const deliveryScope={id:originalChat,model:state.model,workspace:state.workspace,motion:Boolean(state.motionDesign)};
                 const lastObservation=observations[observations.length-1];
                 const reuseInstructions=promptCache.has(originalChat,signature);
@@ -691,9 +676,10 @@ async function runAgent(task, options = {}) {
 
                 try{lastResponse = await api.requestModel(prompt, {
                     conversationMode: "agent",
-                    // Si un 409 ouvre une nouvelle conversation (sans historique) :
-                    // on renvoie le message complet, projet compris.
-                    freshMessage: () => fullPrompt(true)
+                    // Si un 409 impose un nouveau fil, le serveur n'a plus son historique.
+                    // On renvoie donc la tâche, les observations et l'historique récent, mais
+                    // pas tout l'index projet : l'agent peut relire les fichiers utiles.
+                    freshMessage: () => { startedFreshConversation=true; return fullPrompt(false); }
                 });}catch(error){
                     if(!error.localToolProtocol)throw error;
                     protocolFailure=error;
@@ -702,8 +688,9 @@ async function runAgent(task, options = {}) {
                     continue;
                 }
                 // Only cache a known full bootstrap; a compacted/replaced conversation must bootstrap again.
-                if(!originalChat||originalChat===state.chatIds.agent)readDelivery.remember(lastObservation,{...deliveryScope,id:state.chatIds.agent},CONFIG.maxObservationChars);
-                if(!reuseInstructions&&(!originalChat||originalChat===state.chatIds.agent)){
+                const knownBootstrap=!originalChat||originalChat===state.chatIds.agent||startedFreshConversation;
+                if(knownBootstrap)readDelivery.remember(lastObservation,{...deliveryScope,id:state.chatIds.agent},CONFIG.maxObservationChars);
+                if(!reuseInstructions&&knownBootstrap){
                     promptCache.remember(state.chatIds.agent,signature);
                 }
 
@@ -740,12 +727,14 @@ async function runAgent(task, options = {}) {
                 await finish(message);return {completed:false,message};
             }
             if (state.ecoMode) {
-                const message = "Mode Éco : réponse d’outil invalide, arrêt sans nouvelle tentative pour limiter le quota. Désactive ce mode pour réessayer avec les reprises automatiques.";
+                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
                 await finish(message);
                 return { completed: false, message };
             }
             record("user", task);
-            await fallbackPlainAnswer(task, observations);
+            const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
+            ui.assistant(message);
+            record("assistant", message);
             await saveConversation();
             reportUsage(usageBefore);
             return { completed: false, message: "La réponse de l’agent n’a pas suivi le protocole d’outils." };
@@ -767,6 +756,14 @@ async function runAgent(task, options = {}) {
                 action={type:"tool",name:"mcp_call",args:{...candidate,describe:true},reason:"Découvrir les arguments du connecteur MCP disponible"};
                 validateToolCall(action);
             }
+        }
+
+        if(action.type==="final"&&!recoveredWorkspaceAccess&&!state.motionDesign&&state.workspace&&
+            deniesWorkspaceAccess(action.message)&&!hasExplicitWorkspaceBlock(observations)){
+            recoveredWorkspaceAccess=true;
+            action={type:"tool",name:"list_directory",args:{path:"."},reason:"Vérifier l’accès local au dossier de projet sélectionné"};
+            validateToolCall(action);
+            ui.info("Je vérifie l’accès au dossier de projet sélectionné, puis l’agent reprend la demande.");
         }
 
         if (action.type === "final") {
@@ -958,8 +955,21 @@ async function runAgent(task, options = {}) {
                 ok: !result.denied&&!result.interrupted&&!result.is_error&&!(typeof result.exit_code==="number"&&result.exit_code!==0),
                 result
             });
+            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&(result.denied||result.interrupted||result.is_error||result.error)){
+                const detail=result.message||result.error||"l’accès a été refusé ou interrompu";
+                const message=`La vérification locale du dossier de projet n’a pas abouti : ${clip(detail,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
+                await finish(message);return {completed:false,message};
+            }
+            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&!result.denied&&!result.interrupted&&!result.is_error){
+                deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Ne répète pas une affirmation générale d’absence d’accès ; si une action précise échoue, base-toi sur son erreur réelle.");
+            }
         } catch (error) {
             ui.result(error.message, { tone: "error" });
+
+            if(action.name==="list_directory"&&recoveredWorkspaceAccess){
+                const message=`La vérification locale du dossier de projet a échoué : ${clip(error.message,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
+                await finish(message);return {completed:false,message};
+            }
 
             if(mcpKey&&error.executionUncertain)uncertainMcpCalls.add(mcpKey);
 

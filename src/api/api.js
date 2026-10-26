@@ -392,7 +392,10 @@ async function requestModel(message, options = {}) {
                         ? options.freshMessage()
                         : options.freshMessage;
                 }
-                ui.warn("Un flux est encore actif sur la conversation agent : nouvelle conversation.");
+                // A 409 can mean either an active server stream or a stale conversation.
+                // The agent supplies a bounded fresh bootstrap so the request is not sent
+                // against the busy chat ID and the new chat still has the task context.
+                ui.warn("La conversation précédente est temporairement occupée. Je reprends cette demande dans un nouveau fil.");
                 continue;
             }
             if (failures >= MAX_REQUEST_FAILURES) throw error;
