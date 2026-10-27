@@ -2,20 +2,17 @@
 
 function normalizeQuestion(args) {
     if (!args || typeof args.question !== "string" || !args.question.trim() || args.question.length > 2000) throw new Error("question doit contenir entre 1 et 2 000 caractères.");
-    const allowMultiple = args.multiple === true;
-    const placeholder = typeof args.placeholder === "string" && args.placeholder.length <= 200 ? args.placeholder : "";
-    // Models sometimes emit a partial or malformed QCM. Keep the question
-    // usable by falling back to free text instead of suspending the task.
-    const candidates = Array.isArray(args.options) ? args.options : [];
-    const options = candidates.slice(0, 8).flatMap((value, index) => {
+    if (args.options !== undefined && (!Array.isArray(args.options) || args.options.length > 8 || args.options.length === 1)) throw new Error("options doit contenir de 2 à 8 choix, ou être absent pour une réponse libre.");
+    if (args.multiple !== undefined && typeof args.multiple !== "boolean") throw new Error("multiple doit être un booléen.");
+    if (args.placeholder !== undefined && (typeof args.placeholder !== "string" || args.placeholder.length > 200)) throw new Error("placeholder doit être un texte court.");
+    const options = (args.options || []).map((value, index) => {
         const option = typeof value === "string" ? { label: value } : value;
-        if (!option || typeof option.label !== "string" || !option.label.trim() || option.label.length > 200) return [];
-        const description = typeof option.description === "string" && option.description.length <= 500 ? option.description : "";
-        return [{ id: String(index + 1), label: option.label.trim(), description, recommended: option.recommended === true }];
+        if (!option || typeof option.label !== "string" || !option.label.trim() || option.label.length > 200) throw new Error("Chaque choix doit avoir un libellé court.");
+        if (option.description !== undefined && (typeof option.description !== "string" || option.description.length > 500)) throw new Error("Description de choix trop longue ou invalide.");
+        return { id: String(index + 1), label: option.label.trim(), description: option.description || "", recommended: option.recommended === true };
     });
-    const uniqueOptions = options.filter((option, index) => options.findIndex(item => item.label.toLocaleLowerCase() === option.label.toLocaleLowerCase()) === index);
-    const usableOptions = uniqueOptions.length >= 2 ? uniqueOptions : [];
-    return { question: args.question.trim(), options: usableOptions, multiple: usableOptions.length > 0 && allowMultiple, placeholder: placeholder || (usableOptions.length ? "Autre réponse ou précision…" : "Écris ta réponse…") };
+    if (new Set(options.map(option => option.label.toLowerCase())).size !== options.length) throw new Error("Les choix doivent être différents.");
+    return { question: args.question.trim(), options, multiple: options.length > 0 && args.multiple === true, placeholder: args.placeholder || (options.length ? "Autre réponse ou précision…" : "Écris ta réponse…") };
 }
 
 function normalizeAnswer(question, value) {

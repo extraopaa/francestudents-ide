@@ -2,7 +2,15 @@
 const { normalizeQuestion, normalizeAnswer } = require("../user-questions");
 
 async function askUser(args) {
-    const question = normalizeQuestion(args), { getUiBackend, ui } = require("../ui-bridge"), backend = getUiBackend();
+    let question;
+    try { question = normalizeQuestion(args); }
+    catch (error) {
+        // A malformed model QCM should become a free-text question, not stop
+        // the task. The exported validator remains strict for real callers.
+        if (error.message?.startsWith("options")) question = normalizeQuestion({ question: args.question, placeholder: args.placeholder });
+        else throw error;
+    }
+    const { getUiBackend, ui } = require("../ui-bridge"), backend = getUiBackend();
     let answer;
     if (typeof backend.askQuestion === "function") answer = await backend.askQuestion(question);
     else {
