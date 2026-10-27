@@ -442,6 +442,10 @@ async function requestModelOnce(message, options) {
     usage.chars += message.length;
     ui.debug(`Requête : ${fmt(message.length)} caractères (~${fmt(Math.round(message.length / 3.5))} tokens)`);
 
+    if (String(state.model).startsWith("custom:")) {
+        return require("./custom-request").request(state.model, message, { signal: options.signal });
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CONFIG.timeoutMs);
     let idle;

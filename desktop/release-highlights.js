@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.5.1":{headline:"Teste ton propre fournisseur en toute sécurité.",items:[
+        {icon:"tools",title:"Profils API personnalisés",text:"Ajoute un nom, un modèle, une URL et une clé pour utiliser une API compatible OpenAI depuis le sélecteur de modèle."},
+        {icon:"spark",title:"Clé protégée localement",text:"La clé est conservée dans le coffre sécurisé du système et n’apparaît ni dans le renderer ni dans les conversations."},
+        {icon:"chat",title:"FranceStudent reste inchangé",text:"La bêta est séparée et désactivée tant que tu ne sélectionnes pas un fournisseur personnalisé."}
+    ]},
     "1.5.0":{headline:"Tes PDF arrivent au bon circuit dès le premier essai.",items:[
         {icon:"tools",title:"Les PDF sont traités comme des documents",text:"Même après une ancienne session, un PDF ne passe plus par la route réservée aux images. Il rejoint automatiquement la conversion locale et le circuit fichiers."},
         {icon:"chat",title:"Une erreur plus claire",text:"Les refus de pièce jointe ne sont plus confondus avec une réponse d’outil incompatible."}

@@ -924,6 +924,14 @@ function registerIpc() {
         if (busy && Object.keys(payload || {}).some(key => key !== "defaultModel")) throw new Error("Attends la fin de la tâche pour modifier le contexte.");
         return preferences.save(payload || {});
     });
+    handle("customProviders", (action, payload) => {
+        const providers = require("../src/custom-providers");
+        if (action === "list") return { enabled: require("../src/settings").load().customProvidersBeta === true, providers: providers.list() };
+        if (action === "save") return providers.saveProfile(payload);
+        if (action === "remove") return providers.remove(payload?.id);
+        if (action === "get") return providers.get(payload?.id);
+        throw new Error("Action fournisseur personnalisé invalide.");
+    });
     handle("bootstrap", bootstrap);
     handle("logoutAccount", logoutAccount);
     handle("loginAccount", async credentials => {

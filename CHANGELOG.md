@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1] — Fournisseurs personnalisés en bêta
+
+- Ajout de profils personnalisés avec nom, modèle, URL et clé API.
+- Les clés sont conservées dans le coffre sécurisé du système et ne sont jamais exposées au renderer.
+- Le routage compatible OpenAI est disponible depuis le sélecteur de modèle.
+- Le compte FranceStudent et son fonctionnement restent inchangés par défaut.
+
 ## [1.5.0] — Pièces jointes PDF plus fiables
 
 - Les PDF mal classés dans la file d’images sont automatiquement redirigés vers le traitement local des documents.

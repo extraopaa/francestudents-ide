@@ -279,15 +279,17 @@ function createDesktopBackend(send) {
         async models() {
             const agentsApi = require("../src/api/agents");
             const { agents, source, error } = await agentsApi.listAgents({ refresh: true });
-            return {
-                agents: agents.map((agent) => ({
+            const builtIn = agents.map((agent) => ({
                     id: agent.id,
                     name: agent.name,
                     provider: agent.provider || "",
                     model: agent.model || "",
                     description: agent.description || "",
                     isDefault: Boolean(agent.isDefault)
-                })),
+                }));
+            const custom = require("../src/custom-providers").list().map(profile => ({ id: `custom:${profile.id}`, name: `${profile.name} · Bêta`, provider: profile.provider, model: profile.model, description: "Fournisseur personnalisé · clé stockée dans le coffre système", isDefault: false }));
+            return {
+                agents: [...builtIn, ...custom],
                 source,
                 error: error ? String(error.message || error) : null,
                 current: state.model
@@ -296,6 +298,13 @@ function createDesktopBackend(send) {
 
         /** Change l'agent courant et démarre une conversation neuve (comme /model). */
         async setModel(id) {
+            if (typeof id === "string" && id.startsWith("custom:")) {
+                if (!require("../src/custom-providers").get(id.slice(7))) throw new Error("Fournisseur personnalisé introuvable ou clé indisponible.");
+                state.model = id;
+                resetConversation(state.mode === "agent" ? "agent" : "chat");
+                emit({ type: "info", text: "Fournisseur personnalisé sélectionné (bêta)." });
+                return { id, name: require("../src/custom-providers").list().find(item => `custom:${item.id}` === id)?.name || id };
+            }
             const agentsApi = require("../src/api/agents");
             const { agents } = await agentsApi.listAgents();
             const agent = agents.find((item) => item.id === Number(id));
