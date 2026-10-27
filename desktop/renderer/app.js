@@ -44,6 +44,8 @@ const ui = {
     currentModelId: null,
     highlightTimer: null,
     quota: null,             // { percent, bucket, resetAt, powerUp, limits }
+    quotaRequestCheckpoint: null,
+    quotaRefreshPending: false,
     sessionRequests: ""
 };
 
@@ -882,6 +884,7 @@ function applyStatus(s) {
         ui.interrupted = false;
     }
     renderQuota();
+    refreshQuotaAtRequestCheckpoint(s.usage?.requests);
     if (s.mode) $("mode-select").value = s.mode;
 
     if ((s.workspace || null) !== ui.workspace) {
@@ -895,6 +898,21 @@ function applyStatus(s) {
     if (wasBusy && !busy) refreshQuota();
 }
 
+function refreshQuotaAtRequestCheckpoint(requests) {
+    const count = Number(requests);
+    if (!Number.isFinite(count) || count < 0) return;
+    const checkpoint = Math.floor(count / 5) * 5;
+    if (ui.quotaRequestCheckpoint == null) {
+        // Le chargement initial récupère déjà le quota ; commencer le suivi
+        // depuis le compteur courant évite un second rafraîchissement au démarrage.
+        ui.quotaRequestCheckpoint = checkpoint;
+        return;
+    }
+    if (checkpoint <= ui.quotaRequestCheckpoint) return;
+    ui.quotaRequestCheckpoint = checkpoint;
+    void refreshQuota();
+}
+
 /* ---------- Quota du compte FranceStudent ---------- */
 
 function renderQuota() {
@@ -904,7 +922,7 @@ function renderQuota() {
 }
 
 async function refreshQuota() {
-    if (ui.quotaLoading) return;
+    if (ui.quotaLoading) { ui.quotaRefreshPending = true; return; }
     if (!ui.status.booted) { ui.quota = null; renderQuota(); return; }
     ui.quotaLoading = true;
     ui.quotaError = "";
@@ -920,6 +938,10 @@ async function refreshQuota() {
     }
     ui.quotaLoading = false;
     renderQuota();
+    if (ui.quotaRefreshPending) {
+        ui.quotaRefreshPending = false;
+        setTimeout(() => { void refreshQuota(); }, 0);
+    }
     return ui.quota;
 }
 
@@ -8457,7 +8479,7 @@ function renderAgentQuestion(prompt, zone) {
     card.setAttribute("aria-labelledby", `agent-question-${prompt.id}`);
     const header = centerNode("div", "fs-agent-question-header");
     header.append(centerNode("span", "fs-surface-badge", "Question de l’agent"), centerNode("span", "muted", "En attente de ta réponse"));
-    const heading = centerNode("h3", "", prompt.question); heading.id = `agent-question-${prompt.id}`;
+    const heading = centerNode("h3", "", formatAgentQuestion(prompt.question)); heading.id = `agent-question-${prompt.id}`;
     card.append(header, heading);
     const choices = centerNode("fieldset", "fs-agent-choices");
     const legend = centerNode("legend", "", prompt.multiple ? "Tu peux sélectionner plusieurs réponses." : "Choisis une réponse ou écris la tienne.");
@@ -8504,6 +8526,15 @@ function renderAgentQuestion(prompt, zone) {
     submit.onclick = () => answer(false); skip.onclick = () => answer(true);
     footer.append(skip, submit); card.append(error, footer); zone.append(card); refresh();
     setTimeout(() => { if (card.isConnected) (inputs[0] || text).focus({ preventScroll: true }); }, 0);
+}
+
+// Keep instructions and shell commands readable when a model sends them in a
+// single paragraph. Newlines supplied by the model are always preserved.
+function formatAgentQuestion(value) {
+    const text = String(value || "").replace(/\r\n?/g, "\n").trim();
+    if (!text) return "";
+    const command = /\s+(?=(?:npm|npx|node|python(?:3)?|pip(?:3)?|git|curl|wget|docker|dotnet|cargo|go|powershell|pwsh|bash|cmd|rm|mkdir|cat|ls|find|echo)(?:\s|$))/gi;
+    return text.replace(command, "\n").replace(/\s*(?:&&|;)+\s*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 /* Model selection and explicit, opt-in dictation. */
 const composerTools = document.createElement("div");

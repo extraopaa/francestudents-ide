@@ -4,7 +4,7 @@ function renderAgentQuestion(prompt, zone) {
     card.setAttribute("aria-labelledby", `agent-question-${prompt.id}`);
     const header = centerNode("div", "fs-agent-question-header");
     header.append(centerNode("span", "fs-surface-badge", "Question de l’agent"), centerNode("span", "muted", "En attente de ta réponse"));
-    const heading = centerNode("h3", "", prompt.question); heading.id = `agent-question-${prompt.id}`;
+    const heading = centerNode("h3", "", formatAgentQuestion(prompt.question)); heading.id = `agent-question-${prompt.id}`;
     card.append(header, heading);
     const choices = centerNode("fieldset", "fs-agent-choices");
     const legend = centerNode("legend", "", prompt.multiple ? "Tu peux sélectionner plusieurs réponses." : "Choisis une réponse ou écris la tienne.");
@@ -51,4 +51,13 @@ function renderAgentQuestion(prompt, zone) {
     submit.onclick = () => answer(false); skip.onclick = () => answer(true);
     footer.append(skip, submit); card.append(error, footer); zone.append(card); refresh();
     setTimeout(() => { if (card.isConnected) (inputs[0] || text).focus({ preventScroll: true }); }, 0);
+}
+
+// Keep instructions and shell commands readable when a model sends them in a
+// single paragraph. Newlines supplied by the model are always preserved.
+function formatAgentQuestion(value) {
+    const text = String(value || "").replace(/\r\n?/g, "\n").trim();
+    if (!text) return "";
+    const command = /\s+(?=(?:npm|npx|node|python(?:3)?|pip(?:3)?|git|curl|wget|docker|dotnet|cargo|go|powershell|pwsh|bash|cmd|rm|mkdir|cat|ls|find|echo)(?:\s|$))/gi;
+    return text.replace(command, "\n").replace(/\s*(?:&&|;)+\s*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }

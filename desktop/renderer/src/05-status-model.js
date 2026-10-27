@@ -51,6 +51,7 @@ function applyStatus(s) {
         ui.interrupted = false;
     }
     renderQuota();
+    refreshQuotaAtRequestCheckpoint(s.usage?.requests);
     if (s.mode) $("mode-select").value = s.mode;
 
     if ((s.workspace || null) !== ui.workspace) {
@@ -64,6 +65,21 @@ function applyStatus(s) {
     if (wasBusy && !busy) refreshQuota();
 }
 
+function refreshQuotaAtRequestCheckpoint(requests) {
+    const count = Number(requests);
+    if (!Number.isFinite(count) || count < 0) return;
+    const checkpoint = Math.floor(count / 5) * 5;
+    if (ui.quotaRequestCheckpoint == null) {
+        // Le chargement initial récupère déjà le quota ; commencer le suivi
+        // depuis le compteur courant évite un second rafraîchissement au démarrage.
+        ui.quotaRequestCheckpoint = checkpoint;
+        return;
+    }
+    if (checkpoint <= ui.quotaRequestCheckpoint) return;
+    ui.quotaRequestCheckpoint = checkpoint;
+    void refreshQuota();
+}
+
 /* ---------- Quota du compte FranceStudent ---------- */
 
 function renderQuota() {
@@ -73,7 +89,7 @@ function renderQuota() {
 }
 
 async function refreshQuota() {
-    if (ui.quotaLoading) return;
+    if (ui.quotaLoading) { ui.quotaRefreshPending = true; return; }
     if (!ui.status.booted) { ui.quota = null; renderQuota(); return; }
     ui.quotaLoading = true;
     ui.quotaError = "";
@@ -89,6 +105,10 @@ async function refreshQuota() {
     }
     ui.quotaLoading = false;
     renderQuota();
+    if (ui.quotaRefreshPending) {
+        ui.quotaRefreshPending = false;
+        setTimeout(() => { void refreshQuota(); }, 0);
+    }
     return ui.quota;
 }
 

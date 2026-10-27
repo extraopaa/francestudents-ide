@@ -4,6 +4,10 @@
 
 La version **1.4.7** normalise localement les plans d’agent et impose l’outil de suppression multiplateforme `delete_path`, sans ajouter d’appel IA. Les builds Windows et Mac ARM64 reconstruisent EffectCraft depuis la source épinglée avant de créer les installateurs.
 
+### Travail local en cours — actualisation du quota
+
+Le renderer actualise le quota du compte à chaque cinquième requête modèle, à partir du compteur local `usage.requests`. Cela appelle uniquement l’endpoint de consultation du quota (`api.usage()`), sans générer de requête au modèle. Le rafraîchissement à la fin d’une tâche et le contrôle périodique existant restent actifs. Cette modification est en cours et n’est pas encore publiée.
+
 Ce document est volontairement indépendant d’un fournisseur et d’un modèle. Il se lit comme du Markdown ordinaire. Commencer par [AGENTS.md](../AGENTS.md), puis consulter les sections utiles à la tâche.
 
 ## Mission du projet

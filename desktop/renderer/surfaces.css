@@ -81,7 +81,7 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .prompt-zone:has(.fs-agent-question) { padding:0;max-height:min(44vh,480px);min-height:0;flex-shrink:1;overflow:auto;background:var(--bg);border-color:var(--border-strong);border-radius:12px; }
 .fs-agent-question { padding:16px;display:grid;gap:12px;min-width:0; }
 .fs-agent-question-header { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px; }
-.fs-agent-question h3 { margin:0;font-size:14px;line-height:1.5;color:var(--fg-strong);overflow-wrap:anywhere; }
+.fs-agent-question h3 { margin:0;font-size:14px;line-height:1.55;color:var(--fg-strong);overflow-wrap:anywhere;white-space:pre-wrap;word-break:break-word; }
 .fs-agent-choices { display:grid;gap:7px;margin:0;padding:0;border:0;min-width:0; }
 .fs-agent-choices legend { font-size:11px;color:var(--fg-muted);padding:0 0 8px; }
 .fs-agent-choice { display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:9px;cursor:pointer;background:var(--bg-card,var(--bg)); }
@@ -156,8 +156,8 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .chat-navigation-actions > button {width:26px;height:28px;padding:4px;display:inline-flex;align-items:center;justify-content:center;}
 .chat-navigation-actions #mode-select {font-size:10px;max-width:78px;padding:4px;}
 .agent-navigation {gap:8px;padding:6px 10px;}
-.agent-tabs {gap:9px;min-width:0;}
-.agent-tabs button {font-size:11px;padding:7px 0;}
+.agent-tabs {gap:8px;min-width:0;padding:2px 0;}
+.agent-tabs button {font-size:11px;padding:7px 11px;min-height:32px;white-space:nowrap;}
 .chat-settings-row > button {flex:0 1 auto;max-width:220px;}
 .chat-model-row .model-btn {flex:0 1 auto;}
 .chat-tools-menu .composer-topline {padding:0;}

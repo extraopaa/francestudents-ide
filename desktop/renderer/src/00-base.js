@@ -44,6 +44,8 @@ const ui = {
     currentModelId: null,
     highlightTimer: null,
     quota: null,             // { percent, bucket, resetAt, powerUp, limits }
+    quotaRequestCheckpoint: null,
+    quotaRefreshPending: false,
     sessionRequests: ""
 };
 

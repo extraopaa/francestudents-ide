@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.8] — Questions et interface plus lisibles
+
+- Les questions interactives tolèrent les choix incomplets ou mal formés et basculent proprement vers une réponse libre au lieu de suspendre la tâche.
+- Les consignes et commandes des questions sont affichées sur plusieurs lignes, avec les séparateurs de commandes lisibles.
+- Les onglets Conversation, Activité et Usage disposent d’un espacement et d’une zone cliquable cohérents.
+- Le quota du compte s’actualise automatiquement toutes les cinq requêtes modèle sans ajouter de requête au modèle.
+
 Historique du fork d’amélioration de **extraopaa**. **FranceStudent IDE est un projet de [EsteG7](https://github.com/EsteG7/francestudents-ide).** La numérotation du fork est indépendante des tags historiques du dépôt amont.
 
 ## [1.4.7] — Plans agent et suppressions plus fiables
