@@ -646,7 +646,18 @@ async function requestModelOnce(message, options) {
         // A backend rejection of its own tool dispatch does not reject a local
         // action. Only a complete, registered, validated call may be recovered.
         const unsupportedTool = streamError && /unsupported tool ignored by the backend/i.test(JSON.stringify(streamError));
-        const localAction = !streamError || unsupportedTool ? localToolCalls?.action() : null;
+        // Some providers report a generic stream error after emitting a
+        // complete native function call. Validate and recover that call before
+        // treating the stream error as fatal; the local tool remains subject
+        // to the normal registry and permission checks.
+        let localAction = null;
+        if (localToolCalls) {
+            try { localAction = localToolCalls.action(); }
+            catch (error) {
+                if (!streamError) throw error;
+                localAction = null;
+            }
+        }
         if (streamError && !localAction) {
             const error=new Error(`Erreur du flux : ${JSON.stringify(streamError)}`);
             if(unsupportedTool){error.status=400;error.localToolProtocol=true;}
