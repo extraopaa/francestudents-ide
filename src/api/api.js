@@ -129,7 +129,21 @@ async function uploadImage(dataUrl, index, cache=null) {
  * (une seule fois : les relances réutilisent les UUID).
  */
 async function resolvePendingImages(uploadCache) {
-    const list = Array.isArray(state.pendingImages) ? state.pendingImages : [];
+    const rawList = Array.isArray(state.pendingImages) ? state.pendingImages : [];
+    // Older renderer sessions could leave a document data URL in the image
+    // queue. Never send it to Files v1 (/files/upload), which only accepts
+    // images: move it through the document conversion/files-v2 path instead.
+    const list = [];
+    const documents = [];
+    for (const item of rawList) {
+        if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(String(item))) list.push(item);
+        else if (/^data:application\/pdf(?:;|,)/i.test(String(item))) documents.push({ name: "piece-jointe.pdf", dataUrl: item });
+        else list.push(item);
+    }
+    if (documents.length) {
+        state.pendingFiles = [...(Array.isArray(state.pendingFiles) ? state.pendingFiles : []), ...documents];
+        state.pendingImages = list;
+    }
     if (!list.length) return;
     const ids = [];
     for (let i = 0; i < list.length; i++) {

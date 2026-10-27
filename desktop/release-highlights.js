@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.5.0":{headline:"Tes PDF arrivent au bon circuit dès le premier essai.",items:[
+        {icon:"tools",title:"Les PDF sont traités comme des documents",text:"Même après une ancienne session, un PDF ne passe plus par la route réservée aux images. Il rejoint automatiquement la conversion locale et le circuit fichiers."},
+        {icon:"chat",title:"Une erreur plus claire",text:"Les refus de pièce jointe ne sont plus confondus avec une réponse d’outil incompatible."}
+    ]},
     "1.4.9":{headline:"Les outils de l’agent reprennent sans faux blocage.",items:[
         {icon:"tools",title:"Les appels complets sont récupérés",text:"Un fournisseur peut signaler une erreur après avoir transmis un outil valide. FranceStudent le vérifie et poursuit avec ses permissions habituelles."},
         {icon:"chat",title:"Des erreurs moins brutales",text:"Les résultats déjà obtenus restent visibles et les erreurs de protocole ne sont plus présentées comme une suspension définitive."}

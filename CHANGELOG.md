@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.0] — Pièces jointes PDF plus fiables
+
+- Les PDF mal classés dans la file d’images sont automatiquement redirigés vers le traitement local des documents.
+- L’IDE n’envoie plus un PDF à la route réservée aux images PNG/JPEG/WEBP.
+- Les erreurs HTTP 400 de pièce jointe ne sont plus présentées comme une incompatibilité du protocole d’outils.
+
 ## [1.4.9] — Outils agent plus fiables
 
 - Les appels d’outils natifs complets sont récupérés même si le fournisseur ajoute une erreur de flux générique.
