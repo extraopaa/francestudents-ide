@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.9] — Outils agent plus fiables
+
+- Les appels d’outils natifs complets sont récupérés même si le fournisseur ajoute une erreur de flux générique.
+- Les erreurs de protocole restantes sont présentées sans suspendre abusivement les résultats déjà reçus.
+
 ## [1.4.8] — Questions et interface plus lisibles
 
 - Les questions interactives tolèrent les choix incomplets ou mal formés et basculent proprement vers une réponse libre au lieu de suspendre la tâche.
