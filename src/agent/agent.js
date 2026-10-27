@@ -726,8 +726,13 @@ async function runAgent(task, options = {}) {
         }
         if (!action) {
             if(protocolFailure){
-                const message=`Le dernier appel local n’a pas pu être validé : ${protocolFailure.message}. La tâche est suspendue ; les modifications déjà effectuées sont conservées.`;
-                await finish(message);return {completed:false,message};
+                // A provider can reject a native tool envelope even though the
+                // model response itself is still usable. Do not present this
+                // transport detail as a hard suspension: keep the results
+                // already received and offer a concise local retry message.
+                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
+                await finish(message);
+                return { completed: false, message };
             }
             if (state.ecoMode) {
                 const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
