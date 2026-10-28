@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.2] — Liaison GitHub plus claire
+
+- Le connecteur explique que le dossier ouvert doit être un dépôt Git et que la liaison ne télécharge pas les fichiers.
+- Une confirmation est demandée avant de remplacer le remote origin existant depuis le connecteur.
+- Le message d’erreur est plus explicite lorsque le dossier n’est pas un dépôt Git.
+
 ## [1.5.1] — Fournisseurs personnalisés en bêta
 
 - Ajout de profils personnalisés avec nom, modèle, URL et clé API.

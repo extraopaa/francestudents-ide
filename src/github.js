@@ -304,7 +304,14 @@ async function setRemote(cwd, url, remote = "origin", opts = {}) {
     if (!parseGithubRemote(value)) throw new Error("URL GitHub invalide (ex. https://github.com/owner/repo.git ou owner/repo).");
     const name = checkName(remote, "Remote");
     const existing = await remoteUrl(cwd, name, opts);
-    await runGit(cwd, existing ? ["remote", "set-url", name, value] : ["remote", "add", name, value], opts);
+    try {
+        await runGit(cwd, existing ? ["remote", "set-url", name, value] : ["remote", "add", name, value], opts);
+    } catch (error) {
+        if (/not a git repository/i.test(error.message)) {
+            throw new Error("Le dossier du projet ouvert n’est pas un dépôt Git. Ouvre un dépôt existant ou initialise Git dans ce dossier avant de le lier à un dépôt distant.");
+        }
+        throw error;
+    }
     return { remote: name, url: value, updated: Boolean(existing) };
 }
 

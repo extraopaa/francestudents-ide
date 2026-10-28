@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.5.2":{headline:"La liaison GitHub est plus claire et mieux protégée.",items:[
+        {icon:"tools",title:"Un dossier Git nécessaire",text:"Le connecteur indique si le dossier ouvert n’est pas un dépôt Git et rappelle que la liaison ne télécharge pas les fichiers."},
+        {icon:"chat",title:"Confirmation avant remplacement",text:"Avant de remplacer le remote origin existant depuis le connecteur, une confirmation est demandée."}
+    ]},
     "1.5.1":{headline:"Teste ton propre fournisseur en toute sécurité.",items:[
         {icon:"tools",title:"Profils API personnalisés",text:"Ajoute un nom, un modèle, une URL et une clé pour utiliser une API compatible OpenAI depuis le sélecteur de modèle."},
         {icon:"spark",title:"Clé protégée localement",text:"La clé est conservée dans le coffre sécurisé du système et n’apparaît ni dans le renderer ni dans les conversations."},

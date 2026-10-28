@@ -37,7 +37,21 @@ async function loadGithubConnector() {
             actions.append(upload, publish);
         }
         if (githubConnectorView === "repositories") {
-            const link = document.createElement("button"); link.textContent = "Lier au projet"; link.onclick = () => githubConnectorWork(async () => { await api.githubSetRemote(item.name); $("github-connector-repo").textContent = item.name; $("github-connector-status").textContent = "Remote origin mis à jour."; }); actions.append(link);
+            const link = document.createElement("button"); link.textContent = "Lier au projet"; link.onclick = () => githubConnectorWork(async () => {
+                const git = await api.gitStatus();
+                if (!git.repo) {
+                    $("github-connector-status").textContent = "Le dossier ouvert n’est pas un dépôt Git. Ouvre un dépôt existant, clone ce dépôt dans un nouveau dossier ou initialise Git dans le dossier actuel avant de le lier. La liaison ne télécharge aucun fichier.";
+                    return;
+                }
+                const current = await api.githubStatus();
+                if (current.remote && !await confirmStudioAction(`Le remote origin est actuellement « ${current.remote} ». Le remplacer par « ${item.name} » ?`, { title: "Modifier le dépôt distant", confirmLabel: "Remplacer", danger: true })) {
+                    $("github-connector-status").textContent = "Liaison annulée : le remote existant est conservé.";
+                    return;
+                }
+                await api.githubSetRemote(item.name);
+                $("github-connector-repo").textContent = item.name;
+                $("github-connector-status").textContent = "Remote origin mis à jour. Aucun fichier n’a été téléchargé.";
+            }); actions.append(link);
         }
         card.append(title, status);
         if (item.body) { const details = document.createElement("details"), summary = document.createElement("summary"), body = document.createElement("pre"); summary.textContent = "Notes"; body.textContent = item.body; details.append(summary, body); card.append(details); }
