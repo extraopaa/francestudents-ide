@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.3] — Suivi des tâches plus fiable
+
+- Les suivis rappellent la demande et les intitulés du plan pour aider l’agent à garder le cap.
+- La vérification d’accès au projet reconnaît davantage de formulations et distingue les limites d’une pièce jointe.
+- Les refus et interruptions réels restent respectés ; le message de récupération ne se répète pas sur les lectures suivantes.
+
 ## [1.5.2] — Liaison GitHub plus claire
 
 - Le connecteur explique que le dossier ouvert doit être un dépôt Git et que la liaison ne télécharge pas les fichiers.

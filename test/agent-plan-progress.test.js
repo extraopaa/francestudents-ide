@@ -59,7 +59,8 @@ test("inline progress reaches desktop activity during code and motion work witho
         assert.deepEqual(result.steps.map(step => step.status), ["completed", "completed"]);
         assert.ok(result.events.some(event => event?.steps?.[0]?.status === "completed" && event.steps[1].status === "in_progress"));
         assert.match(result.sent[1], /PLAN DE TRAVAIL ACTUEL/);
-        assert.match(result.sent[2], /\["completed","in_progress"\]/);
+        assert.match(result.sent[2], /"step":"Examiner les données","status":"completed"/);
+        assert.match(result.sent[2], /"step":"Vérifier le résultat","status":"in_progress"/);
     }
 });
 
@@ -81,6 +82,26 @@ test("a false claim of missing project access triggers one local read and a conc
     assert.equal(recovered.executed.length, 1);
     assert.deepEqual(recovered.executed[0], { path: "." });
     assert.match(recovered.sent[1], /confirme l’accès à son contenu/);
+});
+
+test("alternative access denials trigger recovery without confusing an attachment limitation", async () => {
+    for (const message of ["Je ne dispose pas des outils du projet.", "I do not have access to the project files.", "Je ne suis pas en mesure de lire les fichiers du projet."]) {
+        const result = await scenario([final({ message }), final({ message: "Dossier vérifié." })]);
+        assert.equal(result.executed.length, 1);
+        assert.equal(result.sent.length, 2);
+    }
+    const attachment = await scenario([final({ message: "Je ne peux pas lire la pièce jointe. Le projet reste inchangé.", completed: false })]);
+    assert.equal(attachment.executed.length, 0);
+});
+
+test("a subsequent directory read is not treated as the recovery probe", async () => {
+    const result = await scenario([
+        final({ message: "Je n’ai pas accès aux fichiers du projet." }),
+        tool({ args: { path: "next" } }),
+        final({ message: "Terminé." })
+    ]);
+    assert.equal(result.executed.length, 2);
+    assert.doesNotMatch(result.sent[2], /confirme l’accès à son contenu/);
 });
 
 test("a real user denial is never bypassed by workspace access recovery", async () => {

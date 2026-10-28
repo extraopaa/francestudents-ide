@@ -9,11 +9,13 @@ test("stateful follow-ups stay compact while fresh prompts retain motion tools, 
     try {
         for (const motion of [false, true]) for (const full of [false, true]) {
             state.motionDesign = motion; state.fullAccess = full;
-            const next = buildFollowUpPrompt({ turn: 3, plan, lastObservation: { tool: "read_file", ok: true, result: { content: "fichier court" } } });
+            const next = buildFollowUpPrompt({ turn: 3, task: "Demande initiale à conserver", plan, lastObservation: { tool: "read_file", ok: true, result: { content: "fichier court" } } });
             assert.ok(next.length < 1700, `unnecessary follow-up overhead: ${next.length}`);
             assert.match(next, /plan_progress/);
             assert.match(next, /completed/);
-            assert.doesNotMatch(next, /Inspecter la composition/);
+            assert.match(next, /Demande initiale à conserver/);
+            assert.match(next, /Inspecter la composition/);
+            assert.match(next, /Contrôler le rendu/);
             assert.doesNotMatch(next, /OUTILS MOTION DESIGN/);
             const fresh = buildAgentPrompt({ workspace: null, task: "Continuer", history: [], observations: [], plan });
             assert.match(fresh, /Inspecter la composition/);

@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "1.5.3":{headline:"L’agent garde mieux le fil de ton travail.",items:[
+        {icon:"chat",title:"Demande et plan conservés",text:"Les suivis rappellent la demande et les étapes du plan pour aider l’agent à poursuivre la tâche."},
+        {icon:"tools",title:"Accès au projet mieux vérifié",text:"L’agent reconnaît davantage de déclarations erronées et respecte les refus et interruptions réels."}
+    ]},
     "1.5.2":{headline:"La liaison GitHub est plus claire et mieux protégée.",items:[
         {icon:"tools",title:"Un dossier Git nécessaire",text:"Le connecteur indique si le dossier ouvert n’est pas un dépôt Git et rappelle que la liaison ne télécharge pas les fichiers."},
         {icon:"chat",title:"Confirmation avant remplacement",text:"Avant de remplacer le remote origin existant depuis le connecteur, une confirmation est demandée."},

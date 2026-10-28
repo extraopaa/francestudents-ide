@@ -10,7 +10,7 @@ function validateProgress(progress, plan) {
 
 function progressPrompt(plan = [], { compact = false } = {}) {
     if (compact) return plan.length
-        ? 'PLAN DE TRAVAIL ACTUEL (ordre inchangé) : ' + JSON.stringify(plan.map(step => step.status)) + '\nAjoute plan_progress à ta réponse avec les statuts actualisés, dans cet ordre. Coche uniquement le travail déjà vérifié ; un refus ou une interruption ne valide rien. update_plan suffit si tu modifies les étapes.'
+        ? 'PLAN DE TRAVAIL ACTUEL (ordre inchangé) : ' + JSON.stringify(plan.map(({ step, status }) => ({ step, status }))) + '\nAjoute plan_progress avec tous les statuts dans l’ordre. Ne valide que le travail vérifié : refus et interruptions ne valident rien. Pour modifier les étapes, utilise update_plan.'
         : "";
     if (!plan.length) return 'SUIVI DU TRAVAIL — Pour une tâche complexe, crée un "plan" de 3 à 6 étapes courtes dans ta première réponse outil, ou utilise update_plan. Ensuite, ajoute "plan_progress" dans tes réponses normales : les statuts de toutes les étapes dans leur ordre. Exemple : ["completed","in_progress","pending"]. Ne valide que le travail vérifié, pas l’action que tu demandes maintenant.';
     return "PLAN DE TRAVAIL ACTUEL — suivi obligatoire\n" +

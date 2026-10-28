@@ -437,14 +437,15 @@ function protocolFallbackMessage(observations, changedCount) {
 
 function deniesWorkspaceAccess(message) {
     const text=String(message||"");
-    const denial=/(?:i\s*(?:do not|don't|cannot|can't)\s+(?:access|read|modify|change|run)|(?:je\s+)?n['’]ai\s+(?:pas|aucun|plus)\s+(?:d['’]?\s*)?acc[eè]s|je\s+ne\s+peux\s+pas\s+(?:(?:moi-même|directement)\s+)?(?:lire|modifier|acc[eè]der|lancer|d[eé]clencher|utiliser))/i.test(text);
-    return denial&&/(?:files?|folders?|project|repository|code|commands?|terminal|tools?|fichiers?|dossiers?|projet|commandes?|outils?)/i.test(text);
+    const target = "(?:files?|folders?|project|repository|code|commands?|terminal|tools?|fichiers?|dossiers?|projet|commandes?|outils?)";
+    const denial = "(?:i\\s*(?:do not|don't|cannot|can't|am unable to)\\s+(?:access|read|modify|change|run|use)|i\\s*(?:do not|don't)\\s+have\\s+access|(?:je\\s+)?n['’]ai\\s+(?:pas|aucun|plus)\\s+(?:d['’]?\\s*)?acc[eè]s|je\\s+ne\\s+(?:peux\\s+pas|suis\\s+pas\\s+en\\s+mesure\\s+de)\\s+(?:(?:moi-même|directement)\\s+)?(?:lire|modifier|acc[eé]der|lancer|d[eé]clencher|utiliser)|je\\s+ne\\s+dispose\\s+pas)";
+    return new RegExp(`${denial}[^.!?\\n]{0,120}\\b${target}\\b`, "i").test(text);
 }
 
 function hasExplicitWorkspaceBlock(observations) {
     return observations.some(item=>{
         const error=String(item.error||item.result?.error||item.result?.message||"");
-        return item.result?.denied===true||item.result?.cancelled===true||
+        return item.result?.denied===true||item.result?.cancelled===true||item.result?.interrupted===true||
             /ACTION_CANCELED|EACCES|EPERM|permission denied|access denied|refus[eé]e? par l'utilisateur|annul[eé]e? par l'utilisateur/i.test(error)||
             item.tool==="batch"&&hasExplicitWorkspaceBlock(item.result?.results||[]);
     });
@@ -607,13 +608,17 @@ async function runAgent(task, options = {}) {
             await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
             return { completed: false, message: "Tâche interrompue." };
         }
-        const steering = [...deferredSteering, ...(options.drainSteering?.() || [])];
+        const userSteering = options.drainSteering?.() || [];
+        const steering = [...deferredSteering, ...userSteering];
+        const internalSteering = deferredSteering;
         deferredSteering = [];
-        if (steering.length) {
-            task += `\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR\n${steering.join("\n\n")}`;
+        if (userSteering.length) {
+            task += `\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR\n${userSteering.join("\n\n")}`;
             ui.info("Nouvelle consigne reçue : prise en compte à cette étape.");
         }
+        const currentTask = internalSteering.length ? `${task}\n\n${internalSteering.join("\n\n")}` : task;
         let action = null;
+        let workspaceProbe = false;
         let correction = null;
         let lastResponse;
         let protocolFailure=null;
@@ -627,7 +632,7 @@ async function runAgent(task, options = {}) {
                 const fullPrompt = withProject => fitPrompt({
                     workspace: state.motionDesign ? null : state.workspace,
                     env,
-                    task,
+                    task: currentTask,
                     history: state.history.slice(-6),
                     memorySummary: state.motionDesign ? "" : memory.summary(),
                     projectContext: withProject ? (state.ecoMode && projectText.length > 20000 ? projectText.slice(0, 20000) + "\n[Mode Éco : contexte projet réduit. Lire les fichiers nécessaires avec les outils.]" : projectText) : "",
@@ -647,8 +652,8 @@ async function runAgent(task, options = {}) {
                 });
 
                 // Une conversation agent existe côté serveur (identifiant reçu) : elle garde
-                // l'historique. Le contexte projet n'est donc envoyé qu'à son premier message,
-                // et les tours 2 et suivants n'envoient que le dernier résultat d'outil.
+                // l'historique. Le contexte projet n'est donc envoyé qu'à son premier message ;
+                // les suivis rappellent la demande, le plan et le dernier résultat d'outil.
                 // Sans conversation (aucun identifiant reçu), on renvoie tout, projet compris.
                 const hasConversation = Boolean(state.chatIds.agent);
                 const signature=promptCache.fingerprint({
@@ -664,6 +669,7 @@ async function runAgent(task, options = {}) {
                 const reuseInstructions=promptCache.has(originalChat,signature);
                 const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
+                        task,
                         lastObservation: readDelivery.delivery(lastObservation,deliveryScope,CONFIG.maxObservationChars),
                         turn,
                         maxTurns,
@@ -673,7 +679,7 @@ async function runAgent(task, options = {}) {
                         requestNumber
                     })
                     : reuseInstructions
-                        ? buildResumePrompt({task,observations,activeFile:state.motionDesign?null:state.activeFile,
+                        ? buildResumePrompt({task:currentTask,observations,activeFile:state.motionDesign?null:state.activeFile,
                             editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction,mcpCatalog:state.motionDesign?"":mcpCatalog})
                         : fullPrompt(!hasConversation);
 
@@ -769,6 +775,7 @@ async function runAgent(task, options = {}) {
         if(action.type==="final"&&!recoveredWorkspaceAccess&&!state.motionDesign&&state.workspace&&
             deniesWorkspaceAccess(action.message)&&!hasExplicitWorkspaceBlock(observations)){
             recoveredWorkspaceAccess=true;
+            workspaceProbe=true;
             action={type:"tool",name:"list_directory",args:{path:"."},reason:"Vérifier l’accès local au dossier de projet sélectionné"};
             validateToolCall(action);
             ui.info("Je vérifie l’accès au dossier de projet sélectionné, puis l’agent reprend la demande.");
@@ -967,18 +974,18 @@ async function runAgent(task, options = {}) {
                 ok: !result.denied&&!result.interrupted&&!result.is_error&&!(typeof result.exit_code==="number"&&result.exit_code!==0),
                 result
             });
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&(result.denied||result.interrupted||result.is_error||result.error)){
+            if(workspaceProbe&&(result.denied||result.interrupted||result.is_error||result.error)){
                 const detail=result.message||result.error||"l’accès a été refusé ou interrompu";
                 const message=`La vérification locale du dossier de projet n’a pas abouti : ${clip(detail,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
                 await finish(message);return {completed:false,message};
             }
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&!result.denied&&!result.interrupted&&!result.is_error){
+            if(workspaceProbe&&!result.denied&&!result.interrupted&&!result.is_error){
                 deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Ne répète pas une affirmation générale d’absence d’accès ; si une action précise échoue, base-toi sur son erreur réelle.");
             }
         } catch (error) {
             ui.result(error.message, { tone: "error" });
 
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess){
+            if(workspaceProbe){
                 const message=`La vérification locale du dossier de projet a échoué : ${clip(error.message,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
                 await finish(message);return {completed:false,message};
             }

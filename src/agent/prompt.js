@@ -522,16 +522,18 @@ function turnWarning(turn, maxTurns) {
 
 /**
  * Message des tours 2 et suivants : la conversation agent est conservée côté
- * serveur, le modèle a déjà reçu les instructions, le projet et la demande au
- * tour 1. On n'envoie que le dernier résultat d'outil.
+ * serveur, le modèle a déjà reçu les instructions et le projet au tour 1.
+ * Le suivi rappelle la demande, le plan et le dernier résultat d'outil.
  */
-function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, steering = [], plan = [], requestNumber = turn }) {
+function buildFollowUpPrompt({ task = "", lastObservation, turn, maxTurns, correction, steering = [], plan = [], requestNumber = turn }) {
     const sections = [
         "SUITE DE LA TÂCHE EN COURS (mêmes instructions, outils et format qu'au premier message de cette demande).",
         ...(require("../state").state.motionDesign ? ["AGENT MOTION DESIGN — EffectCraft uniquement, sans accès au projet code. Vérifie le schéma avec command.describe avant une commande inconnue ; conserve les calques existants et contrôle le rendu."] : []),
-        "Les outils sont locaux : écris l’action JSON dans le texte de ta réponse, sans function_call natif. Les avertissements du backend ne remplacent pas les résultats des outils locaux."
+        "Outils locaux : écris l’action JSON en texte, sans function_call natif. Les avertissements backend ne remplacent pas leurs résultats.",
+        ...(!require("../state").state.motionDesign ? ["Pour le projet sélectionné, utilise l’outil local adapté avant de conclure à une absence d’accès ; respecte les erreurs, refus et interruptions réels, sans supposer que toute action est autorisée."] : [])
     ];
 
+    if (task) sections.push(`DEMANDE UTILISATEUR EN COURS\n${task}`);
     if (lastObservation) {
         sections.push(
             `RÉSULTAT DE L'OUTIL (tour ${turn - 1})\n${formatObservation(lastObservation, CONFIG.maxObservationChars)}`
@@ -553,9 +555,9 @@ function buildFollowUpPrompt({ lastObservation, turn, maxTurns, correction, stee
     }
 
     sections.push(
-        `TOUR ${turn} — choisis la prochaine action d'après la demande et les résultats déjà reçus.\n` +
+        `TOUR ${turn} — poursuis la tâche.\n` +
         turnWarning(turn, maxTurns) +
-        'RAPPEL : respecte le protocole des outils. Réponds avec UN seul objet JSON {"type":"tool"|"final",...}, et rien d\'autre.'
+        'Réponds uniquement par un objet JSON {"type":"tool"|"final",...} selon le protocole.'
     );
 
     sections.push('Continue jusqu’au résultat vérifié ; réutilise les résultats et regroupe les lectures indépendantes. Réponse finale : message, completed (false si bloqué/incomplet), conversation_title court en français.');
