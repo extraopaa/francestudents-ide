@@ -6,6 +6,7 @@
 - Une confirmation est demandée avant de remplacer le remote origin existant depuis le connecteur.
 - Le message d’erreur est plus explicite lorsque le dossier n’est pas un dépôt Git.
 - L’agent traite mieux les déclarations erronées d’inaccessibilité du projet et signale clairement une tâche incomplète si le modèle persiste.
+- Lorsqu’un serveur MCP échoue parce que son dossier n’est pas un dépôt Git, le message suggère de vérifier son dossier de lancement.
 
 ## [1.5.1] — Fournisseurs personnalisés en bêta
 
