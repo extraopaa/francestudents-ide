@@ -155,7 +155,7 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .chat-navigation-actions {display:flex;align-items:center;gap:3px;flex-shrink:0;}
 .chat-navigation-actions > button {width:26px;height:28px;padding:4px;display:inline-flex;align-items:center;justify-content:center;}
 .chat-navigation-actions #mode-select {font-size:10px;max-width:78px;padding:4px;}
-.agent-navigation {gap:8px;padding:6px 10px;}
+.agent-navigation {gap:8px;padding:6px 10px;flex-wrap:wrap;}
 .agent-tabs {gap:8px;min-width:0;padding:2px 0;}
 .agent-tabs button {font-size:11px;padding:7px 11px;min-height:32px;white-space:nowrap;}
 .chat-settings-row > button {flex:0 1 auto;max-width:220px;}
