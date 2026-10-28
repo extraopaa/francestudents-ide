@@ -437,8 +437,8 @@ function protocolFallbackMessage(observations, changedCount) {
 
 function deniesWorkspaceAccess(message) {
     const text=String(message||"");
-    const denial=/(?:i\s*(?:do not|don't|cannot|can't)\s+(?:access|read|modify|change|run)|(?:je\s+)?n['’]ai\s+(?:pas|aucun|plus)\s+(?:d['’]?\s*)?acc[eè]s|je\s+ne\s+peux\s+pas\s+(?:lire|modifier|acc[eè]der|lancer))/i.test(text);
-    return denial&&/(?:files?|folders?|project|repository|code|commands?|terminal|fichiers?|dossiers?|projet|commandes?)/i.test(text);
+    const denial=/(?:i\s*(?:do not|don't|cannot|can't)\s+(?:access|read|modify|change|run)|(?:je\s+)?n['’]ai\s+(?:pas|aucun|plus)\s+(?:d['’]?\s*)?acc[eè]s|je\s+ne\s+peux\s+pas\s+(?:(?:moi-même|directement)\s+)?(?:lire|modifier|acc[eè]der|lancer|d[eé]clencher|utiliser))/i.test(text);
+    return denial&&/(?:files?|folders?|project|repository|code|commands?|terminal|tools?|fichiers?|dossiers?|projet|commandes?|outils?)/i.test(text);
 }
 
 function hasExplicitWorkspaceBlock(observations) {
@@ -775,6 +775,10 @@ async function runAgent(task, options = {}) {
         }
 
         if (action.type === "final") {
+            if (recoveredWorkspaceAccess && deniesWorkspaceAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
+                action.message = "L’IDE a pu vérifier le dossier du projet, mais le modèle affirme encore ne pas pouvoir accéder aux outils ou aux fichiers. La demande reste incomplète ; tu peux réessayer ou choisir un autre modèle.";
+                action.completed = false;
+            }
             if (!recoveredUnsupportedTool && /Unsupported tool ignored by the backend/i.test(action.message) &&
                 !observations.some(o => ["write_file", "run_command"].includes(o.tool) && (!o.ok || o.result?.denied))) {
                 recoveredUnsupportedTool = true;
