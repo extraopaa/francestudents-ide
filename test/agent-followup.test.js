@@ -14,6 +14,7 @@ const { state, resetConversation } = require("../src/state");
 const { buildAgentPrompt, buildFollowUpPrompt } = require("../src/agent/prompt");
 const api = require("../src/api/api");
 const { runAgent } = require("../src/agent/agent");
+const memory = require("../src/project/memory");
 
 const baseContext = {
     workspace: "/tmp/projet",
@@ -32,6 +33,7 @@ test("repeat file reads use a short reference while recovery prompts retain the 
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-delivery-")),content="IMPORTANT_CONTENT ".repeat(150);
     fs.writeFileSync(path.join(dir,"a.txt"),content);
     const previous={request:api.requestModel,workspace:state.workspace,log:console.log};resetConversation();state.workspace=dir;
+    await memory.open(dir);
     const sent=[];api.requestModel=async(message,options)=>{
         sent.push({message,options});state.chatIds.agent="delivery-test";state.chatId="delivery-test";
         return sent.length===1?JSON.stringify({type:"tool",name:"read_file",args:{path:"a.txt",start_line:1,end_line:160},reason:"Check contents again"}):JSON.stringify({type:"final",message:"Done",completed:true});
@@ -47,6 +49,7 @@ test("successive user tasks reuse bootstrap but a model switch restores the comp
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),"frst-quota-integration-"));
     const previous={request:api.requestModel,workspace:state.workspace,model:state.model,log:console.log};
     resetConversation();state.workspace=dir;state.autoApprove=true;
+    await memory.open(dir);
     const sent=[];
     api.requestModel=async(message,options)=>{
         sent.push({message,options});state.chatIds.agent="quota-integration";state.chatId="quota-integration";
@@ -59,7 +62,7 @@ test("successive user tasks reuse bootstrap but a model switch restores the comp
         assert.match(sent[0].message,/OUTILS — chemins relatifs/);
         assert.match(sent[1].message,/NOUVELLE DEMANDE/);
         assert.ok(sent[1].message.length<sent[0].message.length/3);
-        assert.ok(!sent[1].message.includes('"tool":"list_directory"'));
+        assert.ok(sent[1].message.includes('"tool":"list_directory"'), "chaque nouvelle demande reçoit le résultat de la vérification du projet");
         assert.match(sent[1].options.freshMessage(),/OUTILS — chemins relatifs/);
         state.model=String(previous.model)+"-changed";
         state.conversationSettings.agent.model=state.model;
@@ -132,6 +135,7 @@ test("runAgent : projet et instructions au tour 1, message court ensuite", { con
     resetConversation();
     state.workspace = dir;
     state.autoApprove = true;
+    await memory.open(dir);
 
     const originalRequest = api.requestModel;
     const sent = [];
@@ -167,4 +171,110 @@ test("runAgent : projet et instructions au tour 1, message court ensuite", { con
     assert.ok(sent[1].message.length < sent[0].message.length / 3);
     assert.equal(typeof sent[1].options.freshMessage, "function");
     assert.match(sent[1].options.freshMessage(), /OUTILS — chemins relatifs/);
+});
+
+test("une sauvegarde impossible arrête la tâche avant l’appel au modèle", { concurrency: false }, async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "frst-save-error-"));
+    const versions = require("../src/project/file-versions");
+    const previous = { workspace: state.workspace, request: api.requestModel, save: versions.save, log: console.log };
+    resetConversation();
+    state.workspace = dir;
+    await memory.open(dir);
+    let calls = 0;
+    api.requestModel = async () => { calls++; return '{"type":"final","message":"Terminé"}'; };
+    versions.save = async () => { throw new Error("espace insuffisant"); };
+    console.log = () => {};
+    try {
+        const result = await runAgent("Modifie le projet.");
+        assert.equal(result.completed, false);
+        assert.match(result.message, /Impossible de créer la version/);
+        assert.equal(calls, 0);
+    } finally {
+        versions.save = previous.save;
+        console.log = previous.log;
+        api.requestModel = previous.request;
+        state.workspace = previous.workspace;
+        memory.close();
+        resetConversation();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test("un dossier de projet indisponible arrête la tâche avant l'appel au modèle", { concurrency: false }, async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "frst-probe-"));
+    const previous = { workspace: state.workspace, request: api.requestModel, log: console.log };
+    resetConversation();
+    state.workspace = path.join(dir, "absent");
+    let calls = 0;
+    api.requestModel = async () => { calls++; return '{"type":"final","message":"Terminé"}'; };
+    console.log = () => {};
+    try {
+        const result = await runAgent("Inspecte le projet.");
+        assert.equal(result.completed, false);
+        assert.match(result.message, /vérification du dossier de projet n’a pas abouti/i);
+        assert.equal(calls, 0);
+    } finally {
+        console.log = previous.log;
+        api.requestModel = previous.request;
+        state.workspace = previous.workspace;
+        resetConversation();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test("l’annulation de la vérification ne relance pas l’action ni le modèle", { concurrency: false }, async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "frst-cancel-probe-"));
+    const bridge = require("../src/ui-bridge");
+    const control = require("../src/tools/action-control");
+    const backend = bridge.getUiBackend();
+    const previous = { workspace: state.workspace, fullAccess: state.fullAccess, request: api.requestModel, log: console.log };
+    resetConversation();
+    state.workspace = dir;
+    state.fullAccess = true;
+    let calls = 0, starts = 0;
+    api.requestModel = async () => { calls++; return '{"type":"final","message":"Terminé"}'; };
+    console.log = () => {};
+    bridge.setUiBackend({ ...backend, actionControl(event) {
+        if (event.name === "list_directory" && event.state === "running") {
+            starts++;
+            control.cancel(event.id);
+        }
+    } });
+    try {
+        const result = await runAgent("Inspecte le projet.");
+        assert.equal(result.completed, false);
+        assert.match(result.message, /annulée/i);
+        assert.equal(starts, 1);
+        assert.equal(calls, 0);
+    } finally {
+        bridge.setUiBackend(backend);
+        console.log = previous.log;
+        api.requestModel = previous.request;
+        state.workspace = previous.workspace;
+        state.fullAccess = previous.fullAccess;
+        resetConversation();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test("une tâche déjà interrompue ne démarre pas la vérification ni le modèle", { concurrency: false }, async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "frst-stop-"));
+    const previous = { workspace: state.workspace, request: api.requestModel, log: console.log };
+    resetConversation();
+    state.workspace = dir;
+    let calls = 0;
+    api.requestModel = async () => { calls++; return '{"type":"final","message":"Terminé"}'; };
+    console.log = () => {};
+    try {
+        const result = await runAgent("Inspecte le projet.", { shouldStop: () => true });
+        assert.equal(result.completed, false);
+        assert.match(result.message, /interrompue/i);
+        assert.equal(calls, 0);
+    } finally {
+        console.log = previous.log;
+        api.requestModel = previous.request;
+        state.workspace = previous.workspace;
+        resetConversation();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });

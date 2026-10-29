@@ -21,6 +21,10 @@ Le contexte peut inclure les instructions `AGENTS.md`, les fichiers ouverts, des
 
 L’historique affiche les noms des modèles. La suppression demande confirmation ; le choix « Ne plus demander » est mémorisé et la confirmation peut être réactivée dans l’historique.
 
+Lors d’un changement de modèle entre deux messages, un nouveau fil reçoit les échanges textuels récents disponibles ; le journal visible reste conservé. Les anciennes pièces jointes ne sont pas renvoyées automatiquement. Si l’historique requis est indisponible, rouvre d’abord la conversation. Les profils personnalisés en bêta utilisent une API compatible OpenAI, avec leur propre modèle, adresse et clé : les données transmises et leur facturation relèvent aussi du fournisseur choisi.
+
+IDE Link est une connexion mobile facultative en bêta, liée au projet actif. Le QR code ouvre une page protégée par un PIN à usage unique, valable dix minutes et limité à cinq essais. Le tunnel utilise Internet ; l’application distribuée inclut cloudflared, qui doit être dans le PATH en développement. Garde le lien et le PIN privés, arrête la connexion après usage et relance-la après un changement de projet.
+
 ## Fichiers et consommation
 
 Les fichiers peuvent être sélectionnés, collés lorsque le format le permet, ou déposés dans la zone de l’agent. Il n’y a pas de plafond de nombre de pièces jointes dans l’interface : les envois sont répartis automatiquement selon la limite de l’API. Les limites de taille, de conversion et de quota restent applicables.

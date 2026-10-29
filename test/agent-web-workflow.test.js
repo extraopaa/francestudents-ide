@@ -11,6 +11,7 @@ const { setUiBackend, UI_METHODS } = require("../src/ui-bridge");
 const { TOOLS } = require("../src/tools/tools");
 const api = require("../src/api/api");
 const { runAgent, parseAgentResponse } = require("../src/agent/agent");
+const memory = require("../src/project/memory");
 
 test.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 test("boucle agent : recherche, lecture de source, compte rendu et blocage explicite", async () => {
@@ -18,7 +19,10 @@ test("boucle agent : recherche, lecture de source, compte rendu et blocage expli
     const ui = Object.fromEntries(UI_METHODS.map(name => [name, () => {}]));
     ui.spinner = () => ({ stop() {} });
     setUiBackend(ui);
-    state.workspace = dir;
+    const workspace = path.join(dir, "workspace");
+    fs.mkdirSync(workspace, { recursive: true });
+    state.workspace = workspace;
+    await memory.open(workspace);
     state.automaticWeb = true;
     resetConversation();
     const visited = [];

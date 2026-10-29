@@ -16,13 +16,19 @@ Un éditeur de code, un studio EffectCraft et un chat adapté à chaque espace.
 > **Ce dépôt est un fork du projet [FranceStudent Code créé par EsteG7](https://github.com/EsteG7/francestudents-ide).**
 > La création du projet revient à **EsteG7 et aux contributeurs d’origine**. Ce fork, maintenu par [extraopaa](https://github.com/extraopaa), ajoute ses propres améliorations et ne constitue pas une version officielle du dépôt original.
 
-**Nouveautés 1.4.4 :** moins de répétitions dans les échanges IA, [pièces jointes préparées localement](docs/attachments.md) pour tous avec repli automatique, choix des fichiers dans les ZIP et meilleur guidage des connecteurs MCP. L’analyse IA automatique du projet revient avec son cache ; elle peut consommer du quota. Le gain dépend des fichiers, du modèle et de la tâche.
+**Version 2.0.0 en préparation :** change de modèle en conservant les échanges textuels récents, utilise un fournisseur personnalisé compatible en bêta et retrouve ton agent sur mobile avec IDE Link. Les sauvegardes avant demande permettent de restaurer les fichiers du projet. Les [guides](docs/README.md) expliquent ces fonctions et leurs limites ; les anciennes pièces jointes doivent être renvoyées si nécessaire.
 
 ## Le mode Code
 
 Ouvre ton dossier, retrouve tes fichiers et explique ce que tu veux construire. L’assistant peut t’aider à comprendre le projet, modifier le code et lancer les vérifications. L’éditeur, le terminal et l’aperçu des sites restent à portée de main.
 
 ![Mode Code : fichier HTML ouvert dans l’éditeur, explorateur du projet et assistant à droite](docs/images/mode-code.png)
+
+### Revenir avant une demande à l’agent
+
+Dans l’onglet **Sauvegardes** de l’espace agent, choisis une demande puis **Voir et restaurer**. L’aperçu liste les fichiers qui seront rétablis, modifiés ou supprimés ; confirme seulement après l’avoir vérifié. Une version de sécurité est créée avant la restauration. L’opération revient à l’état enregistré avant la demande choisie : elle peut aussi annuler des modifications manuelles ou des demandes ultérieures.
+
+La sauvegarde concerne les fichiers enregistrés et non exclus du projet, pas les onglets non enregistrés, les fichiers sensibles, les liens symboliques ni les actions externes. Les dossiers `.git`, `node_modules`, `.frst`, `dist`, `build` et `coverage` sont notamment exclus. La limite est de 50 versions avant demande ; les grands projets peuvent nécessiter beaucoup de mémoire et d’espace disque. La demande est arrêtée si la sauvegarde échoue. L’interface refuse les restaurations portant sur plus de 100 fichiers, ainsi que certains conflits entre fichiers et dossiers. En cas d’interruption pendant une restauration, celle-ci peut être partielle ; la version de sécurité reste disponible.
 
 ## Le mode Motion design · Bêta
 
@@ -37,9 +43,9 @@ Les conversations Code et Motion sont séparées : l’assistant motion travaill
 | Ton ordinateur | Fichier à télécharger |
 | --- | --- |
 | **Windows 64 bits** | [Dernière version stable](https://github.com/extraopaa/francestudents-ide/releases/latest) → `setup.exe` |
-| **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Bêta Mac](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) → `mac-arm64.dmg` |
+| **Mac Apple Silicon** — M1 et suivants, macOS 13+ | [Dernière release](https://github.com/extraopaa/francestudents-ide/releases/latest) → `mac-arm64.dmg` lorsque disponible |
 
-À partir de la prochaine mise à jour, les versions Mac sont réservées à **Apple Silicon (M1 et suivants)**. La [1.3.5](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) reste la dernière version archivée pour Mac Intel, sans nouvelles mises à jour.
+Les versions Mac récentes sont réservées à **Apple Silicon (M1 et suivants)**. La [1.3.5](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) reste la dernière version archivée pour Mac Intel, sans nouvelles mises à jour. La page de téléchargement propose la dernière version publiée, qui peut être antérieure à celle préparée dans ce dépôt.
 
 1. Sur Windows, ouvre l’installateur. Sur Mac, ouvre le DMG et déplace l’application dans **Applications**.
 2. Lance FranceStudent IDE et suis le guide de connexion à ton **compte FranceStudent**.

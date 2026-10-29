@@ -96,7 +96,8 @@ async function editFile(args = {}) {
 
     await finishMutation(
         { kind: "edit", rel, backup, label: `fichier modifié : ${rel}` },
-        `fichier modifié : ${rel}`
+        `fichier modifié : ${rel}`,
+        { added, removed }
     );
 
     return {

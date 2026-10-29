@@ -26,7 +26,7 @@ function saveStudioDraft() {
     if (studioWorkspace !== undefined) writeStudioStorage(studioDraftKey(studioWorkspace), input.value);
 }
 function setAgentTab(tab) {
-    studioTab = ["conversation", "activity", "usage"].includes(tab) ? tab : "conversation";
+    studioTab = ["conversation", "backups", "activity", "usage"].includes(tab) ? tab : "conversation";
     $("agent").dataset.tab = studioTab;
     for (const button of document.querySelectorAll("[data-agent-tab]")) {
         const selected = button.dataset.agentTab === studioTab;
@@ -34,7 +34,7 @@ function setAgentTab(tab) {
         button.setAttribute("aria-selected", String(selected));
         button.tabIndex = selected ? 0 : -1;
     }
-    if (studioTab === "activity") refreshStudioActivity();
+    if (studioTab === "activity" || studioTab === "backups") refreshStudioActivity();
     if (studioTab === "usage") { renderUsageDashboard(); refreshQuota(); }
 }
 function updateStudioStatus(status) {
@@ -45,6 +45,9 @@ function updateStudioStatus(status) {
     if (studioWorkspace !== workspace) {
         saveStudioDraft();
         studioWorkspace = workspace;
+        studioActivitySeq++;
+        $("activity-checkpoints").replaceChildren();
+        if (studioTab === "activity" || studioTab === "backups") refreshStudioActivity();
         input.value = readStudioStorage(studioDraftKey(workspace), "");
         autosizeInput();
         if (studioRun && studioRun.workspace !== workspace) { studioRun = null; renderAgentActivity(null); }
@@ -139,18 +142,50 @@ async function refreshStudioActivity() {
             jobsHost.appendChild(row);
         }
         const pointsHost = $("activity-checkpoints"); pointsHost.replaceChildren();
-        if (!checkpoints.length) emptyStudioText(pointsHost, "Un point de reprise est créé avant chaque demande sur le projet.");
+        if (!checkpoints.length) emptyStudioText(pointsHost, motion ? "Les sauvegardes des fichiers sont disponibles dans l’espace Code." : "Les versions disponibles apparaîtront ici après une demande à l’agent.");
         for (const point of checkpoints) {
             const row = document.createElement("div"); row.className = "workspace-item";
-            const label = document.createElement("div"); label.textContent = point.task;
-            const time = document.createElement("small"); time.textContent = new Date(point.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-            const restore = document.createElement("button"); restore.type = "button"; restore.textContent = "Restaurer"; restore.disabled = Boolean(ui.status.busy);
+            const label = document.createElement("div"); label.textContent = point.task || "Version sans titre";
+            const time = document.createElement("small"); time.textContent = `${new Date(point.at).toLocaleString("fr-FR")} · ${point.kind === "safety" ? "Sécurité avant restauration" : "Avant la demande"}`;
+            const restore = document.createElement("button"); restore.type = "button"; restore.textContent = "Voir et restaurer"; restore.disabled = Boolean(ui.status.busy);
             restore.onclick = async () => {
-                if (!await confirmStudioAction(`Restaurer les modifications suivies avant « ${point.task} » ? Les commandes shell ne sont pas annulées.`)) return;
-                try { const result = await api.checkpoints("restore", point.id); studioFeedback(`${result.reverted || 0} modification(s) restaurée(s).`); scheduleRefresh(); refreshStudioActivity(); }
-                catch (error) { studioFeedback(error.message); }
+                if (ui.tabs.some(tab => tab.dirty)) { studioFeedback("Enregistre tous les fichiers ouverts avant de restaurer une version."); return; }
+                restore.disabled = true;
+                try {
+                    const preview = await api.checkpoints("preview", point.id);
+                    if (!preview.changes.length) { studioFeedback("Les fichiers suivis correspondent déjà à cette version."); return; }
+                    if (preview.changes.length > 100) { studioFeedback("Plus de 100 fichiers diffèrent : restauration désactivée pour éviter un aperçu incomplet."); return; }
+                    const details = preview.changes.map(change => `${change.action} : ${change.path}`).join("\n");
+                    const excluded = preview.excludedPaths || [];
+                    const excludedDetails = excluded.length ? `\n\nChemins exclus (${excluded.length}) :\n${excluded.slice(0, 20).join("\n")}${excluded.length > 20 ? `\n… et ${excluded.length - 20} autre(s).` : ""}` : "";
+                    const message = `Revenir à l’état précédant « ${point.task} » ?\n\n${details}\n\nTous les changements listés depuis cette version seront annulés, y compris tes modifications manuelles et celles des demandes suivantes. Les fichiers marqués « retirer » seront supprimés. Une version de sécurité sera créée avant la restauration.${excludedDetails}\n\nLes chemins exclus et les actions externes ne sont pas restaurés.`;
+                    if (!await confirmStudioAction(message, { title: "Restaurer une version", confirmLabel: "Restaurer", danger: true })) return;
+                    if (ui.tabs.some(tab => tab.dirty)) throw new Error("Enregistre tous les fichiers ouverts avant de restaurer une version.");
+                    const workspace = ui.workspace;
+                    const result = await api.checkpoints("restore", point.id, preview.expected);
+                    let dirtyRemoved = false;
+                    if (ui.workspace === workspace) {
+                        for (const change of preview.changes.filter(item => item.action === "retirer")) {
+                            const tab = ui.tabs.find(item => item.path === change.path);
+                            if (!tab) continue;
+                            if (tab.dirty) { dirtyRemoved = true; continue; }
+                            await closeTab(tab.path);
+                        }
+                    }
+                    studioFeedback(`${result.restored} fichier(s) restauré(s).${dirtyRemoved ? " Un onglet modifié reste ouvert alors que son fichier a été retiré : vérifie son contenu avant de l’enregistrer." : ""}`);
+                    scheduleRefresh(); refreshStudioActivity();
+                } catch (error) { studioFeedback(error.message); scheduleRefresh(); refreshStudioActivity(); }
+                finally { restore.disabled = Boolean(ui.status.busy); }
             };
-            row.append(label, time, restore); pointsHost.appendChild(row);
+            const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Supprimer la version"; remove.disabled = Boolean(ui.status.busy);
+            remove.onclick = async () => {
+                if (!await confirmStudioAction(`Supprimer définitivement la version « ${point.task || "sans titre"} » ? Les fichiers actuels ne seront pas modifiés.`, { title: "Supprimer une version", confirmLabel: "Supprimer", danger: true })) return;
+                remove.disabled = true;
+                try { await api.checkpoints("remove", point.id); studioFeedback("Version supprimée."); await refreshStudioActivity(); }
+                catch (error) { studioFeedback(error.message); }
+                finally { remove.disabled = Boolean(ui.status.busy); }
+            };
+            row.append(label, time, restore, remove); pointsHost.appendChild(row);
         }
     } catch (error) { studioFeedback(error.message); }
 }
@@ -190,6 +225,7 @@ function setAgentFocus(active){
 $("agent-focus").onclick = () => setAgentFocus(!$("app").classList.contains("focus-agent"));
 setAgentFocus(false);
 $("activity-refresh").onclick = refreshStudioActivity;
+$("backups-refresh").onclick = refreshStudioActivity;
 $("favorite-open").onclick = () => { renderFavoritePrompts(); $("agent-favorites").classList.toggle("hidden"); };
 $("favorite-close").onclick = () => $("agent-favorites").classList.add("hidden");
 $("draft-save-favorite").onclick = () => {
@@ -206,5 +242,5 @@ transcript.addEventListener("click", event => {
     const link = event.target.closest("a[data-web-url]");
     if (link) { event.preventDefault(); api.openExternal(link.dataset.webUrl).catch(error => studioFeedback(error.message)); }
 });
-setInterval(() => { if (studioTab === "activity" && !document.hidden) refreshStudioActivity(); }, 3000);
+setInterval(() => { if ((studioTab === "activity" || studioTab === "backups") && !document.hidden) refreshStudioActivity(); }, 3000);
 setAgentTab("conversation");

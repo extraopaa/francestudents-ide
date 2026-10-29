@@ -1,20 +1,21 @@
 "use strict";
 const { OBSERVED_IDS } = require("./model-context");
-// Intersection of verified OpenAI model capabilities and FranceStudent's enum.
-// Checked 2026-10-24: https://developers.openai.com/api/docs/models/<model>
+// Known model capabilities; other GPT models use a conservative account-level fallback.
 const COMMON = ["none", "low", "medium", "high", "xhigh"];
+const GPT_FALLBACK = ["low", "medium", "high"];
 const LEVELS = {
     "gpt-6.1-sol": ["low", "medium", "high", "xhigh"],
-    "gpt-6-sol": COMMON, "gpt-6-luna": COMMON,
+    "gpt-6.1-terra": COMMON, "gpt-6-sol": COMMON, "gpt-6-luna": COMMON,
     "gpt-5.6-sol": COMMON, "gpt-5.6-luna": COMMON, "gpt-5.6-terra": COMMON
 };
 function capabilities(agent) {
-    const candidates = [agent?.model || agent?.contextModel || agent?.name || OBSERVED_IDS[agent?.id]];
-    for (const value of candidates) {
-        const model = String(value || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/-\d{4}-\d{2}-\d{2}$/, "");
+    const candidates = [agent?.model, agent?.contextModel, agent?.name, OBSERVED_IDS[agent?.id]];
+    const models = candidates.map(value => String(value || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/-\d{4}-\d{2}-\d{2}$/, ""));
+    for (const model of models) {
         if (LEVELS[model]) return { model, levels: [...LEVELS[model]] };
     }
-    return { model: null, levels: [] };
+    const model = models.find(value => /^gpt(?:-|$)/.test(value));
+    return model ? { model, levels: [...GPT_FALLBACK] } : { model: null, levels: [] };
 }
 async function readPreference() {
     const dto = await require("./account").getJson("/user/instructions");

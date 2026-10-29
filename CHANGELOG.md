@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0] — Modèles, IDE Link et fiabilité du chat
+
+- Reprise améliorée lorsque le modèle affirme à tort ne pas pouvoir utiliser les outils locaux : l’agent peut vérifier le projet puis distinguer Git local et connexion GitHub, sans contourner les refus réels.
+- Changement de modèle entre les messages : reprise des échanges textuels récents dans un nouveau fil, sans retransmission automatique des anciennes pièces jointes.
+- IDE Link en bêta : accès mobile au chat par tunnel avec un code PIN temporaire ; les guides précisent les limites et précautions.
+- Sauvegardes avant demande : aperçu et restauration des fichiers du projet, sous réserve des exclusions et limites documentées.
+- README et guides actualisés pour les fonctions récentes, dont les fournisseurs personnalisés compatibles en bêta.
+
 ## [1.5.3] — Suivi des tâches plus fiable
 
 - Les suivis rappellent la demande et les intitulés du plan pour aider l’agent à garder le cap.

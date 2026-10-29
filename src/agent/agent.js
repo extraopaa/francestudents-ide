@@ -439,7 +439,19 @@ function deniesWorkspaceAccess(message) {
     const text=String(message||"");
     const target = "(?:files?|folders?|project|repository|code|commands?|terminal|tools?|fichiers?|dossiers?|projet|commandes?|outils?)";
     const denial = "(?:i\\s*(?:do not|don't|cannot|can't|am unable to)\\s+(?:access|read|modify|change|run|use)|i\\s*(?:do not|don't)\\s+have\\s+access|(?:je\\s+)?n['’]ai\\s+(?:pas|aucun|plus)\\s+(?:d['’]?\\s*)?acc[eè]s|je\\s+ne\\s+(?:peux\\s+pas|suis\\s+pas\\s+en\\s+mesure\\s+de)\\s+(?:(?:moi-même|directement)\\s+)?(?:lire|modifier|acc[eé]der|lancer|d[eé]clencher|utiliser)|je\\s+ne\\s+dispose\\s+pas)";
-    return new RegExp(`${denial}[^.!?\\n]{0,120}\\b${target}\\b`, "i").test(text);
+    if (new RegExp(`${denial}[^.!?\\n]{0,120}\\b${target}\\b`, "i").test(text)) return true;
+    // Cover task-oriented wording only when the same sentence identifies the
+    // project or its files. A limitation concerning an image or web access
+    // alone must not turn into an unsolicited project read.
+    const normalized = text.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/’/g, "'").toLowerCase();
+    if (/\bje\s+ne\s+(?:peux|puis)\s+(?:donc\s+)?pas\s+(?:executer|utiliser|lancer)\s+(?:les|ces|des)\s+outils?\s+locau(?:x|l)\b/.test(normalized) ||
+        /\boutils?\s+locau(?:x|l)(?:\s+necessaires?)?\s+ne\s+sont\s+(?:pas|plus)\s+accessibles?\b/.test(normalized)) return true;
+    const project = "(?:projet|code|fichiers?|dossiers?|depot|project|repository|files?|folders?)";
+    const inability = "(?:je\\s+ne\\s+(?:peux|puis)\\s+pas|je\\s+ne\\s+suis\\s+pas\\s+en\\s+mesure\\s+de|i\\s+(?:cannot|can't|am unable to))";
+    const work = "(?:poursuivre|continuer|intervenir|travailler|agir|examiner|inspecter|verifier|ouvrir|consulter|continue|work|inspect|open)";
+    return normalized.split(/[.!?\n]/).some(sentence =>
+        /\b(?:outils?|tools?)\b/.test(sentence) &&
+        new RegExp(`${inability}\\s+${work}[^.!?\\n]{0,120}\\b${project}\\b`, "i").test(sentence));
 }
 
 function hasExplicitWorkspaceBlock(observations) {
@@ -470,8 +482,40 @@ async function runAgent(task, options = {}) {
     let recoveredWorkspaceAccess = false;
     const changesBefore = memory.sessionChanges();
 
-    // Point de reprise : /rewind peut annuler d'un coup tout ce que cette demande a modifié.
+    // Vérification réelle et interruptible avant tout accès au projet pour chaque tâche.
+    // En mode Motion, le projet code sélectionné ne doit jamais être consulté.
+    if (options.shouldStop?.()) {
+        await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
+        return { completed: false, message: "Tâche interrompue." };
+    }
+    if (state.workspace && !state.motionDesign) {
+        ui.tool("list_directory", ".");
+        try {
+            const result = await require("../tools/action-control").run("list_directory", ".", () => listDirectory({ path: "." }));
+            ui.result(summarizeResult("list_directory", result));
+            observations.push({ tool: "list_directory", args: { path: "." }, ok: true, result });
+        } catch (error) {
+            const detail = error.message || String(error);
+            ui.result(detail, { tone: "error" });
+            const message = `La vérification du dossier de projet n’a pas abouti : ${clip(detail, 240)}. La tâche n’a pas été lancée.`;
+            await finish(message);
+            return { completed: false, message };
+        }
+        if (options.shouldStop?.()) {
+            await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
+            return { completed: false, message: "Tâche interrompue." };
+        }
+    }
+
+    // Les versions portent uniquement sur les fichiers enregistrés et non exclus.
     if (state.workspace && !state.motionDesign && !options.readOnly) {
+        try {
+            await require("../project/file-versions").save(state.workspace, task);
+        } catch (error) {
+            const message = `Impossible de créer la version avant cette demande : ${error.message}. La tâche n'a pas été lancée afin de protéger les fichiers. Libère de l'espace, supprime si nécessaire d'anciennes versions depuis Activité, ou corrige le problème puis réessaie.`;
+            await finish(message);
+            return { completed: false, message };
+        }
         try {
             require("../project/checkpoints").addCheckpoint({
                 task,
@@ -655,7 +699,8 @@ async function runAgent(task, options = {}) {
                 // l'historique. Le contexte projet n'est donc envoyé qu'à son premier message ;
                 // les suivis rappellent la demande, le plan et le dernier résultat d'outil.
                 // Sans conversation (aucun identifiant reçu), on renvoie tout, projet compris.
-                const hasConversation = Boolean(state.chatIds.agent);
+                // Un fournisseur personnalisé est sans état, même si son journal a un ID local.
+                const hasConversation = Boolean(state.chatIds.agent) && !String(state.model).startsWith("custom:");
                 const signature=promptCache.fingerprint({
                     workspace:state.motionDesign?null:state.workspace,model:state.model,motion:!!state.motionDesign,
                     env,instructions,preprompt,mcpCatalog,skillsCatalog,
@@ -666,7 +711,7 @@ async function runAgent(task, options = {}) {
                 let startedFreshConversation=false;
                 const deliveryScope={id:originalChat,model:state.model,workspace:state.workspace,motion:Boolean(state.motionDesign)};
                 const lastObservation=observations[observations.length-1];
-                const reuseInstructions=promptCache.has(originalChat,signature);
+                const reuseInstructions=hasConversation && promptCache.has(originalChat,signature);
                 const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
                         task,
@@ -980,7 +1025,7 @@ async function runAgent(task, options = {}) {
                 await finish(message);return {completed:false,message};
             }
             if(workspaceProbe&&!result.denied&&!result.interrupted&&!result.is_error){
-                deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Ne répète pas une affirmation générale d’absence d’accès ; si une action précise échoue, base-toi sur son erreur réelle.");
+                deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Si la demande concerne Git, et si le mode et les permissions le permettent, utilise run_command avec git status --short --branch pour vérifier le dépôt local ; pour le compte et le dépôt GitHub, utilise github avec action overview si nécessaire. Cette lecture du dossier ne prouve ni que Git fonctionne ni que GitHub est connecté. Ne confirme aucun push, build ou publication sans résultat correspondant ; respecte les refus, interruptions et erreurs réels. Ne répète pas une affirmation générale d’absence d’accès : si une action précise échoue, base-toi sur son erreur réelle.");
             }
         } catch (error) {
             ui.result(error.message, { tone: "error" });

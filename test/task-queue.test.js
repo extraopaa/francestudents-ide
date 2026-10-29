@@ -116,6 +116,30 @@ test("file : pause, édition, réorganisation et séparation des projets", async
     h.queue.action("clear");
     assert.equal(h.queue.snapshot().tasks.length, 1);
 });
+test("file : déplacer avant ou après une tâche conserve les autres espaces et les consignes transmises", () => {
+    const h = setup("reorder-target");
+    h.queue.action("add", { prompt: "A" });
+    h.queue.action("add", { prompt: "B" });
+    h.queue.action("add", { prompt: "C" });
+    h.queue.action("add", { prompt: "D" });
+    const [a, b, c, d] = h.queue.snapshot().tasks;
+    h.queue.action("steer", { id: b.id });
+    h.setWorkspace("project-b");
+    h.queue.action("add", { prompt: "Autre projet" });
+    const other = h.queue.snapshot().tasks[0];
+    h.setWorkspace("project-a");
+    h.queue.action("move", { id: d.id, targetId: a.id, position: "before" });
+    assert.deepEqual(h.queue.snapshot().tasks.map(t => t.prompt), ["D", "B", "A", "C"]);
+    h.queue.action("move", { id: d.id, targetId: c.id, position: "after" });
+    assert.deepEqual(h.queue.snapshot().tasks.map(t => t.prompt), ["A", "B", "C", "D"]);
+    assert.throws(() => h.queue.action("move", { id: a.id, targetId: b.id, position: "before" }));
+    assert.throws(() => h.queue.action("move", { id: a.id, targetId: other.id, position: "before" }));
+    assert.throws(() => h.queue.action("move", { id: a.id, targetId: c.id, position: "invalid" }));
+    assert.deepEqual(createTaskQueue(h.options).snapshot().tasks.map(t => t.prompt), ["A", "B", "C", "D"]);
+    h.setWorkspace("project-b");
+    assert.deepEqual(h.queue.snapshot().tasks.map(t => t.prompt), ["Autre projet"]);
+});
+
 test("file : reprise après redémarrage en pause, tâche active interrompue", async () => {
     const h = setup("restart");
     h.queue.action("add", { prompt: "A" });

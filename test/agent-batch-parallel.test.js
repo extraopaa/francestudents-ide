@@ -13,6 +13,7 @@ const { state, resetConversation } = require("../src/state");
 const api = require("../src/api/api");
 const { TOOLS } = require("../src/tools/tools");
 const { runAgent } = require("../src/agent/agent");
+const memory = require("../src/project/memory");
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -26,6 +27,7 @@ test("runAgent : un lot calls est exécuté en parallèle, dans l'ordre, avec un
     resetConversation();
     state.workspace = dir;
     state.autoApprove = true;
+    await memory.open(dir);
 
     // Délais inversés : c.js finit avant b.js, qui finit avant a.js.
     const delays = { "a.js": 40, "b.js": 20, "c.js": 1 };

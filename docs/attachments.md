@@ -4,6 +4,8 @@
 
 ## Joindre un fichier
 
+Après un changement de modèle, les pièces jointes des échanges précédents ne sont pas automatiquement retransmises : ajoute-les de nouveau si le nouveau modèle doit les examiner. Avec IDE Link sur mobile, un envoi accepte au maximum quatre pièces jointes et 2 Mio au total ; les limites habituelles de conversion et de quota s’appliquent aussi.
+
 Les images classiques strictement identiques d’un même envoi partagent une seule transmission et une seule entrée de vision, avec correspondance explicite de leurs positions. Toutes les images distinctes sont conservées. Cela n’ajoute aucune réduction de résolution ni compression destructive : les limites de préparation existantes restent identiques, et les originaux sont inchangés. Une image jointe à nouveau dans une demande suivante est retransmise explicitement, sans supposer que le fournisseur a gardé ses pixels.
 
 ### Préparation automatique

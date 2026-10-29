@@ -85,14 +85,14 @@
             <div id="search-view" class="search-view">
                 <div class="sidebar-header"><span>Recherche</span></div>
                 <div class="search-form">
-                    <input id="search-input" type="text" placeholder="Rechercher dans le projet (Entrée)">
+                    <input id="search-input" type="text" aria-label="Rechercher dans le projet" placeholder="Rechercher dans le projet (Entrée)">
                     <div class="search-replace-row">
-                        <input id="replace-input" type="text" placeholder="Remplacer par…">
+                        <input id="replace-input" type="text" aria-label="Texte de remplacement" placeholder="Remplacer par…">
                         <button type="button" id="btn-replace-all" title="Remplacer toutes les occurrences dans les fichiers trouvés">Tout remplacer</button>
                     </div>
                     <div class="search-options">
-                        <label><input type="checkbox" id="search-case"> Aa</label>
-                        <label><input type="checkbox" id="search-regex"> .*</label>
+                        <label title="Respecter la casse"><input type="checkbox" id="search-case" aria-label="Respecter la casse"> Aa</label>
+                        <label title="Utiliser une expression régulière"><input type="checkbox" id="search-regex" aria-label="Utiliser une expression régulière"> .*</label>
                     </div>
                 </div>
                 <div id="search-summary" class="search-summary"></div>
@@ -117,9 +117,22 @@
                     </div>
                 </div>
                 <div id="git-branch" class="settings-note"></div>
-                <div id="git-action-msg" class="git-action-msg"></div>
+                <div id="git-setup" class="git-commit-box hidden">
+                    <p class="settings-note">Préparez un dépôt local pour suivre les modifications. Aucun fichier ne sera envoyé ni ajouté automatiquement.</p>
+                    <button type="button" id="btn-git-init" class="git-btn git-btn-primary">Initialiser Git dans ce projet</button>
+                </div>
+                <div id="git-action-msg" class="git-action-msg" role="status" aria-live="polite"></div>
+                <details id="git-identity" class="git-commit-box hidden">
+                    <summary>Configurer mon identité pour les commits</summary>
+                    <p class="settings-note">Facultatif si Git est déjà configuré. Ces informations seront inscrites dans les commits et peuvent être publiques. Elles ne modifient que ce dépôt.</p>
+                    <label for="git-identity-name">Nom</label>
+                    <input id="git-identity-name" class="git-input" type="text" autocomplete="name" maxlength="200">
+                    <label for="git-identity-email">Adresse e-mail</label>
+                    <input id="git-identity-email" class="git-input" type="email" autocomplete="email" maxlength="254">
+                    <button type="button" id="btn-git-identity" class="git-btn">Enregistrer l’identité pour ce dépôt</button>
+                </details>
                 <div class="git-commit-box">
-                    <textarea id="git-commit-msg" class="git-input" rows="2" placeholder="Message de commit (Ctrl/Cmd+Entrée pour valider)"></textarea>
+                    <textarea id="git-commit-msg" class="git-input" rows="2" aria-label="Message de commit" placeholder="Message de commit (Ctrl/Cmd+Entrée pour valider)"></textarea>
                     <button id="btn-git-commit" class="git-btn git-btn-primary">Valider tout</button>
                 </div>
                 <div class="ext-section">
@@ -168,8 +181,8 @@
                 <div id="wt-root" class="settings-note"></div>
                 <div id="wt-msg" class="git-action-msg"></div>
                 <div class="git-form-row">
-                    <input id="wt-name" class="git-input" type="text" spellcheck="false" placeholder="Nom du worktree (ex. fix-login)">
-                    <input id="wt-base" class="git-input wt-base" type="text" spellcheck="false" placeholder="Base (HEAD)">
+                    <input id="wt-name" class="git-input" type="text" spellcheck="false" aria-label="Nom du worktree" placeholder="Nom du worktree (ex. fix-login)">
+                    <input id="wt-base" class="git-input wt-base" type="text" spellcheck="false" aria-label="Branche de base du worktree" placeholder="Base (HEAD)">
                     <button id="btn-wt-create" class="git-btn">Créer</button>
                 </div>
                 <div class="ext-section">
@@ -447,6 +460,7 @@
             <div class="agent-navigation">
                 <div class="agent-tabs" role="tablist" aria-label="Espace agent">
                     <button type="button" class="selected" data-agent-tab="conversation" role="tab" aria-selected="true" aria-controls="transcript">Conversation</button>
+                    <button type="button" data-agent-tab="backups" role="tab" aria-selected="false" aria-controls="agent-backups">Sauvegardes</button>
                     <button type="button" data-agent-tab="activity" role="tab" aria-selected="false" aria-controls="agent-activity">Activité</button>
                     <button type="button" data-agent-tab="usage" role="tab" aria-selected="false" aria-controls="agent-usage">Usage</button>
                 </div>
@@ -464,13 +478,17 @@
                 </div>
             </div>
             <div id="transcript" class="transcript"></div>
+            <div class="transcript-scroll-control"><button id="transcript-bottom" type="button" hidden title="Revenir aux derniers messages" aria-label="Revenir aux derniers messages et suivre la conversation"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15m-6-6 6 6 6-6"/></svg></button></div>
             <section id="agent-activity" class="agent-activity" aria-label="Activité de l’agent">
                 <div class="workspace-section-head"><div><span class="starter-eyebrow">DANS CETTE SESSION</span><h3>Suivre le travail</h3></div><button type="button" id="activity-refresh" title="Actualiser">↻</button></div>
                 <div id="activity-overview" class="activity-overview"></div>
                 <div class="workspace-section"><h4>Sources consultées</h4><div id="activity-sources"></div></div>
                 <div class="workspace-section"><h4>Actions de l’agent</h4><div id="activity-timeline"></div></div>
                 <div class="workspace-section"><h4>Commandes en arrière-plan</h4><div id="activity-jobs"></div><pre id="activity-job-output" class="hidden"></pre></div>
-                <div class="workspace-section"><h4>Points de reprise</h4><p class="muted">Restaure les modifications suivies par les outils de fichiers. Les commandes shell ne sont pas annulées.</p><div id="activity-checkpoints"></div></div>
+            </section>
+            <section id="agent-backups" class="agent-activity" role="tabpanel" aria-label="Sauvegardes des fichiers">
+                <div class="workspace-section-head"><div><span class="starter-eyebrow">PROJET ACTUEL</span><h3>Sauvegardes des fichiers</h3></div><button type="button" id="backups-refresh" title="Actualiser les sauvegardes" aria-label="Actualiser les sauvegardes">↻</button></div>
+                <div class="workspace-section"><h4>Versions des fichiers</h4><p class="muted">Versions locales des fichiers enregistrés avant les demandes de l’agent. Git, dépendances, dossiers dist, build et coverage, fichiers sensibles et liens sont exclus ; les actions externes ne sont pas annulées. Limite : 50 versions avant demande. Les grands projets peuvent nécessiter beaucoup de mémoire et d’espace disque. Supprime une ancienne version pour libérer une place.</p><div id="activity-checkpoints"></div></div>
             </section>
             <section id="agent-usage" class="agent-usage" role="tabpanel" aria-label="Utilisation du quota">
                 <div class="usage-heading"><div><span class="starter-eyebrow">VOTRE COMPTE</span><h2>Consommation</h2></div><button type="button" id="usage-refresh" title="Actualiser le quota" aria-label="Actualiser le quota"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 2M18 18a8 8 0 0 1-13-2"/></svg></button></div>

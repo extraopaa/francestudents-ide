@@ -105,7 +105,8 @@ async function writeFile(args = {}) {
             createdDirs: createdRoot ? [createdRoot] : [],
             label: `fichier ${verb} : ${rel}`
         },
-        `fichier ${verb} : ${rel}`
+        `fichier ${verb} : ${rel}`,
+        { added, removed }
     );
 
     return {

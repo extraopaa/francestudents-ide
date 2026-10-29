@@ -7,6 +7,7 @@ const state = {
     chatId: null,
     chatIds: { chat: null, agent: null },
     conversationSettings: { chat: null, agent: null },
+    modelHandoffs: { chat: null, agent: null },
     model: CONFIG.defaultAgentId,
     webSearch: false,
     ecoMode: settings.load().ecoMode === true,
@@ -17,6 +18,7 @@ const state = {
     workspace: null,
     frProject: null,     // projet FranceStudent { id, name } rattaché aux nouvelles conversations
     history: [],
+    historyMode: null,
     mode: "auto",        // auto | agent | chat
     autoApprove: settings.autoApproveAlways(),  // true = plus de confirmation (session, ou toujours si mémorisé)
     autoApproveCommands: settings.autoApproveCommandsAlways(),  // true = run_command sans question (deny toujours bloqué)
@@ -30,6 +32,7 @@ const state = {
 function activateConversation(mode) {
     const key = mode === "agent" ? "agent" : "chat";
     state.chatId = state.chatIds[key];
+    state.historyMode = key;
 
     const settings = state.conversationSettings[key];
     if (settings) {
@@ -41,9 +44,33 @@ function activateConversation(mode) {
     return key;
 }
 
+// Prépare le transfert sans effacer le fil : le changement de conversation serveur
+// n'aura lieu qu'au prochain envoi, après ouverture du journal visible.
+function changeModel(model) {
+    if (model === state.model) return false;
+    const mode = state.chatId && state.chatIds.agent === state.chatId ? "agent"
+        : state.chatId && state.chatIds.chat === state.chatId ? "chat"
+        : state.historyMode || (state.mode === "chat" ? "chat" : "agent");
+    const id = state.chatIds[mode];
+    const previous = state.modelHandoffs[mode];
+    const history = previous ? previous.history : state.history.filter(item =>
+        ["user", "assistant"].includes(item.role) && typeof item.content === "string"
+    ).map(item => ({ role: item.role, content: item.content }));
+    if (id && !history.length) {
+        throw new Error("Historique de la conversation indisponible : rouvre-la avec son historique avant de changer de modèle.");
+    }
+    if (id || history.length) {
+        state.modelHandoffs[mode] = previous || { id, history, workspace: state.workspace, motionDesign: !!state.motionDesign };
+    }
+    state.model = model;
+    if (state.conversationSettings[mode]) state.conversationSettings[mode] = { ...state.conversationSettings[mode], model };
+    return Boolean(id || history.length);
+}
+
 function setConversation(mode, id, settings = null) {
     const key = mode === "agent" ? "agent" : "chat";
     state.chatIds[key] = id || null;
+    state.modelHandoffs[key] = null;
     state.conversationSettings[key] = settings ? { ...settings } : null;
     activateConversation(key);
 }
@@ -52,15 +79,18 @@ function resetConversation(mode = null) {
     if (mode) {
         const key = mode === "agent" ? "agent" : "chat";
         state.chatIds[key] = null;
+        state.modelHandoffs[key] = null;
         state.conversationSettings[key] = null;
         activateConversation(key);
     } else {
         state.chatIds = { chat: null, agent: null };
+        state.modelHandoffs = { chat: null, agent: null };
         state.conversationSettings = { chat: null, agent: null };
         state.chatId = null;
     }
 
     state.history = [];
+    state.historyMode = null;
 }
 
 function record(role, content) {
@@ -73,6 +103,7 @@ function record(role, content) {
 
 module.exports = {
     state,
+    changeModel,
     activateConversation,
     setConversation,
     resetConversation,

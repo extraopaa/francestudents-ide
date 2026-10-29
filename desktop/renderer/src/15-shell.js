@@ -194,6 +194,8 @@ api.onEvent((channel, data) => {
             renderWorkPlan([]);
             studioEntries.length = 0;
             transcript.innerHTML = "";
+            resetRequestFileChanges();
+            resetTranscriptFollow();
             $("agent-starter").classList.remove("hidden");
             toolGroup = null;
             liveEnd();

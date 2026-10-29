@@ -61,6 +61,15 @@ module.exports = [
         }
     },
     {
+        // IDE Link partage ses fonctions de rendu avec les scripts chargés par sa page.
+        files: ["desktop/ide-link-web/**/*.js"],
+        languageOptions: {
+            sourceType: "script",
+            globals: { ...globals.browser, toolLabel: "readonly", escapeHtml: "readonly", renderMarkdown: "readonly" }
+        },
+        rules: { "no-redeclare": ["error", { builtinGlobals: false }] }
+    },
+    {
         // page.evaluate() exécute ces fonctions dans la fenêtre Electron.
         files: ["e2e/**/*.js"],
         languageOptions: {

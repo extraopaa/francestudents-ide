@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.0":{headline:"Poursuis ton travail sur plusieurs modèles et appareils.",items:[
+        {icon:"chat",title:"Change de modèle sans perdre le fil",text:"Les échanges textuels récents accompagnent le changement ; les pièces jointes doivent être ajoutées de nouveau si nécessaire."},
+        {icon:"tools",title:"IDE Link en bêta",text:"Retrouve ton agent sur mobile avec un QR code et un PIN temporaire."},
+        {icon:"spark",title:"Sauvegardes avant demande",text:"Prévisualise les fichiers concernés avant de restaurer un état précédent du projet."}
+    ]},
     "1.5.3":{headline:"L’agent garde mieux le fil de ton travail.",items:[
         {icon:"chat",title:"Demande et plan conservés",text:"Les suivis rappellent la demande et les étapes du plan pour aider l’agent à poursuivre la tâche."},
         {icon:"tools",title:"Accès au projet mieux vérifié",text:"L’agent reconnaît davantage de déclarations erronées et respecte les refus et interruptions réels."}
@@ -96,8 +101,9 @@ const releases={
 };
 function createReleaseHighlights({version,enabled=true,load,save}){
     return {
-        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};return {version,...content,shouldShow:enabled && load().releaseHighlightsSeen!==version,url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
-        seen(value){if(value!==version)throw new Error("Version de notes invalide.");save({releaseHighlightsSeen:version});return true;}
+        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};const settings=load();return {version,...content,shouldShow:enabled && settings.releaseHighlightsSeen!==version,showFileVersionsIntro:enabled && settings.fileVersionsIntroSeen!==true,url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
+        seen(value){if(value!==version)throw new Error("Version de notes invalide.");save({releaseHighlightsSeen:version});return true;},
+        seenFileVersions(){save({fileVersionsIntroSeen:true});return true;}
     };
 }
 module.exports={createReleaseHighlights};

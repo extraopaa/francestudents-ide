@@ -72,7 +72,7 @@ function syncMotionChat(){
     const bar=document.querySelector("#agent .agent-context-bar");if(!bar)return;
     if(!motionChat.badge){const badge=document.createElement("span");badge.id="agent-motion-badge";badge.className="agent-motion-badge";badge.textContent="Motion design";bar.insertBefore(badge,$("agent-access"));motionChat.badge=badge;}
     const open=isMotionOpen();motionChat.badge.hidden=!open;
-    if(motionChat.open!==open){motionChat.open=open;renderAgentActivity(null);if(studioTab==="activity")refreshStudioActivity();}
+    if(motionChat.open!==open){motionChat.open=open;studioActivitySeq++;$("activity-checkpoints").replaceChildren();renderAgentActivity(null);if(studioTab==="activity"||studioTab==="backups")refreshStudioActivity();}
     if(open){if(motionChat.placeholder===null)motionChat.placeholder=input.placeholder;input.placeholder="Décris ton animation… l’agent agit dans EffectCraft.";}
     else if(motionChat.placeholder!==null){input.placeholder=motionChat.placeholder;motionChat.placeholder=null;}
 }

@@ -2,7 +2,9 @@
 const connector = require("../github-connector");
 module.exports = {
     name: "github",
-    check(args) { if (!connector.ACTIONS.has(args.action)) throw new Error("Action GitHub inconnue."); },
+    check(args) {
+        if (!connector.ACTIONS.has(args.action)) throw new Error(`Action GitHub inconnue ou absente dans args.action. Actions disponibles : ${[...connector.ACTIONS].join(", ")}. Pour Git local, utilise run_command.`);
+    },
     describe: args => `${args.action}${args.path ? " · " + args.path : ""}${args.tag ? " · " + args.tag : ""}`,
     async run(args) {
         const { state } = require("../state"), { ui } = require("../ui-bridge");

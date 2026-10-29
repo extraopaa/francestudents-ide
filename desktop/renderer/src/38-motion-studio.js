@@ -31,11 +31,13 @@ async function selectMotionChat(mode) {
         await api.motionConversation(mode);
         const nodes=document.createDocumentFragment(), scroll=transcript.scrollTop;
         while(transcript.firstChild)nodes.append(transcript.firstChild);
-        motionChats.set(motionChatMode,{nodes,draft:input.value,attachments:pendingAttachments,toolGroup,scroll,entries:studioEntries.slice(),history:ui.history,historyIndex:ui.historyIndex});
+        motionChats.set(motionChatMode,{nodes,draft:input.value,attachments:pendingAttachments,toolGroup,scroll,following:transcriptFollowing,requestFileChanges,requestDiffPreviews,entries:studioEntries.slice(),history:ui.history,historyIndex:ui.historyIndex});
         const next=motionChats.get(mode);
         transcript.replaceChildren(next?.nodes || document.createDocumentFragment());
+        requestFileChanges=next?.requestFileChanges || new Map();requestDiffPreviews=next?.requestDiffPreviews || new Map();
         input.value=next?.draft ?? readStudioStorage(studioDraftKey(studioWorkspace,mode),"");pendingAttachments=next?.attachments || [];toolGroup=next?.toolGroup || null;
         transcript.scrollTop=next?.scroll || 0;
+        transcriptFollowing=next?.following ?? true;updateTranscriptScrollControl();
         studioEntries.splice(0,studioEntries.length,...(next?.entries || []));ui.history=next?.history || [];ui.historyIndex=next?.historyIndex || 0;
         motionChatMode=mode;renderAttachments();autosizeInput();saveStudioDraft();
         document.querySelector(".agent-title > span").textContent=mode==="motion"?"Motion design":"Agent";

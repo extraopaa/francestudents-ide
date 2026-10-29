@@ -241,6 +241,8 @@ function scheduleRefresh() {
             if (tab.dirty) continue;
             try {
                 const file = await api.readFile(tab.path);
+                // L’utilisateur peut avoir modifié ou fermé l’onglet pendant la lecture.
+                if (tab.dirty || !ui.tabs.includes(tab)) continue;
                 const text = normalize(file.content);
                 if (text === tab.saved) continue;
                 tab.content = text;
