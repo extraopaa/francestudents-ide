@@ -536,7 +536,7 @@ async function runAgent(task, options = {}) {
     }
 
     // Les versions portent uniquement sur les fichiers enregistrés et non exclus.
-    if (state.workspace && !state.motionDesign && !options.readOnly && require("../settings").load().checkpointBackupsEnabled === true) {
+    if (state.workspace && !state.motionDesign && !options.readOnly && require("../settings").load().checkpointBackupsEnabled !== false) {
         try {
             await require("../project/file-versions").save(state.workspace, task);
         } catch (error) {
