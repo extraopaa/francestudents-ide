@@ -106,6 +106,10 @@ function requireDir() {
 const backupsDir = () => path.join(requireDir(), "backups");
 const trashDir = () => path.join(requireDir(), "trash");
 const projectPath = name => path.join(requireDir(), name);
+const isIgnoredPath = rel => {
+    const roots = new Set([...(CONFIG.contextIgnoredDirs || []), ".frst"]);
+    return String(rel || "").replace(/\\/g, "/").split("/").some(part => roots.has(part) || part.toLowerCase().endsWith(".asar"));
+};
 
 /* ---------- Fichiers lus (session) ---------- */
 
@@ -227,6 +231,7 @@ const listUndo = () => [...persistent.undo];
 const sessionChanges = () => changes;
 
 async function backupFile(id, text) {
+    if (isIgnoredPath(id)) return null;
     const file = path.join(backupsDir(), `${id}.bak`);
 
     await fs.mkdir(path.dirname(file), { recursive: true });
@@ -303,6 +308,7 @@ module.exports = {
     listUndo,
     sessionChanges,
     backupFile,
+    isIgnoredPath,
     discard,
     summary
 };

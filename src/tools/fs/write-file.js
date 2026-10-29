@@ -75,7 +75,7 @@ async function writeFile(args = {}) {
     }
 
     const id = newId();
-    const backup = existing ? await memory.backupFile(id, previous) : null;
+    const backup = existing && !memory.isIgnoredPath(rel) ? await memory.backupFile(id, previous) : null;
     const createdRoot = await ensureParent(target);
     await assertRealInside(state.workspace, target);
 

@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld("frst", {
     extensionAction: (action, payload) => call("extensionAction", String(action || "list"), payload || {}),
     mcpManage: (action, payload) => call("mcpManage", String(action || ""), payload || {}),
     preferences: (action, payload) => call("preferences", String(action || "get"), payload || {}),
+    checkpointPreference: (action, value) => call("checkpointPreference", String(action || "get"), value),
     customProviders: (action, payload) => call("customProviders", String(action || "list"), payload || {}),
     marketplace: (action, payload) => call("marketplace", String(action || "search"), payload || {}),
     marketplaceKey: (action, key) => call("marketplaceKey", String(action || "status"), String(key || "")),

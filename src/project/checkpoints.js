@@ -9,6 +9,13 @@
 const MAX_CHECKPOINTS = 50;
 const checkpoints = [];
 let nextId = 1;
+const { CONFIG } = require("../config");
+
+function ignoredRoots() { return [...new Set([...(CONFIG.contextIgnoredDirs || []), ".frst"])]; }
+function ignoredPath(rel, roots = ignoredRoots()) {
+    const value = String(rel || "").replace(/\\/g, "/").replace(/^\.\//, "");
+    return value.split("/").some(part => roots.includes(part) || part.toLowerCase().endsWith(".asar"));
+}
 
 function addCheckpoint({ task, workspace, historyLength }) {
     const checkpoint = {
@@ -16,7 +23,10 @@ function addCheckpoint({ task, workspace, historyLength }) {
         at: new Date().toISOString(),
         task: String(task ?? "").replace(/\s+/g, " ").trim().slice(0, 120),
         workspace: workspace || null,
-        historyLength: Number(historyLength) || 0
+        historyLength: Number(historyLength) || 0,
+        // Snapshot the exclusions so an old checkpoint remains interpretable
+        // after CONFIG.contextIgnoredDirs changes in a later release.
+        ignoredRoots: ignoredRoots()
     };
 
     checkpoints.push(checkpoint);
@@ -61,4 +71,4 @@ function clearCheckpoints() {
     checkpoints.length = 0;
 }
 
-module.exports = { addCheckpoint, listCheckpoints, getCheckpoint, dropCheckpointsFrom, clearCheckpoints };
+module.exports = { addCheckpoint, listCheckpoints, getCheckpoint, dropCheckpointsFrom, clearCheckpoints, ignoredPath, ignoredRoots };

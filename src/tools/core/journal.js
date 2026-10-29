@@ -286,14 +286,16 @@ async function entryDiff(index, at) {
  * toutes les modifications enregistrées à partir de l'horodatage `at` (ISO).
  * S'arrête à la première erreur ; les entrées non annulées restent dans la pile.
  */
-async function rewindTo(at) {
+async function rewindTo(at, { ignoredRoots } = {}) {
     if (!state.workspace) throw new Error("Aucun projet sélectionné.");
 
     const since = String(at || "");
 
     if (!since) throw new Error("Point de reprise manquant.");
 
-    const targets = memory.listUndo().filter(entry => String(entry.at || "") >= since).reverse();
+    const targets = memory.listUndo().filter(entry => String(entry.at || "") >= since)
+        .filter(entry => !require("../../project/checkpoints").ignoredPath(entry.rel, ignoredRoots))
+        .reverse();
     const messages = [];
 
     for (const entry of targets) {

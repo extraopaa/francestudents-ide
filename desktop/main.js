@@ -835,6 +835,11 @@ function registerIpc() {
     });
     const releaseNotes=require("./release-highlights").createReleaseHighlights({version:app.getVersion(),enabled:app.isPackaged || process.env.FRST_QA_RELEASE_NOTES==="1",load:()=>require("../src/settings").load(),save:value=>require("../src/settings").save(value)});
     handle("releaseHighlights",(action,version)=>action==="seen"?releaseNotes.seen(version):releaseNotes.get());
+    handle("checkpointPreference", (action, value) => {
+        const settings = require("../src/settings");
+        if (action === "set") return settings.save({ checkpointBackupsEnabled: value === true }).checkpointBackupsEnabled === true;
+        return settings.load().checkpointBackupsEnabled;
+    });
     handle("localBrowser", (action,payload)=>localBrowser.action(String(action),payload||{}));
     handle("effectCraft", action=>action === "stop" ? effectCraftHost.stop() : action === "start" ? effectCraftHost.start() : effectCraftHost.status());
     handle("effectCraftControl", request=>{if(busy)throw new Error("L’agent travaille déjà dans EffectCraft.");return effectCraftControl(request);});
@@ -1014,7 +1019,7 @@ function registerIpc() {
         taskQueue.pause();
         busy = true; pushStatus();
         try {
-            const result = await require("../src/tools/core/journal").rewindTo(point.at);
+            const result = await require("../src/tools/core/journal").rewindTo(point.at, { ignoredRoots: point.ignoredRoots });
             points.dropCheckpointsFrom(point.id);
             state.history.length = Math.min(state.history.length, point.historyLength);
             return result;

@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.2":{headline:"Tu gardes le contrôle de tes points de reprise.",items:[
+        {icon:"tools",title:"Activation proposée après la mise à jour",text:"Au premier démarrage suivant une mise à jour, choisis si l’IDE doit conserver un point de reprise avant les tâches de l’agent."},
+        {icon:"chat",title:"Un choix mémorisé",text:"Tu peux garder le système désactivé. Les dossiers release, .frst et les archives asar restent exclus des restaurations."}
+    ]},
     "1.5.1":{headline:"Teste ton propre fournisseur en toute sécurité.",items:[
         {icon:"tools",title:"Profils API personnalisés",text:"Ajoute un nom, un modèle, une URL et une clé pour utiliser une API compatible OpenAI depuis le sélecteur de modèle."},
         {icon:"spark",title:"Clé protégée localement",text:"La clé est conservée dans le coffre sécurisé du système et n’apparaît ni dans le renderer ni dans les conversations."},

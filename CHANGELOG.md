@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.2] — Sauvegardes contrôlées par l’utilisateur
+
+- Après une mise à jour, l’IDE demande si les points de reprise doivent être activés.
+- Le choix est mémorisé et les sauvegardes restent désactivées tant que l’utilisateur n’a pas choisi « Activer ».
+- Les exclusions `release/`, `.frst/` et `.asar` restent protégées lors des nouvelles sauvegardes et restaurations.
+
 ## [1.5.1] — Fournisseurs personnalisés en bêta
 
 - Ajout de profils personnalisés avec nom, modèle, URL et clé API.

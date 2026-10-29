@@ -8347,7 +8347,16 @@ function openReleaseHighlights(data){
     const done=centerNode("button","primary","C’est parti !");done.type="button";done.onclick=()=>releaseDialog.close();footer.append(more,done);releaseDialog.append(list,footer);
     releaseDialog.showModal();done.focus();
 }
-releaseDialog.addEventListener("close",()=>{if(releaseHighlightsData)api.releaseHighlights("seen",releaseHighlightsData.version).catch(error=>studioFeedback(error.message));});
+releaseDialog.addEventListener("close",()=>{if(releaseHighlightsData)api.releaseHighlights("seen",releaseHighlightsData.version).catch(error=>studioFeedback(error.message));maybeAskCheckpointPreference();});
+let checkpointPreferenceAsked=false;
+async function maybeAskCheckpointPreference(){
+    if(checkpointPreferenceAsked)return;
+    try{const value=await api.checkpointPreference("get");if(value!==undefined)return;}catch{return;}
+    checkpointPreferenceAsked=true;
+    const dialog=document.createElement("dialog");dialog.className="center-dialog";dialog.innerHTML=`<h2>Activer les points de sauvegarde ?</h2><p class="settings-help">Avant chaque tâche de l’agent, FranceStudent IDE peut conserver un point de reprise pour restaurer les fichiers suivis. Les dossiers exclus comme <code>release/</code>, <code>.frst/</code> et les archives <code>.asar</code> restent ignorés.</p><div class="center-dialog-actions"><button type="button" data-backup-choice="off">Garder désactivé</button><button type="button" class="primary" data-backup-choice="on">Activer</button></div>`;
+    document.body.append(dialog);dialog.showModal();
+    dialog.querySelectorAll("[data-backup-choice]").forEach(button=>button.onclick=async()=>{await api.checkpointPreference("set",button.dataset.backupChoice==="on");dialog.close();dialog.remove();});
+}
 function maybeShowReleaseHighlights(){
     if(!releaseHighlightsData?.shouldShow || releaseHighlightsShown || !$("startup-loading").hidden || !$("connection-guide").classList.contains("hidden") || document.querySelector("dialog[open]"))return;
     openReleaseHighlights(releaseHighlightsData);

@@ -83,7 +83,7 @@ async function editFile(args = {}) {
     }
 
     const id = newId();
-    const backup = await memory.backupFile(id, previous);
+    const backup = memory.isIgnoredPath(rel) ? null : await memory.backupFile(id, previous);
     await assertRealInside(state.workspace, target);
 
     // Écriture atomique : fichier temporaire, contrôle du contenu attendu, puis rename.

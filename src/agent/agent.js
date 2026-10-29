@@ -470,7 +470,7 @@ async function runAgent(task, options = {}) {
     const changesBefore = memory.sessionChanges();
 
     // Point de reprise : /rewind peut annuler d'un coup tout ce que cette demande a modifié.
-    if (state.workspace && !state.motionDesign && !options.readOnly) {
+    if (state.workspace && !state.motionDesign && !options.readOnly && require("../settings").load().checkpointBackupsEnabled === true) {
         try {
             require("../project/checkpoints").addCheckpoint({
                 task,
