@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.3":{headline:"Une installation Windows plus claire et mieux reconnue.",items:[
+        {icon:"tools",title:"Éditeur FranceStudent IDE identifié",text:"Les installateurs déclarent désormais clairement leur éditeur. Avec un certificat configuré, la signature Windows est appliquée automatiquement."},
+        {icon:"chat",title:"Une publication plus fiable",text:"Les empreintes SHA-256 restent publiées avec chaque installateur pour vérifier le fichier téléchargé."}
+    ]},
     "2.0.2":{headline:"Tu gardes le contrôle de tes points de reprise.",items:[
         {icon:"tools",title:"Activation proposée après la mise à jour",text:"Choisis si l’IDE doit conserver un point de reprise avant les tâches de l’agent."},
         {icon:"chat",title:"Les dossiers exclus restent protégés",text:"release, .frst et les archives asar ne sont pas touchés par une restauration."}

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.3] — Installeur Windows mieux identifié
+
+- Les prochains installeurs Windows déclarent clairement FranceStudent IDE comme éditeur.
+- La signature Authenticode est activée automatiquement lorsqu’un certificat de publication est configuré dans GitHub.
+
 ## [2.0.2] — Sauvegardes contrôlées par l’utilisateur
 
 - Après une mise à jour, l’IDE demande si les points de reprise doivent être activés.
