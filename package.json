@@ -145,6 +145,8 @@
     "win": {
       "extraResources": [{ "from": "release/vendor-cloudflared/win", "to": "ide-link" }],
       "icon": "desktop/icon.png",
+      "publisherName": "FranceStudent IDE",
+      "signAndEditExecutable": true,
       "target": [
         "portable",
         "nsis"
