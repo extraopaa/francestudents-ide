@@ -102,6 +102,8 @@ test("local tool unavailability claims trigger a single safe recovery", async ()
     for (const message of [
         "Les vérifications transmises indiquent que les 37 tests Electron passent avec une concurrence limitée. La suite unitaire a également réussi : 807 tests passés et 3 ignorés. Le lancement Electron sans limite de concurrence avait toutefois dépassé son délai.\n\nLa tâche reste inachevée : je ne peux pas exécuter les outils locaux ni vérifier le dépôt depuis cette interface. Je ne peux donc pas confirmer un push, une construction de release ou une publication. Il faut reprendre dans l’environnement du projet pour vérifier les changements, les pousser, puis construire et contrôler les fichiers avant publication.",
         "Je ne peux pas continuer l’exécution : les outils locaux nécessaires ne sont pas accessibles depuis cette conversation.",
+        "Je ne peux pas effectuer le push ni publier la release depuis cette conversation : je n’ai accès ni au dépôt local ni au connecteur GitHub de FranceStudent Code. Aucun commit, push ou publication n’a été effectué par mes soins.\n\nLe compte rendu précédent indique que la correction a été testée, mais je ne peux pas vérifier l’état actuel du dépôt ni confirmer les fichiers ou la version à publier. Pour poursuivre, relance cette demande dans une session FranceStudent Code disposant réellement des outils locaux et du connecteur GitHub.",
+        "Je n’ai donc pas accès au dépôt local ni au connecteur GitHub depuis cette session.",
         "Je ne peux donc pas utiliser les outils locaux."
     ]) {
         const recovered = await scenario([final({ message }), final({ message: "Dossier vérifié." })]);
@@ -194,7 +196,9 @@ test("a short plan checkpoint appears on requests 5 and 10, including protocol r
 test("protocol validates progress for tools, batches and final answers and includes it after context restart", () => {
     for (const action of [tool({}), { type: "tool", calls: [{ name: "list_directory", args: {} }] }, final()]) {
         assert.deepEqual(parseAgentResponse(JSON.stringify({ ...action, plan_progress: ["completed", "pending"] })).plan_progress, ["completed", "pending"]);
-        assert.throws(() => parseAgentResponse(JSON.stringify({ ...action, plan_progress: ["invented"] })));
+        // Un suivi illisible est ignoré, sans faire échouer la réponse (l'action reste exploitable).
+        assert.equal(parseAgentResponse(JSON.stringify({ ...action, plan_progress: ["invented"] })).plan_progress, undefined);
+        assert.deepEqual(parseAgentResponse(JSON.stringify({ ...action, plan_progress: ["done", "en cours"] })).plan_progress, ["completed", "in_progress"]);
     }
     assert.throws(() => validateProgress(["completed"], plan));
     assert.throws(() => validateProgress(["in_progress", "in_progress"], plan));

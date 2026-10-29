@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.1] — Protocole d’outils plus tolérant
+
+- L’agent répare les réponses JSON approximatives du modèle (virgules finales, retours à la ligne, guillemets typographiques, objet tronqué, clés synonymes), tolère un suivi de plan imparfait sans rejeter la réponse, accorde une relance supplémentaire avec correction et présente un texte libre comme compte rendu non vérifié plutôt que comme erreur de protocole.
+- Les déclarations erronées du modèle sur l’absence d’accès au dépôt local ou au connecteur GitHub sont reconnues plus largement et déclenchent la vérification réelle des outils avant tout renoncement.
+
 ## [2.0.0] — Modèles, IDE Link et fiabilité du chat
 
 - Reprise améliorée lorsque le modèle affirme à tort ne pas pouvoir utiliser les outils locaux : l’agent peut vérifier le projet puis distinguer Git local et connexion GitHub, sans contourner les refus réels.

@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.1":{headline:"Moins d’erreurs de protocole, plus de travail accompli.",items:[
+        {icon:"tools",title:"Réponses du modèle mieux tolérées",text:"L’agent répare les réponses JSON approximatives et relance le modèle avant d’afficher une erreur de protocole."},
+        {icon:"chat",title:"Accès aux outils vérifié",text:"Quand le modèle prétend ne pas avoir accès au dépôt ou à GitHub, l’agent vérifie réellement ses outils avant de renoncer."}
+    ]},
     "2.0.0":{headline:"Poursuis ton travail sur plusieurs modèles et appareils.",items:[
         {icon:"chat",title:"Change de modèle sans perdre le fil",text:"Les échanges textuels récents accompagnent le changement ; les pièces jointes doivent être ajoutées de nouveau si nécessaire."},
         {icon:"tools",title:"IDE Link en bêta",text:"Retrouve ton agent sur mobile avec un QR code et un PIN temporaire."},

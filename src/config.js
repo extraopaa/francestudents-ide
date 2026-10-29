@@ -27,7 +27,7 @@ const CONFIG = {
 
     // Agent
     maxAgentTurns: envInt("FS_MAX_AGENT_TURNS", 50),
-    maxProtocolAttempts: 2,
+    maxProtocolAttempts: envInt("FS_MAX_PROTOCOL_ATTEMPTS", 3), // relances avec correction avant repli local
     autoCompactTokens: Math.max(0, envInt("FS_AUTO_COMPACT_TOKENS", 0)), // 0 = capacité du modèle
     maxPreloadFiles: 3,
 

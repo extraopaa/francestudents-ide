@@ -25,7 +25,9 @@ test("eco agent stops after four turns and reports incomplete work", async () =>
 });
 test("eco does not retry invalid tool responses or call a fallback model", async () => {
     const { result, calls } = await ecoRun(() => "invalid tool response");
-    assert.equal(calls, 1); assert.equal(result.completed, false); assert.match(result.message, /ne peut pas interpréter/);
+    assert.equal(calls, 1); assert.equal(result.completed, false);
+    assert.match(result.message, /invalid tool response/, "le texte libre du modèle est restitué tel quel");
+    assert.match(result.message, /hors protocole/, "la réponse est signalée comme reçue hors protocole, sans erreur bloquante");
     assert.doesNotMatch(result.message, /lecture seule/);
 });
 test("eco prevents subagent execution", async () => {

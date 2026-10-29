@@ -53,7 +53,7 @@ test("boucle agent : recherche, lecture de source, compte rendu et blocage expli
         assert.match(prompts[1], /https:\/\/example.org\/docs/);
         assert.match(prompts[2], /VERSION_VERIFIED_123/);
         assert.equal(parseAgentResponse('{"type":"final","message":"Question indispensable","completed":false}').completed, false);
-        assert.throws(() => parseAgentResponse('{"type":"final","message":"x","completed":"false"}'));
+        assert.equal(parseAgentResponse('{"type":"final","message":"x","completed":"false"}').completed, false, "un booléen écrit en chaîne est toléré et normalisé");
         let steeringRequests = 0;
         let waitingSteering = [];
         const steeringPrompts = [];

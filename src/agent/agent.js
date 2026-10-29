@@ -11,7 +11,8 @@ const projectContext = require("../project/project-context");
 const { loadInstructions, INSTRUCTIONS_FILES } = require("../project/instructions");
 const { buildAgentPrompt, buildFollowUpPrompt, buildResumePrompt } = require("./prompt");
 const promptCache = require("./prompt-cache");
-const { validateProgress, applyProgress } = require("./plan-progress");
+const { applyProgress, normalizeProgress, fitProgress } = require("./plan-progress");
+const { normalizeActionShape, expandJsonCandidates, describeJsonFailure, proseFinalAction, looksLikeCapabilityRefusal, CAPABILITY_REFUSAL_REMINDER } = require("./json-repair");
 const { updatePlan } = require("../tools/update-plan");
 const {
     TOOLS,
@@ -211,23 +212,44 @@ function extractJsonObject(text) {
         }
     }
 
-    for (const candidate of candidates) {
+    // Candidats stricts d'abord, puis leurs variantes réparées (virgule finale,
+    // retours à la ligne bruts, guillemets typographiques, objet tronqué).
+    for (const candidate of expandJsonCandidates(candidates, raw)) {
+        let parsed;
         try {
-            const parsed = JSON.parse(candidate);
-
-            if (
-                parsed &&
-                typeof parsed === "object" &&
-                !Array.isArray(parsed) &&
-                (parsed.type === "tool" || parsed.type === "final" || parsed.type === "question")
-            ) {
-                return parsed;
-            }
+            parsed = JSON.parse(candidate.text);
         } catch {
-            // candidat suivant
+            continue; // candidat suivant
         }
+        const action = toAction(parsed);
+        if (!action) continue;
+        // Un outil reconstruit depuis un objet tronqué pourrait s'exécuter avec des
+        // arguments incomplets (contenu coupé) : seul un final/question est accepté.
+        if (candidate.truncated) {
+            if (action.type === "tool") continue;
+            action.truncated_response = true;
+        }
+        return action;
     }
 
+    return null;
+}
+
+const ACTION_TYPES = new Set(["tool", "final", "question"]);
+
+/** Ramène un JSON lu à une action du protocole, en tolérant un objet enveloppant ou un tableau à un élément. */
+function toAction(parsed) {
+    if (Array.isArray(parsed)) return parsed.length === 1 ? toAction(parsed[0]) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const direct = normalizeActionShape(parsed);
+    if (ACTION_TYPES.has(direct.type)) return direct;
+    for (const key of ["action", "response", "tool_call", "output", "data"]) {
+        const nested = parsed[key];
+        if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+            const inner = normalizeActionShape(nested);
+            if (ACTION_TYPES.has(inner.type)) return inner;
+        }
+    }
     return null;
 }
 
@@ -235,13 +257,19 @@ function parseAgentResponse(text) {
     let action = extractJsonObject(text);
 
     if (!action) {
-        throw new Error('Aucun objet JSON {"type":"tool"|"final"} trouvé.');
+        throw new Error(describeJsonFailure(text));
     }
     if (action.type === "question") {
         action = { type: "tool", name: "ask_user", reason: "Demander une précision à l’utilisateur", plan: action.plan, plan_progress: action.plan_progress, args: { question: action.question, options: action.options, multiple: action.multiple, placeholder: action.placeholder } };
     }
 
-    if (action.plan_progress !== undefined) validateProgress(action.plan_progress);
+    // Le suivi du plan est une aide, pas un garde-fou : une valeur illisible est
+    // ignorée (avec trace) au lieu de faire échouer toute la réponse.
+    if (action.plan_progress !== undefined) {
+        const progress = normalizeProgress(action.plan_progress);
+        if (progress === undefined) ui.debug(`plan_progress ignoré (illisible) : ${JSON.stringify(action.plan_progress).slice(0, 200)}`);
+        action.plan_progress = progress;
+    }
 
     if (action.type === "final") {
         if (typeof action.message !== "string") {
@@ -437,8 +465,8 @@ function protocolFallbackMessage(observations, changedCount) {
 
 function deniesWorkspaceAccess(message) {
     const text=String(message||"");
-    const target = "(?:files?|folders?|project|repository|code|commands?|terminal|tools?|fichiers?|dossiers?|projet|commandes?|outils?)";
-    const denial = "(?:i\\s*(?:do not|don't|cannot|can't|am unable to)\\s+(?:access|read|modify|change|run|use)|i\\s*(?:do not|don't)\\s+have\\s+access|(?:je\\s+)?n['’]ai\\s+(?:pas|aucun|plus)\\s+(?:d['’]?\\s*)?acc[eè]s|je\\s+ne\\s+(?:peux\\s+pas|suis\\s+pas\\s+en\\s+mesure\\s+de)\\s+(?:(?:moi-même|directement)\\s+)?(?:lire|modifier|acc[eé]der|lancer|d[eé]clencher|utiliser)|je\\s+ne\\s+dispose\\s+pas)";
+    const target = "(?:files?|folders?|project|repository|repo|code|commands?|terminal|tools?|github|fichiers?|dossiers?|projet|d[eé]p[oô]ts?|connecteur|commandes?|outils?)";
+    const denial = "(?:i\\s*(?:do not|don't|cannot|can't|am unable to)\\s+(?:access|read|modify|change|run|use)|i\\s*(?:do not|don't)\\s+have\\s+access|(?:je\\s+)?n['’]ai\\s+(?:(?:pas|aucun|plus|donc\\s+pas)\\s+)?(?:d['’]?\\s*)?acc[eè]s|je\\s+ne\\s+(?:peux\\s+(?:donc\\s+)?pas|suis\\s+pas\\s+en\\s+mesure\\s+de)\\s+(?:(?:moi-même|directement)\\s+)?(?:lire|modifier|acc[eé]der|lancer|d[eé]clencher|utiliser|effectuer|ex[eé]cuter|pousser|publier)|je\\s+ne\\s+dispose\\s+pas)";
     if (new RegExp(`${denial}[^.!?\\n]{0,120}\\b${target}\\b`, "i").test(text)) return true;
     // Cover task-oriented wording only when the same sentence identifies the
     // project or its files. A limitation concerning an image or web access
@@ -751,7 +779,11 @@ async function runAgent(task, options = {}) {
                 try {
                     action = parseAgentResponse(lastResponse);
                     if (action.plan_progress !== undefined && action.name !== "update_plan") {
-                        validateProgress(action.plan_progress, state.agentPlan.length ? state.agentPlan : action.plan || []);
+                        // Suivi du plan ajusté au plan courant (statuts manquants ou en trop) ; jamais bloquant.
+                        const currentPlan = state.agentPlan.length ? state.agentPlan : (action.plan || []).map(step => ({ step, status: "pending" }));
+                        const fitted = fitProgress(action.plan_progress, currentPlan);
+                        if (fitted === undefined && action.plan_progress !== undefined) ui.debug("plan_progress ignoré : aucun plan courant ou statuts illisibles.");
+                        action.plan_progress = fitted;
                     }
                     break;
                 } catch (error) {
@@ -762,7 +794,7 @@ async function runAgent(task, options = {}) {
                     );
 
                     correction = {
-                        error: error.message,
+                        error: looksLikeCapabilityRefusal(lastResponse) ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}` : error.message,
                         previousResponse: lastResponse.slice(0, 300)
                     };
                 }
@@ -774,6 +806,27 @@ async function runAgent(task, options = {}) {
         if (options.shouldStop?.()) {
             await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
             return { completed: false, message: "Tâche interrompue." };
+        }
+        if (!action && !protocolFailure && typeof lastResponse === "string") {
+            // Dernier repli : après épuisement des relances, un texte libre sans
+            // aucune accolade est rendu comme compte rendu non vérifié plutôt que
+            // comme une erreur de protocole. Aucun outil n'est exécuté.
+            const prose = proseFinalAction(lastResponse);
+            if (prose && looksLikeCapabilityRefusal(lastResponse)) {
+                // Le modèle affirme à tort ne pas avoir d'outils locaux ni de connecteur
+                // GitHub : ce refus n'est pas un compte rendu, il est présenté comme tel.
+                ui.debug("Refus de capacité en texte libre malgré les relances : signalé comme erreur de protocole, sans exécution.");
+                action = {
+                    ...prose,
+                    message: "Le modèle a répondu qu’il n’avait pas accès au projet, au dépôt local ou au connecteur GitHub « depuis cette conversation ». " +
+                        "C’est inexact : ces outils sont exécutés localement par FranceStudent Code, mais le modèle n’a pas renvoyé l’objet JSON attendu malgré les relances. " +
+                        "Aucune action locale n’a été exécutée. Renvoie la demande (éventuellement en nommant l’outil, ex. « lance git status puis push ») ou choisis un autre modèle.\n\n" +
+                        `Réponse du modèle :\n${prose.message}`
+                };
+            } else if (prose) {
+                ui.debug("Réponse en texte libre après relances : présentée comme compte rendu non vérifié, sans exécution.");
+                action = { ...prose, message: `${prose.message}\n\n(Réponse reçue hors protocole d’outils : aucune action locale n’a été exécutée. Tu peux renvoyer la demande pour continuer.)` };
+            }
         }
         if (!action) {
             if(protocolFailure){
