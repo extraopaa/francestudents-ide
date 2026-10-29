@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.2] — Sauvegardes contrôlées par l’utilisateur
+
+- Après une mise à jour, l’IDE demande si les points de reprise doivent être activés.
+- Les exclusions `release/`, `.frst/` et `.asar` restent protégées lors des sauvegardes et restaurations.
+
 ## [2.0.1] — Protocole d’outils plus tolérant
 
 - L’agent répare les réponses JSON approximatives du modèle (virgules finales, retours à la ligne, guillemets typographiques, objet tronqué, clés synonymes), tolère un suivi de plan imparfait sans rejeter la réponse, accorde une relance supplémentaire avec correction et présente un texte libre comme compte rendu non vérifié plutôt que comme erreur de protocole.

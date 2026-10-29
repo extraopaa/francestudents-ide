@@ -39,6 +39,16 @@ function maybeShowReleaseHighlights(){
     if(!releaseHighlightsData?.shouldShow || releaseHighlightsShown || !$("startup-loading").hidden || !$("connection-guide").classList.contains("hidden") || document.querySelector("dialog[open]"))return;
     openReleaseHighlights(releaseHighlightsData,{automatic:true});
 }
+let checkpointPreferenceAsked=false;
+async function maybeAskCheckpointPreference(){
+    if(checkpointPreferenceAsked)return;
+    try{const value=await api.checkpointPreference("get");if(value!==undefined)return;}catch{return;}
+    checkpointPreferenceAsked=true;
+    const dialog=document.createElement("dialog");dialog.className="center-dialog";dialog.innerHTML=`<h2>Activer les points de sauvegarde ?</h2><p class="settings-help">Avant chaque tâche de l’agent, l’IDE peut conserver un point de reprise. Les dossiers release, .frst et les archives .asar restent ignorés.</p><div class="center-dialog-actions"><button type="button" data-backup-choice="off">Garder désactivé</button><button type="button" class="primary" data-backup-choice="on">Activer</button></div>`;
+    document.body.append(dialog);dialog.showModal();
+    dialog.querySelectorAll("[data-backup-choice]").forEach(button=>button.onclick=async()=>{await api.checkpointPreference("set",button.dataset.backupChoice==="on");dialog.close();dialog.remove();});
+}
+releaseDialog.addEventListener("close",()=>maybeAskCheckpointPreference());
 new MutationObserver(maybeShowReleaseHighlights).observe($("startup-loading"),{attributes:true,attributeFilter:["hidden"]});
 new MutationObserver(maybeShowReleaseHighlights).observe($("connection-guide"),{attributes:true,attributeFilter:["class"]});
 api.releaseHighlights().then(data=>{releaseHighlightsData=data;maybeShowReleaseHighlights();}).catch(()=>{});

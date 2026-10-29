@@ -1,6 +1,10 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.2":{headline:"Tu gardes le contrôle de tes points de reprise.",items:[
+        {icon:"tools",title:"Activation proposée après la mise à jour",text:"Choisis si l’IDE doit conserver un point de reprise avant les tâches de l’agent."},
+        {icon:"chat",title:"Les dossiers exclus restent protégés",text:"release, .frst et les archives asar ne sont pas touchés par une restauration."}
+    ]},
     "2.0.1":{headline:"Moins d’erreurs de protocole, plus de travail accompli.",items:[
         {icon:"tools",title:"Réponses du modèle mieux tolérées",text:"L’agent répare les réponses JSON approximatives et relance le modèle avant d’afficher une erreur de protocole."},
         {icon:"chat",title:"Accès aux outils vérifié",text:"Quand le modèle prétend ne pas avoir accès au dépôt ou à GitHub, l’agent vérifie réellement ses outils avant de renoncer."}

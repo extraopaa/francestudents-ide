@@ -875,6 +875,11 @@ function registerIpc() {
         if(!action || action==="get")return releaseNotes.get();
         throw new Error("Action de nouveautés inconnue.");
     });
+    handle("checkpointPreference", (action, value) => {
+        const settings = require("../src/settings");
+        if (action === "set") return settings.save({ checkpointBackupsEnabled: value === true }).checkpointBackupsEnabled === true;
+        return settings.load().checkpointBackupsEnabled;
+    });
     handle("localBrowser", (action,payload)=>localBrowser.action(String(action),payload||{}));
     handle("effectCraft", action=>action === "stop" ? effectCraftHost.stop() : action === "start" ? effectCraftHost.start() : effectCraftHost.status());
     handle("effectCraftControl", request=>{if(busy)throw new Error("L’agent travaille déjà dans EffectCraft.");return effectCraftControl(request);});
