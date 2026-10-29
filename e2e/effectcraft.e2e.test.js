@@ -17,7 +17,15 @@ test("EffectCraft real engine is controlled through the specialized agent chat",
         }
         await page.locator("#startup-loading").waitFor({state:"hidden"});
         if(await page.locator("#guide-close").isVisible())await page.locator("#guide-close").click();
-        if(await page.locator("#release-highlights[open]").isVisible())await page.locator("#release-highlights").getByRole("button",{name:"C’est parti !",exact:true}).click();
+        const releaseData=await page.evaluate(()=>window.frst.releaseHighlights());
+        if(releaseData.shouldShow){
+            await page.locator("#release-highlights[open]").waitFor();
+            await page.locator("#release-highlights").getByRole("button",{name:"C’est parti !",exact:true}).click();
+            if(releaseData.showFileVersionsIntro){
+                await page.locator("#release-highlights").getByRole("button",{name:"J’ai compris",exact:true}).click();
+                await page.locator("#release-highlights").waitFor({state:"hidden"});
+            }
+        }
         await page.evaluate(p=>window.frst.openProject(p),project);
         if(process.env.FRST_PACKAGED_EXE){
             assert.equal(await app.evaluate(({app})=>app.getVersion()),require("../package.json").version);
