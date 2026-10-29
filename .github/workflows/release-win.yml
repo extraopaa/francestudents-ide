@@ -60,9 +60,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: ./.github/actions/build-effectcraft
         if: steps.release.outputs.ready != 'true'
+      - name: Préparer le tunnel IDE Link vérifié
+        if: steps.release.outputs.ready != 'true'
+        run: node scripts/vendor-cloudflared.js win
       - name: Construire sans publier de fichiers intermédiaires
         if: steps.release.outputs.ready != 'true'
-        run: npx electron-builder --win nsis --publish never --config.npmRebuild=false
+        run: npx electron-builder --win nsis --x64 --publish never --config.npmRebuild=false
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Empreintes et publication des exécutables

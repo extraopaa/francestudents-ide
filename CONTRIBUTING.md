@@ -31,6 +31,8 @@ Ne versionne jamais de jeton, mot de passe, session ou fichier `.env`. Les dépe
 
 La construction de l’application vérifie aussi le paquet EffectCraft modifié. Avant un premier `build:desktop` ou `dist:win`, lance `npm run vendor:effectcraft` avec les [prérequis Rust et WASM](docs/avance.md#motion-design-avec-effectcraft--bêta). Les workflows reconstruisent et mettent en cache ce paquet depuis la révision et le correctif épinglés ; ils ne substituent pas l’interface officielle non adaptée.
 
+Pour les paquets Windows x64 et macOS arm64, les commandes de construction préparent aussi cloudflared pour IDE Link : téléchargement officiel épinglé, vérification SHA-256 et copie de sa licence dans les ressources de l’application. Cette préparation nécessite une connexion Internet ; les binaires restent dans `release/` et hors de Git. En développement sans application empaquetée, cloudflared doit être accessible dans le PATH. IDE Link utilise un service de tunnel Cloudflare et nécessite une connexion Internet à l’exécution.
+
 ## Proposer une amélioration
 
 Ouvre une pull request dans ce fork. Décris le problème, le comportement obtenu et les vérifications réalisées. Pour un bogue, indique la version, le système et les étapes de reproduction, sans identifiants ni données sensibles.

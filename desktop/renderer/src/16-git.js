@@ -129,9 +129,11 @@ async function refreshGit() {
     const branch = $("git-branch");
     try {
         const st = await api.gitStatus();
+        $("git-setup").classList.toggle("hidden", !ui.workspace || Boolean(st && st.repo));
+        $("git-identity").classList.toggle("hidden", !ui.workspace || !st || !st.repo);
         if (!st || !st.repo) {
             branch.textContent = "Pas de dépôt Git dans ce dossier.";
-            gitMessage($("git-files"), "Initialisez un dépôt avec « git init » dans le terminal.");
+            gitMessage($("git-files"), "Initialisez Git pour voir les modifications de ce projet.");
             $("git-log").innerHTML = "";
             updateGitBadge(0);
             return;
@@ -142,6 +144,8 @@ async function refreshGit() {
         renderGitFiles(st.files);
         renderGitLog(await api.gitLog(20));
     } catch (error) {
+        $("git-setup").classList.add("hidden");
+        $("git-identity").classList.add("hidden");
         branch.textContent = `Git : ${gitErrorText(error)}`;
     } finally {
         ui.git.busy = false;
@@ -224,6 +228,16 @@ function scheduleGitRefresh() {
 }
 
 $("btn-git-refresh").onclick = () => refreshGit();
+$("btn-git-init").onclick = () => runGitAction("Initialisation Git", async () => {
+    if (!ui.workspace) throw new Error("Ouvrez d’abord un projet.");
+    const result = await api.gitInit(ui.workspace);
+    return result.message;
+});
+$("btn-git-identity").onclick = () => runGitAction("Identité Git", async () => {
+    if (!ui.workspace) throw new Error("Ouvrez d’abord un projet.");
+    const result = await api.gitSetIdentity(ui.workspace, $("git-identity-name").value, $("git-identity-email").value);
+    return result.message;
+});
 $("btn-git-commit").onclick = () => gitCommitNow();
 $("git-commit-msg").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {

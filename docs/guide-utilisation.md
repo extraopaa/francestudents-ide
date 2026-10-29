@@ -36,6 +36,10 @@ Une consigne précise aide : « Ajoute une navigation accessible et conserve les
 
 Pendant le travail, les nouvelles demandes s’empilent au-dessus de la saisie. **Orienter** transmet une consigne à la tâche en cours ; **Reprendre** relance une file suspendue. Les pièces jointes restent associées à leur demande.
 
+Pour suivre ton agent sur mobile, ouvre **IDE Link · Bêta** près de la saisie et active-le. Scanne le QR code puis saisis le PIN affiché sur l’ordinateur. Une connexion Internet est nécessaire ; le code est valable dix minutes, pour une utilisation et cinq essais maximum. Garde l’adresse et le PIN privés, puis arrête IDE Link quand tu n’en as plus besoin. Après un changement de projet, relance la connexion. Sur mobile, chaque envoi accepte au plus quatre pièces jointes et 2 Mio au total.
+
+Dans l’onglet **Sauvegardes**, tu peux prévisualiser puis restaurer l’état des fichiers avant une demande à l’agent. Vérifie les fichiers concernés : la restauration peut aussi annuler des modifications manuelles ultérieures. Elle ne remplace pas des sauvegardes externes et ne comprend pas les onglets non enregistrés ni les fichiers exclus. [Détails et limites](../README.md#revenir-avant-une-demande-à-lagent).
+
 ### Quand l’agent te pose une question
 
 Si une précision est nécessaire, l’agent affiche une carte au-dessus de la saisie : choix proposés, sélection multiple ou champ de réponse libre. Sélectionne ta réponse ou écris la tienne, puis clique sur **Répondre**. **Ctrl+Entrée** valide aussi le texte. L’agent reçoit ta réponse et reprend sa tâche.
@@ -89,7 +93,11 @@ Un problème ? Consulte le [dépannage](depannage.md). Pour le terminal, les ré
 
 ## Saisie du chat : modèle, contexte et dictée
 
-Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. La jauge de contexte du chat a été retirée. La compaction automatique fonctionne en arrière-plan et conserve l’historique visible. Le suivi du quota du compte reste disponible dans Usage.
+Le choix du modèle se trouve dans le cadre de saisie, en Code comme en Motion. Entre deux messages, tu peux changer de modèle et poursuivre la discussion : les échanges textuels récents sont transmis au modèle choisi dans un nouveau fil, tandis que le journal visible est conservé. Les anciens documents et images ne sont pas retransmis automatiquement : joins-les à nouveau s’ils sont nécessaires. Si l’historique nécessaire est indisponible, rouvre la conversation avant de changer de modèle.
+
+Dans **Paramètres → Fournisseurs personnalisés · Bêta**, renseigne un nom, un modèle et une clé API, ainsi que l’adresse si nécessaire, puis enregistre le profil et choisis-le dans le sélecteur. Le coffre sécurisé du système doit être disponible pour enregistrer la clé. Cette bêta utilise l’endpoint `chat/completions` compatible OpenAI : les étiquettes Anthropic et Gemini ne garantissent pas la prise en charge de leurs API natives. Les échanges transmis suivent les conditions du fournisseur choisi. Le compte FranceStudent reste le choix habituel.
+
+La jauge de contexte du chat a été retirée. La compaction automatique fonctionne en arrière-plan et conserve l’historique visible. Le suivi du quota du compte reste disponible dans Usage.
 
 Le bouton micro **Bêta** transcrit la voix sur ton ordinateur avec Whisper : l’audio n’est pas envoyé à FranceStudent et ne consomme pas son quota. À la première utilisation, confirme le téléchargement du modèle (environ 100 Mo), puis autorise le microphone dans ton système. Une fois le modèle installé, la transcription fonctionne hors ligne. Clique à nouveau pour terminer ou annuler (2 minutes maximum). Le texte reste dans le brouillon, sans envoi automatique ; l’enregistrement temporaire est effacé après traitement. Sur Mac, vérifie Réglages Système → Confidentialité et sécurité → Microphone si l’accès est refusé.
 

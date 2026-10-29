@@ -12,7 +12,7 @@ Choisis le parcours qui correspond à ton objectif. Les captures montrent l’ap
 | --- | --- |
 | [Installer l’application](installation.md) | Le bon fichier Windows ou Mac et les mises à jour |
 | [Se connecter](connexion.md) | Le compte, le dossier et la première demande |
-| [Premiers pas](guide-utilisation.md) | Les deux modes, le chat et les raccourcis |
+| [Premiers pas](guide-utilisation.md) | Les deux modes, le changement de modèle, IDE Link et les raccourcis |
 | [Résoudre un problème](depannage.md) | Connexion, quota, images et serveurs |
 | [Codes d’erreur et crashs](error-codes.md) | Comprendre et transmettre un diagnostic `FST-…` |
 

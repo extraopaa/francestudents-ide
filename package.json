@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "2.0.2",
+  "version": "2.0.1",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -26,7 +26,7 @@
     "check:renderer": "node scripts/build-renderer.js --check",
     "rebuild:native": "electron-builder install-app-deps",
     "lint": "eslint .",
-    "prebuild:desktop": "npm run check:effectcraft && npm run build:renderer",
+    "prebuild:desktop": "npm run check:effectcraft && npm run build:renderer && node scripts/vendor-cloudflared.js auto",
     "build:desktop": "electron-builder --dir --publish never",
     "prepare": "npm run build:tui",
     "pretest": "npm run build:tui",
@@ -36,9 +36,9 @@
     "test:e2e": "node --test e2e/*.e2e.test.js",
     "predesktop": "npm run build:renderer",
     "desktop": "electron desktop/main.js",
-    "predist:win": "npm run check:effectcraft && npm run build:renderer",
-    "predist:mac": "npm run check:effectcraft && npm run build:renderer",
-    "dist:win": "electron-builder --win portable nsis --publish never",
+    "predist:win": "npm run check:effectcraft && npm run build:renderer && node scripts/vendor-cloudflared.js win",
+    "predist:mac": "npm run check:effectcraft && npm run build:renderer && node scripts/vendor-cloudflared.js mac",
+    "dist:win": "electron-builder --win portable nsis --x64 --publish never",
     "dist:mac": "electron-builder --mac dmg zip --arm64 --publish never",
     "vendor:effectcraft:upstream": "node scripts/fetch-effectcraft.js",
     "check:effectcraft": "node scripts/build-effectcraft.js --check",
@@ -75,6 +75,7 @@
     "pdfjs-dist": "5.4.624",
     "playwright-core": "^1.64.1",
     "prettier": "3.9.10",
+    "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "sharp": "0.35.5",
     "tar-stream": "3.1.7",
@@ -119,7 +120,9 @@
     "appId": "fr.francestudent.code",
     "productName": "FranceStudent IDE",
     "asar": true,
-    "asarUnpack": ["node_modules/onnxruntime-node/bin/**/*"],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/bin/**/*"
+    ],
     "publish": [
       {
         "provider": "github",
@@ -140,6 +143,7 @@
       "package.json"
     ],
     "win": {
+      "extraResources": [{ "from": "release/vendor-cloudflared/win", "to": "ide-link" }],
       "icon": "desktop/icon.png",
       "target": [
         "portable",
@@ -155,6 +159,7 @@
       "artifactName": "FranceStudentIDE-${version}-setup.exe"
     },
     "mac": {
+      "extraResources": [{ "from": "release/vendor-cloudflared/mac", "to": "ide-link" }],
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Le microphone permet de dicter un brouillon après activation du bouton de dictée."
       },

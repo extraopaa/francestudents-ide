@@ -9,11 +9,14 @@ test("stateful follow-ups stay compact while fresh prompts retain motion tools, 
     try {
         for (const motion of [false, true]) for (const full of [false, true]) {
             state.motionDesign = motion; state.fullAccess = full;
-            const next = buildFollowUpPrompt({ turn: 3, plan, lastObservation: { tool: "read_file", ok: true, result: { content: "fichier court" } } });
-            assert.ok(next.length < 1700, `unnecessary follow-up overhead: ${next.length}`);
+            const next = buildFollowUpPrompt({ turn: 3, task: "Demande initiale à conserver", plan, lastObservation: { tool: "read_file", ok: true, result: { content: "fichier court" } } });
+            assert.ok(next.length < 2600, `unnecessary follow-up overhead: ${next.length}`);
+            assert.match(next, /OUTILS LOCAUX ENREGISTRÉS/);
             assert.match(next, /plan_progress/);
             assert.match(next, /completed/);
-            assert.doesNotMatch(next, /Inspecter la composition/);
+            assert.match(next, /Demande initiale à conserver/);
+            assert.match(next, /Inspecter la composition/);
+            assert.match(next, /Contrôler le rendu/);
             assert.doesNotMatch(next, /OUTILS MOTION DESIGN/);
             const fresh = buildAgentPrompt({ workspace: null, task: "Continuer", history: [], observations: [], plan });
             assert.match(fresh, /Inspecter la composition/);
@@ -23,6 +26,31 @@ test("stateful follow-ups stay compact while fresh prompts retain motion tools, 
     } finally { state.motionDesign = previous.motion; state.fullAccess = previous.full; }
 });
 
+test("unknown GitHub actions explain the available operations", () => {
+    const tool = require("../src/tools/github");
+    assert.throws(() => tool.check({ action: "status" }), /args\.action.*overview.*push/);
+    assert.doesNotThrow(() => tool.check({ action: "overview" }));
+});
+
+test("tool guidance covers Git actions and uncertain results without leaking into motion", () => {
+    const previous = state.motionDesign;
+    try {
+        state.motionDesign = false;
+        const fresh = buildAgentPrompt({ workspace: null, task: "Git", history: [], observations: [], plan: [] });
+        assert.match(fresh, /git status --short --branch/);
+        assert.match(fresh, /"action":"commit"/);
+        assert.match(fresh, /"action":"push"/);
+        assert.match(fresh, /Ces exemples ne sont pas une autorisation/);
+        const github = buildFollowUpPrompt({ turn: 2, lastObservation: { tool: "github", ok: false, result: { denied: true } } });
+        assert.match(github, /Respecte les refus/);
+        const command = buildFollowUpPrompt({ turn: 2, lastObservation: { tool: "run_command", ok: false, result: { exit_code: 1 } } });
+        assert.match(command, /Commande non aboutie ou incertaine/);
+        state.motionDesign = true;
+        const motion = buildFollowUpPrompt({ turn: 2, lastObservation: { tool: "github", ok: false } });
+        assert.doesNotMatch(motion, /commit, push et publication sont distincts/);
+    } finally { state.motionDesign = previous; }
+});
+
 test("large logs keep their beginning, final errors and execution metadata without mutating stored results", () => {
     const previous = state.ecoMode; state.ecoMode = false;
     try {
@@ -30,7 +58,8 @@ test("large logs keep their beginning, final errors and execution metadata witho
         const observation = { tool: "run_command", ok: true, result: { output, exit_code: 1, timed_out: true, truncated: false } };
         const prompt = buildFollowUpPrompt({ turn: 2, lastObservation: observation });
         const delivered = JSON.parse(prompt.split("\n").find(line => line.startsWith('{"tool":')));
-        assert.ok(prompt.length < 8000);
+        assert.ok(prompt.length < 9500);
+        assert.ok(delivered.result.output.length < 6200);
         assert.match(delivered.result.output, /^START_LOG/);
         assert.match(delivered.result.output, /FINAL_FAILURE$/);
         assert.equal(delivered.result.exit_code, 1);

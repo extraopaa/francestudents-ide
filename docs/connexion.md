@@ -6,7 +6,7 @@ Le guide s’ouvre lorsqu’une connexion est nécessaire. Retrouve-le avec **?*
 
 ## 1. Ton compte FranceStudent
 
-Utilise les mêmes identifiants que sur le site : adresse e-mail et mot de passe. Clique sur le bouton de connexion. Aucune clé API n’est nécessaire.
+Utilise les mêmes identifiants que sur le site : adresse e-mail et mot de passe. Clique sur le bouton de connexion. Aucune clé API n’est nécessaire pour le compte FranceStudent. Un fournisseur personnalisé optionnel, en bêta, demande en revanche sa propre configuration et sa propre clé.
 
 ![Formulaire de connexion sans identifiants saisis](images/connexion-compte.png)
 

@@ -9,7 +9,7 @@
  * la fenêtre répond avec resolvePrompt(id, valeur).
  */
 
-const { state, resetConversation } = require("../src/state");
+const { state, changeModel } = require("../src/state");
 const { CONFIG } = require("../src/config");
 
 const ANSI_RE = /\x1b\[[0-9;?]*[A-Za-z]/g;
@@ -169,6 +169,11 @@ function createDesktopBackend(send) {
             send("commandLine", clean(text));
         },
 
+        fileChanged(data) {
+            if (!runTracking || !data?.path) return;
+            emit({ type: "fileChange", path: clean(data.path), kind: clean(data.kind), added: data.added ?? null, removed: data.removed ?? null });
+        },
+
         diff(data) {
             const added = data?.added ?? 0;
             const removed = data?.removed ?? 0;
@@ -296,22 +301,20 @@ function createDesktopBackend(send) {
             };
         },
 
-        /** Change l'agent courant et démarre une conversation neuve (comme /model). */
+        /** Change le modèle et prépare la reprise du contexte disponible. */
         async setModel(id) {
             if (typeof id === "string" && id.startsWith("custom:")) {
                 if (!require("../src/custom-providers").get(id.slice(7))) throw new Error("Fournisseur personnalisé introuvable ou clé indisponible.");
-                state.model = id;
-                resetConversation(state.mode === "agent" ? "agent" : "chat");
-                emit({ type: "info", text: "Fournisseur personnalisé sélectionné (bêta)." });
+                const resume = changeModel(id);
+                emit({ type: "info", text: resume ? "Fournisseur personnalisé sélectionné : les derniers échanges textuels lui seront transmis au prochain message. Les anciennes pièces jointes ne sont pas retransmises." : "Fournisseur personnalisé sélectionné (bêta)." });
                 return { id, name: require("../src/custom-providers").list().find(item => `custom:${item.id}` === id)?.name || id };
             }
             const agentsApi = require("../src/api/agents");
             const { agents } = await agentsApi.listAgents();
             const agent = agents.find((item) => item.id === Number(id));
             if (!agent) throw new Error("Agent inconnu.");
-            state.model = agent.id;
-            resetConversation(state.mode === "agent" ? "agent" : "chat");
-            emit({ type: "info", text: `Agent sélectionné : ${agent.name}` });
+            const resume = changeModel(agent.id);
+            emit({ type: "info", text: `Agent sélectionné : ${agent.name}` + (resume ? " — les derniers échanges textuels seront transmis au prochain message ; les anciennes pièces jointes ne sont pas retransmises." : "") });
             return { id: agent.id, name: agent.name };
         },
 

@@ -188,6 +188,17 @@ function modelLogo(agent, className = "model-logo") {
     return img;
 }
 
+function modelUseGroup(agent) {
+    const model = String(agent.model || agent.name || "").toLowerCase().trim().replace(/\s+/g, "-");
+    if (/^gpt-5\.6-luna(?:-|$)/.test(model) || /^gemini-3\.8-flash(?:-|$)/.test(model)) return "simple";
+    if (/^gpt-5\.6-terra(?:-|$)/.test(model)) return "everyday";
+    if (agent.isDefault) return "start";
+    if (/^claude-haiku-/.test(model) || /^gpt-6-luna(?:-|$)/.test(model)) return "simple";
+    if (/^claude-sonnet-/.test(model) || /^gpt-6\.1-terra(?:-|$)/.test(model)) return "everyday";
+    if (/^claude-(?:opus|fable)-/.test(model) || /^gemini-(?:[\d.]+-)?pro(?:-|$)/.test(model) || /^gpt-6(?:\.1)?-sol(?:-|$)/.test(model)) return "complex";
+    return "other";
+}
+
 function renderModelMenu(data) {
     const agents = (data && data.agents) || [];
     modelMenuEl.innerHTML = "";
@@ -205,7 +216,33 @@ function renderModelMenu(data) {
         return;
     }
 
-    for (const agent of agents) {
+    const intro = document.createElement("p");
+    intro.className = "model-guide-intro";
+    intro.textContent = agents.some(agent => agent.isDefault)
+        ? "Pour commencer, essaie le modèle par défaut. Classement indicatif : chaque modèle peut servir à d’autres usages."
+        : "Classement indicatif : chaque modèle peut servir à d’autres usages. Choisis librement selon tes besoins.";
+    modelMenuEl.appendChild(intro);
+    const groups = [
+        ["start", "Pour commencer", "Le choix par défaut du service"],
+        ["simple", "Demandes simples", "Questions courtes, reformulation, petites corrections"],
+        ["everyday", "Au quotidien", "Rédaction, code et projets courants"],
+        ["complex", "Tâches complexes", "Analyse approfondie et problèmes difficiles"],
+        ["other", "Autres modèles", "Choisis librement selon tes préférences"]
+    ];
+    for (const [key, title, hint] of groups) {
+        const items = agents.filter(agent => modelUseGroup(agent) === key);
+        if (!items.length) continue;
+        const group = document.createElement("section");
+        group.className = "model-guide-group";
+        const heading = document.createElement("h3");
+        heading.className = "model-guide-heading";
+        heading.textContent = title;
+        const description = document.createElement("p");
+        description.className = "model-guide-description";
+        description.textContent = hint;
+        group.append(heading, description);
+        modelMenuEl.appendChild(group);
+        for (const agent of items) {
         const row = document.createElement("button");
         row.type = "button";
         row.className = "model-item" + (agent.id === ui.currentModelId ? " active" : "");
@@ -238,7 +275,8 @@ function renderModelMenu(data) {
         row.appendChild(check);
 
         row.onclick = () => selectModel(agent.id);
-        modelMenuEl.appendChild(row);
+        group.appendChild(row);
+        }
     }
 
     if (data && data.error) {

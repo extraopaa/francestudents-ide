@@ -83,6 +83,7 @@ const motionConversations = require("./motion-conversations").createMotionConver
 const transcriptStore=require("./conversation-transcript").createTranscriptStore(path.join(require("../src/config").CONFIG.dataDir,"conversation-transcripts"));
 let recordingTranscript=false,transcriptMode="agent",transcriptLive="",transcriptFailure=null;
 let updates=null;
+let ideLink = null;
 const webResearch=require("../src/tools/web-research").manager;
 webResearch.subscribe(data=>send("webResearch",data));
 const taskQueue = require("./task-queue").createTaskQueue({
@@ -98,7 +99,34 @@ const taskQueue = require("./task-queue").createTaskQueue({
     onChange: snapshot => send("taskQueue", snapshot)
 });
 
+ideLink = require("./ide-link").createIdeLink({
+    cloudflaredPath: app.isPackaged ? path.join(process.resourcesPath, "ide-link", process.platform === "win32" ? "cloudflared.exe" : "cloudflared") : "cloudflared",
+    workspace: () => {
+        const { state } = require("../src/state");
+        return booted && !state.motionDesign ? state.workspace : null;
+    },
+    enqueue: (prompt, attachments, mode) => {
+        taskQueue.action("add", { prompt, mode, attachments });
+        taskQueue.action("start");
+    },
+    snapshot: () => ({ ...taskQueue.snapshot(), canSteer: busy && supportsSteering }),
+    queueAction: (action, payload) => {
+        if (action === "interrupt") {
+            submissionInterrupted = true;
+            taskQueue.pause({ interrupt: true });
+            return backend.interrupt();
+        }
+        return taskQueue.action(action, payload);
+    },
+    resolvePrompt: (id, answer) => backend.resolvePrompt(id, answer),
+    onChange: data => safeSend(win, "ideLink", data, stability.record)
+});
+
 function send(channel, data) {
+    if (ideLink) {
+        ideLink.record(channel, data);
+        if (channel === "clear" && ideLink.status().state !== "stopped") ideLink.stop().catch(() => {});
+    }
     if(recordingTranscript){
         const id=require("../src/state").state.chatIds[transcriptMode];
         if(channel==="entry")transcriptStore.capture(id,data).catch(error=>{transcriptFailure=error.message;});
@@ -828,17 +856,24 @@ async function openDesktopConversation(id,fromCommand=false){
 }
 
 function registerIpc() {
+    handle("ideLink", async (action = "status") => {
+        if (action === "start") await ideLink.start();
+        else if (action === "stop") await ideLink.stop();
+        else if (action !== "status") throw new Error("Action IDE Link inconnue.");
+        const info = ideLink.status();
+        return { ...info, qr: info.url ? await require("qrcode").toDataURL(info.url, { margin: 2, width: 256 }) : "" };
+    });
     handle("stability", (action = "get", id) => {
         if (action === "get") return stability.notice();
         if (action === "acknowledge") return stability.acknowledge(String(id || ""));
         throw new Error("Action de diagnostic inconnue.");
     });
     const releaseNotes=require("./release-highlights").createReleaseHighlights({version:app.getVersion(),enabled:app.isPackaged || process.env.FRST_QA_RELEASE_NOTES==="1",load:()=>require("../src/settings").load(),save:value=>require("../src/settings").save(value)});
-    handle("releaseHighlights",(action,version)=>action==="seen"?releaseNotes.seen(version):releaseNotes.get());
-    handle("checkpointPreference", (action, value) => {
-        const settings = require("../src/settings");
-        if (action === "set") return settings.save({ checkpointBackupsEnabled: value === true }).checkpointBackupsEnabled === true;
-        return settings.load().checkpointBackupsEnabled;
+    handle("releaseHighlights",(action,version)=>{
+        if(action==="seen")return releaseNotes.seen(version);
+        if(action==="seenFileVersions")return releaseNotes.seenFileVersions();
+        if(!action || action==="get")return releaseNotes.get();
+        throw new Error("Action de nouveautés inconnue.");
     });
     handle("localBrowser", (action,payload)=>localBrowser.action(String(action),payload||{}));
     handle("effectCraft", action=>action === "stop" ? effectCraftHost.stop() : action === "start" ? effectCraftHost.start() : effectCraftHost.status());
@@ -1009,20 +1044,24 @@ function registerIpc() {
         if (action === "output") return manager.peek(String(id));
         return manager.list();
     });
-    handle("checkpoints", async (action, id) => {
+    handle("checkpoints", async (action, id, expected) => {
         const { state } = require("../src/state");
-        const points = require("../src/project/checkpoints");
-        if (action !== "restore") return points.listCheckpoints(state.workspace).slice().reverse();
-        if (busy) throw new Error("Arrête la tâche en cours avant de restaurer les fichiers.");
-        const point = points.getCheckpoint(id);
-        if (!state.workspace || !point || point.workspace !== state.workspace) throw new Error("Point de reprise introuvable pour ce projet.");
+        if (!state.workspace) return action === "list" ? [] : Promise.reject(new Error("Aucun projet sélectionné."));
+        const versions = require("../src/project/file-versions");
+        if (action === "list") return (await versions.list()).map(({ id, at, task, kind, excluded }) => ({ id, at, task, kind, excluded }));
+        if (busy) throw new Error("Arrête la tâche en cours avant de gérer les versions.");
+        if (action === "remove") {
+            busy = true; pushStatus();
+            try { await versions.remove(state.workspace, String(id)); return { removed: true }; }
+            finally { busy = false; pushStatus(); }
+        }
+        if (require("../src/tools/command/jobs").manager.list().some(job => job.status === "running")) throw new Error("Arrête les commandes en arrière-plan avant de restaurer les fichiers.");
+        if (action === "preview") return versions.preview(state.workspace, String(id));
+        if (action !== "restore") throw new Error("Action de version inconnue.");
         taskQueue.pause();
         busy = true; pushStatus();
         try {
-            const result = await require("../src/tools/core/journal").rewindTo(point.at, { ignoredRoots: point.ignoredRoots });
-            points.dropCheckpointsFrom(point.id);
-            state.history.length = Math.min(state.history.length, point.historyLength);
-            return result;
+            return await versions.restore(state.workspace, String(id), String(expected || ""));
         } finally { busy = false; pushStatus(); }
     });
     handle("status", () => ({ ...backend.status(), busy, booted, canSteer: busy && supportsSteering }));
@@ -1131,6 +1170,16 @@ function registerIpc() {
     handle("skillsList", skillsList);
     handle("skillsOpenDir", (scope) => skillsOpenDir(String(scope || "")));
     handle("skillsCreate", (name, scope) => skillsCreate(name, String(scope || "")));
+    handle("gitInit", (expectedWorkspace) => {
+        const workspace = require("../src/state").state.workspace || null;
+        if (!workspace || workspace !== expectedWorkspace) throw new Error("Le projet a changé. Actualisez le panneau Git avant de réessayer.");
+        return require("./git").init(workspace);
+    });
+    handle("gitSetIdentity", (expectedWorkspace, name, email) => {
+        const workspace = require("../src/state").state.workspace || null;
+        if (!workspace || workspace !== expectedWorkspace) throw new Error("Le projet a changé. Actualisez le panneau Git avant de réessayer.");
+        return require("./git").setIdentity(workspace, name, email);
+    });
     handle("gitStatus", () => require("./git").status(require("../src/state").state.workspace || null));
     handle("gitDiff", (rel, staged) => require("./git").diff(require("../src/state").state.workspace || null, rel, staged === true));
     handle("gitShowHead", (rel) => require("./git").showHead(require("../src/state").state.workspace || null, rel));
@@ -1481,7 +1530,7 @@ if (!gotLock) {
 
     app.on("window-all-closed", () => {
         appClosing = true;
-        const cleanup = [() => projectStudio.stopAll(), () => require("../src/tools/browse").stopAll(),
+        const cleanup = [() => ideLink.stop(), () => projectStudio.stopAll(), () => require("../src/tools/browse").stopAll(),
             () => webResearch.stopAll(), () => previewServer.stop(), () => effectCraftHost.stop(),
             () => killAllTerminals(), () => lspManager?.stopAll(), () => require("../src/tools/command/jobs").manager.stopAll?.(),
             () => require("../src/agent/worktrees").stopAll(), () => require("./dictation").dictate("cancel"), () => transcriptStore.flush()];

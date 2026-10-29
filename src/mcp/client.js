@@ -186,7 +186,10 @@ function createClient({
         child.on("exit", code => {
             closed = true;
             const detail = stderr.trim() ? ` ${stderr.trim().slice(-300)}` : "";
-            failAll(new McpError(`${name} : serveur arrêté (code ${code}).${detail}`));
+            const gitHint = /not a git repository/i.test(stderr)
+                ? " Vérifie le dossier de lancement (cwd) du serveur MCP : si sa commande nécessite Git, il doit pointer vers un dépôt Git valide."
+                : "";
+            failAll(new McpError(`${name} : serveur arrêté (code ${code}).${detail}${gitHint}`));
         });
 
         const result = await request("initialize", {

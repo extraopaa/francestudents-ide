@@ -9,6 +9,8 @@ Le cockpit regroupe les commandes et outils du dossier ouvert. Tu peux revenir �
 
 Le bouton **Cockpit du projet** ouvre une vue centrale qui conserve le chat à droite. `Ctrl+Maj+D` y donne accès. Le thème sombre d’origine reste sélectionné par défaut.
 
+Dans l’espace agent, l’onglet **Sauvegardes** permet de choisir une demande puis **Voir et restaurer** pour examiner les fichiers concernés avant confirmation. Une version de sécurité est créée ; la restauration peut aussi annuler des modifications manuelles et des demandes ultérieures. Les fichiers non enregistrés, sensibles ou exclus et les actions externes ne sont pas couverts. L’interface refuse notamment une restauration de plus de 100 fichiers. [Périmètre et limites](../README.md#revenir-avant-une-demande-à-lagent).
+
 ## Exécuter et vérifier
 
 La vue **Exécutions** détecte les scripts de `package.json` et les commandes courantes de Rust et Go. Le gestionnaire Node est choisi d’après `packageManager` et les fichiers de verrouillage. Rien n’est exécuté lors de la détection.

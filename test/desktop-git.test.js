@@ -51,6 +51,18 @@ test("git.parseLog : champs séparés", () => {
     assert.deepEqual(git.parseLog(raw), [{ hash: "abc", short: "ab", author: "Alice", date: "2026-01-01T00:00:00+00:00", subject: "Premier" }]);
 });
 
+test("git.setIdentity valide les champs et configure seulement le dépôt local", { skip: !hasGit && "git indisponible" }, async (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fscli-identity-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    execFileSync("git", ["init", "-q"], { cwd: dir });
+    await assert.rejects(git.setIdentity(dir, "", "a@example.com"), /nom Git valide/);
+    await assert.rejects(git.setIdentity(dir, "Alice", "invalide"), /adresse e-mail Git valide/);
+    await git.setIdentity(dir, "Alice", "alice@example.com");
+    const get = (key) => execFileSync("git", ["config", "--local", "--get", key], { cwd: dir, encoding: "utf8" }).trim();
+    assert.equal(get("user.name"), "Alice");
+    assert.equal(get("user.email"), "alice@example.com");
+});
+
 test("git.diff refuse un chemin qui ressemble à une option", async () => {
     await assert.rejects(git.diff(os.tmpdir(), "--output=/tmp/x"), /Chemin refusé/);
 });
@@ -78,6 +90,25 @@ test("git : statut, diff, HEAD et journal sur un vrai dépôt", { skip: !hasGit 
     const plain = fs.mkdtempSync(path.join(os.tmpdir(), "fscli-nogit-"));
     assert.equal((await git.status(plain)).repo, false);
     assert.deepEqual(await git.log(plain), []);
+});
+
+test("git.init crée un dépôt local sans indexer les fichiers et conserve un dépôt parent", { skip: !hasGit && "git indisponible" }, async (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fscli-init-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const file = path.join(dir, "projet.txt");
+    fs.writeFileSync(file, "contenu");
+    await assert.rejects(git.init(null), /Aucun projet ouvert/);
+    const created = await git.init(dir);
+    assert.equal(created.created, true);
+    assert.equal(fs.readFileSync(file, "utf8"), "contenu");
+    assert.equal((await git.status(dir)).repo, true);
+    assert.equal(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir, encoding: "utf8" }).trim(), "");
+    assert.equal((await git.log(dir)).length, 0);
+    assert.equal((await git.init(dir)).created, false);
+    const child = path.join(dir, "enfant");
+    fs.mkdirSync(child);
+    assert.equal((await git.init(child)).created, false);
+    assert.equal(fs.existsSync(path.join(child, ".git")), false);
 });
 
 test("git.commit : add -A puis commit, refus si message vide ou rien à valider", { skip: !hasGit && "git indisponible" }, async () => {

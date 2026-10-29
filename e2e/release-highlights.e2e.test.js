@@ -13,7 +13,9 @@ test("new version greets once, can be reopened and fits small windows",{timeout:
         assert.equal(await page.locator(".release-notes-item").count(),4);
         if(process.env.FRST_QA_SCREENSHOT)await page.screenshot({path:process.env.FRST_QA_SCREENSHOT,animations:"disabled"});
         await page.getByRole("button",{name:"C’est parti !",exact:true}).click();
-        await page.waitForFunction(async()=>!(await window.frst.releaseHighlights()).shouldShow);
+        await page.getByRole("heading",{name:"Reviens avant une demande à l’agent"}).waitFor();
+        await page.getByRole("button",{name:"J’ai compris",exact:true}).click();
+        await page.waitForFunction(async()=>{const data=await window.frst.releaseHighlights();return !data.shouldShow && !data.showFileVersionsIntro;});
         await page.reload();await page.locator("#startup-loading").waitFor({state:"hidden"});
         assert.equal(await page.locator("#release-highlights[open]").count(),0);
         await page.locator('[data-view="settings"]').click();await page.locator("#release-highlights-open").click();

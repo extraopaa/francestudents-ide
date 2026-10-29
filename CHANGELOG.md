@@ -1,10 +1,31 @@
 # Changelog
 
-## [2.0.2] — Sauvegardes contrôlées par l’utilisateur
+## [2.0.1] — Protocole d’outils plus tolérant
 
-- Après une mise à jour, l’IDE demande si les points de reprise doivent être activés.
-- Le choix est mémorisé et les sauvegardes restent désactivées tant que l’utilisateur n’a pas choisi « Activer ».
-- Les exclusions `release/`, `.frst/` et `.asar` restent protégées lors des nouvelles sauvegardes et restaurations.
+- L’agent répare les réponses JSON approximatives du modèle (virgules finales, retours à la ligne, guillemets typographiques, objet tronqué, clés synonymes), tolère un suivi de plan imparfait sans rejeter la réponse, accorde une relance supplémentaire avec correction et présente un texte libre comme compte rendu non vérifié plutôt que comme erreur de protocole.
+- Les déclarations erronées du modèle sur l’absence d’accès au dépôt local ou au connecteur GitHub sont reconnues plus largement et déclenchent la vérification réelle des outils avant tout renoncement.
+
+## [2.0.0] — Modèles, IDE Link et fiabilité du chat
+
+- Reprise améliorée lorsque le modèle affirme à tort ne pas pouvoir utiliser les outils locaux : l’agent peut vérifier le projet puis distinguer Git local et connexion GitHub, sans contourner les refus réels.
+- Changement de modèle entre les messages : reprise des échanges textuels récents dans un nouveau fil, sans retransmission automatique des anciennes pièces jointes.
+- IDE Link en bêta : accès mobile au chat par tunnel avec un code PIN temporaire ; les guides précisent les limites et précautions.
+- Sauvegardes avant demande : aperçu et restauration des fichiers du projet, sous réserve des exclusions et limites documentées.
+- README et guides actualisés pour les fonctions récentes, dont les fournisseurs personnalisés compatibles en bêta.
+
+## [1.5.3] — Suivi des tâches plus fiable
+
+- Les suivis rappellent la demande et les intitulés du plan pour aider l’agent à garder le cap.
+- La vérification d’accès au projet reconnaît davantage de formulations et distingue les limites d’une pièce jointe.
+- Les refus et interruptions réels restent respectés ; le message de récupération ne se répète pas sur les lectures suivantes.
+
+## [1.5.2] — Liaison GitHub plus claire
+
+- Le connecteur explique que le dossier ouvert doit être un dépôt Git et que la liaison ne télécharge pas les fichiers.
+- Une confirmation est demandée avant de remplacer le remote origin existant depuis le connecteur.
+- Le message d’erreur est plus explicite lorsque le dossier n’est pas un dépôt Git.
+- L’agent traite mieux les déclarations erronées d’inaccessibilité du projet et signale clairement une tâche incomplète si le modèle persiste.
+- Lorsqu’un serveur MCP échoue parce que son dossier n’est pas un dépôt Git, le message suggère de vérifier son dossier de lancement.
 
 ## [1.5.1] — Fournisseurs personnalisés en bêta
 

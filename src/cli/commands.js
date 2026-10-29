@@ -1,6 +1,6 @@
 "use strict";
 
-const { state, resetConversation, setConversation } = require("../state");
+const { state, resetConversation, setConversation, changeModel } = require("../state");
 const { c } = require("./ui");
 const { ui, getUiBackend } = require("../ui-bridge");
 const memory = require("../project/memory");
@@ -777,9 +777,8 @@ ui.info(
         break;
       }
 
-      state.model = agent.id;
-      resetConversation(state.mode === "agent" ? "agent" : "chat");
-      ui.info(`Agent sélectionné : ${agent.name}`);
+      const resume = changeModel(agent.id);
+      ui.info(`Agent sélectionné : ${agent.name}` + (resume ? " — les derniers échanges textuels seront transmis au prochain message ; les anciennes pièces jointes ne sont pas retransmises." : ""));
       break;
     }
 

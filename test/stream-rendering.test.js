@@ -4,7 +4,10 @@ function renderer() {
     const nodes = [], timers = new Map(); let next = 0, markdownCalls = 0;
     const ui = { live: null, liveText: "", replayingConversation: false };
     const context = vm.createContext({ ui, document: { createElement: () => ({ innerHTML: "", isConnected: true }) },
-        transcript: { appendChild: node => nodes.push(node), scrollHeight: 0 },
+        transcript: { appendChild: node => nodes.push(node), scrollHeight: 0, children: [], addEventListener: () => {} },
+        $: () => ({ hidden: false, addEventListener: () => {} }),
+        ResizeObserver: class { observe() {} unobserve() {} }, MutationObserver: class { observe() {} },
+        requestAnimationFrame: () => 1, Node: { ELEMENT_NODE: 1 },
         renderMarkdown: text => { markdownCalls++; return `<p>${text}</p>`; },
         escapeHtml: text => text.replaceAll("<", "&lt;").replaceAll(">", "&gt;"), attachServerControls: () => {},
         setTimeout: callback => { timers.set(++next, callback); return next; }, clearTimeout: id => timers.delete(id) });

@@ -13,6 +13,7 @@ const { CONFIG } = require("../src/config");
 const { state, resetConversation } = require("../src/state");
 const api = require("../src/api/api");
 const { runAgent, fitPrompt, compactObservations, keepWithinBudget } = require("../src/agent/agent");
+const memory = require("../src/project/memory");
 
 const baseContext = {
     workspace: "/tmp/projet",
@@ -108,6 +109,7 @@ test("runAgent : un lot répété 3 fois est bloqué par le garde-fou", { concur
     resetConversation();
     state.workspace = dir;
     state.autoApprove = true;
+    await memory.open(dir);
 
     const batch = '{"type":"tool","calls":[{"name":"list_directory","args":{"path":"."}}],"reason":"Lister le dossier"}';
     const answers = [batch, batch, batch, '{"type":"final","message":"Terminé."}'];

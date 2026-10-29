@@ -89,7 +89,7 @@ test("e2e : tâches ajoutées, réordonnées, exécutées et suspendues sur bloc
             backend.plan(["Explorer", "Tester"]);
             backend.tool("web_fetch", "https://example.org/docs");
             backend.result("Source vérifiée", { sources: [{ url: "https://example.org/docs", title: "Documentation vérifiée", consulted: true }] });
-            load(load('node:path').join(root, "src/project/checkpoints")).addCheckpoint({ task: "Point de reprise QA", workspace: state.workspace, historyLength: state.history.length });
+            await load(load('node:path').join(root, "src/project/file-versions")).save(state.workspace, "Point de reprise QA");
             const previousAuto = state.autoApprove;
             state.autoApprove = true;
             try { await load(load('node:path').join(root, "src/tools/registry")).TOOLS.write_file.run({ path: "qa-created.txt", content: "Test restauration" }); }
@@ -111,9 +111,13 @@ test("e2e : tâches ajoutées, réordonnées, exécutées et suspendues sur bloc
         await page.locator("#activity-jobs").getByRole("button", { name: "Arrêter", exact: true }).click();
         await page.waitForFunction(() => document.getElementById("activity-jobs").textContent.includes("stopped"));
         assert.equal(fs.existsSync(path.join(project, "qa-created.txt")), true);
-        await page.locator("#activity-checkpoints").getByRole("button", { name: "Restaurer", exact: true }).click();
+        await page.locator('[data-agent-tab="backups"]').click();
+        assert.equal(await page.locator('[data-agent-tab="backups"]').getAttribute("aria-selected"), "true");
+        await page.locator("#activity-checkpoints").getByRole("button", { name: "Voir et restaurer", exact: true }).click();
+        assert.match(await page.locator('#studio-confirm-dialog').innerText(), /retirer : qa-created\.txt/);
         await page.locator('#studio-confirm-dialog [data-confirm="accept"]').click();
-        await page.waitForFunction(() => document.getElementById("composer-feedback").textContent.includes("restaurée"));
+        await page.waitForFunction(() => document.getElementById("composer-feedback").textContent.includes("restauré(s)"));
+        await page.waitForFunction(() => document.getElementById("activity-checkpoints").textContent.includes("Sécurité avant restauration"));
         assert.equal(fs.existsSync(path.join(project, "qa-created.txt")), false);
         if (process.env.FRST_QA_SCREENSHOT) await page.screenshot({ path: process.env.FRST_QA_SCREENSHOT.replace(/\.png$/, "-activity.png"), fullPage: true });
         await page.locator('[data-agent-tab="conversation"]').click();

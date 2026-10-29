@@ -1,9 +1,23 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
-    "2.0.2":{headline:"Tu gardes le contrôle de tes points de reprise.",items:[
-        {icon:"tools",title:"Activation proposée après la mise à jour",text:"Au premier démarrage suivant une mise à jour, choisis si l’IDE doit conserver un point de reprise avant les tâches de l’agent."},
-        {icon:"chat",title:"Un choix mémorisé",text:"Tu peux garder le système désactivé. Les dossiers release, .frst et les archives asar restent exclus des restaurations."}
+    "2.0.1":{headline:"Moins d’erreurs de protocole, plus de travail accompli.",items:[
+        {icon:"tools",title:"Réponses du modèle mieux tolérées",text:"L’agent répare les réponses JSON approximatives et relance le modèle avant d’afficher une erreur de protocole."},
+        {icon:"chat",title:"Accès aux outils vérifié",text:"Quand le modèle prétend ne pas avoir accès au dépôt ou à GitHub, l’agent vérifie réellement ses outils avant de renoncer."}
+    ]},
+    "2.0.0":{headline:"Poursuis ton travail sur plusieurs modèles et appareils.",items:[
+        {icon:"chat",title:"Change de modèle sans perdre le fil",text:"Les échanges textuels récents accompagnent le changement ; les pièces jointes doivent être ajoutées de nouveau si nécessaire."},
+        {icon:"tools",title:"IDE Link en bêta",text:"Retrouve ton agent sur mobile avec un QR code et un PIN temporaire."},
+        {icon:"spark",title:"Sauvegardes avant demande",text:"Prévisualise les fichiers concernés avant de restaurer un état précédent du projet."}
+    ]},
+    "1.5.3":{headline:"L’agent garde mieux le fil de ton travail.",items:[
+        {icon:"chat",title:"Demande et plan conservés",text:"Les suivis rappellent la demande et les étapes du plan pour aider l’agent à poursuivre la tâche."},
+        {icon:"tools",title:"Accès au projet mieux vérifié",text:"L’agent reconnaît davantage de déclarations erronées et respecte les refus et interruptions réels."}
+    ]},
+    "1.5.2":{headline:"La liaison GitHub est plus claire et mieux protégée.",items:[
+        {icon:"tools",title:"Un dossier Git nécessaire",text:"Le connecteur indique si le dossier ouvert n’est pas un dépôt Git et rappelle que la liaison ne télécharge pas les fichiers."},
+        {icon:"chat",title:"Confirmation avant remplacement",text:"Avant de remplacer le remote origin existant depuis le connecteur, une confirmation est demandée."},
+        {icon:"tools",title:"Accès au projet mieux signalé",text:"L’agent traite mieux les déclarations erronées d’inaccessibilité et signale si la tâche reste incomplète."}
     ]},
     "1.5.1":{headline:"Teste ton propre fournisseur en toute sécurité.",items:[
         {icon:"tools",title:"Profils API personnalisés",text:"Ajoute un nom, un modèle, une URL et une clé pour utiliser une API compatible OpenAI depuis le sélecteur de modèle."},
@@ -91,8 +105,9 @@ const releases={
 };
 function createReleaseHighlights({version,enabled=true,load,save}){
     return {
-        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};return {version,...content,shouldShow:enabled && load().releaseHighlightsSeen!==version,url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
-        seen(value){if(value!==version)throw new Error("Version de notes invalide.");save({releaseHighlightsSeen:version});return true;}
+        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};const settings=load();return {version,...content,shouldShow:enabled && settings.releaseHighlightsSeen!==version,showFileVersionsIntro:enabled && settings.fileVersionsIntroSeen!==true,url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
+        seen(value){if(value!==version)throw new Error("Version de notes invalide.");save({releaseHighlightsSeen:version});return true;},
+        seenFileVersions(){save({fileVersionsIntroSeen:true});return true;}
     };
 }
 module.exports={createReleaseHighlights};

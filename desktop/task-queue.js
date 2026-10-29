@@ -95,10 +95,23 @@ function createTaskQueue({ file, workspace, canRun, run, onChange = () => {}, on
             case "move": {
                 if (!task || task.status !== "pending") throw new Error("Seules les tâches en attente peuvent être déplacées.");
                 const pending = tasks.filter(t => same(t.workspace, current) && t.status === "pending");
-                const other = pending[pending.indexOf(task) + (payload.direction === "up" ? -1 : 1)];
-                if (other) {
-                    const a = tasks.indexOf(task), b = tasks.indexOf(other);
-                    [tasks[a], tasks[b]] = [tasks[b], tasks[a]];
+                if (payload.targetId !== undefined) {
+                    const target = pending.find(t => t.id === payload.targetId);
+                    if (!target || !["before", "after"].includes(payload.position)) throw new Error("Position de destination invalide ou demande indisponible.");
+                    if (target !== task) {
+                        const reordered = pending.filter(t => t !== task);
+                        const targetIndex = reordered.indexOf(target) + (payload.position === "after" ? 1 : 0);
+                        reordered.splice(targetIndex, 0, task);
+                        let index = 0;
+                        tasks = tasks.map(t => same(t.workspace, current) && t.status === "pending" ? reordered[index++] : t);
+                    }
+                } else {
+                    if (!["up", "down"].includes(payload.direction)) throw new Error("Direction invalide.");
+                    const other = pending[pending.indexOf(task) + (payload.direction === "up" ? -1 : 1)];
+                    if (other) {
+                        const a = tasks.indexOf(task), b = tasks.indexOf(other);
+                        [tasks[a], tasks[b]] = [tasks[b], tasks[a]];
+                    }
                 }
                 break;
             }

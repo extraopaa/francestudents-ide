@@ -30,6 +30,10 @@ Une indisponibilité temporaire du service peut demander de réessayer plus tard
 
 Une erreur « maximum token limit » doit déclencher une tentative de compaction et de reprise bornée. Si l’erreur persiste, conserve l’historique, ouvre une nouvelle conversation et joins un résumé du travail. Une limite de contexte et un quota épuisé sont deux situations différentes.
 
+Si le changement de modèle indique que l’historique est indisponible, rouvre la conversation avec son historique avant de réessayer. Le transfert ne reprend que les échanges textuels récents : renvoie les pièces jointes nécessaires.
+
+Si IDE Link refuse la connexion, vérifie Internet et redémarre IDE Link pour obtenir un nouveau PIN après son utilisation, son expiration ou cinq essais incorrects. Un changement de projet impose aussi de relancer la connexion. En développement, vérifie que cloudflared est disponible dans le PATH.
+
 ## Images et documents
 
 Vérifie que la pièce jointe est bien présente avant l’envoi. Une conversion partielle ou une réduction importante peut empêcher de lire de petits détails. Recadre l’élément utile et joins-le à nouveau si nécessaire. [Formats et limites](attachments.md).

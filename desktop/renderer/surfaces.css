@@ -155,9 +155,9 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .chat-navigation-actions {display:flex;align-items:center;gap:3px;flex-shrink:0;}
 .chat-navigation-actions > button {width:26px;height:28px;padding:4px;display:inline-flex;align-items:center;justify-content:center;}
 .chat-navigation-actions #mode-select {font-size:10px;max-width:78px;padding:4px;}
-.agent-navigation {gap:8px;padding:6px 10px;}
-.agent-tabs {gap:8px;min-width:0;padding:2px 0;}
-.agent-tabs button {font-size:11px;padding:7px 11px;min-height:32px;white-space:nowrap;}
+.agent-navigation {gap:8px;padding:6px 10px;flex-wrap:wrap;}
+.agent-tabs {gap:8px;min-width:0;max-width:100%;overflow-x:auto;padding:2px 0;}
+.agent-tabs button {flex:0 0 auto;font-size:11px;padding:7px 11px;min-height:32px;white-space:nowrap;}
 .chat-settings-row > button {flex:0 1 auto;max-width:220px;}
 .chat-model-row .model-btn {flex:0 1 auto;}
 .chat-tools-menu .composer-topline {padding:0;}
@@ -187,7 +187,7 @@ body:has(#app.view-motion) .chat-mode-setting {display:none;}
     .chat-composer-tools {display:flex;align-items:center;gap:8px;}
     .chat-model-row,.chat-settings-row {display:contents;}
     #btn-model {order:1;}
-    #chat-access-button {order:2;}
+    #chat-access-button, #chat-ide-link-button {order:2;}
     #chat-reasoning {order:3;}
     #chat-dictation {order:5;}
 }
@@ -204,3 +204,62 @@ body:has(#app.view-motion) .chat-mode-setting {display:none;}
 .zip-selection-list input {flex-shrink:0;}
 .zip-selection-name {flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px;}
 .zip-selection-list label > span:last-child {color:var(--fg-dim);font-size:11px;max-width:35%;}
+.chat-ide-link-menu {padding:16px;}
+.chat-ide-link-menu .ide-link-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.chat-ide-link-menu .chat-access-heading {padding:0;color:var(--fg-strong);font-size:14px;}
+.chat-ide-link-menu .ide-link-badge {display:inline-block;margin-left:5px;padding:2px 6px;border:1px solid var(--border-strong);border-radius:6px;background:var(--accent-soft);color:var(--link);font-size:10px;font-weight:500;vertical-align:middle;}
+.chat-ide-link-menu .ide-link-subtitle {margin:5px 0 0;color:var(--fg-dim);font-size:11px;line-height:1.5;}
+.chat-ide-link-menu #ide-link-close {display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--fg-dim);font-size:22px;line-height:1;cursor:pointer;}
+.chat-ide-link-menu #ide-link-close:hover {background:var(--bg-hover);color:var(--fg-strong);}
+.chat-ide-link-menu .ide-link-intro {padding:12px 0;}
+.chat-ide-link-menu .settings-help {margin:0;color:var(--fg-dim);font-size:12px;line-height:1.6;}
+.chat-ide-link-menu .ide-link-intro .settings-help + .settings-help {margin-top:9px;}
+.chat-ide-link-menu #ide-link-details {padding:4px 0 12px;text-align:center;}
+.chat-ide-link-menu #ide-link-details[hidden] {display:none;}
+.chat-ide-link-menu #ide-link-qr {display:block;margin:0 auto 12px;max-width:100%;height:auto;background:#fff;border-radius:8px;}
+.chat-ide-link-menu label {display:block;text-align:left;margin:10px 0 4px;color:var(--fg);font-size:11px;font-weight:600;}
+.chat-ide-link-menu input {width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg-input);color:var(--fg);}
+.chat-ide-link-menu .ide-link-pin {display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:6px 0 10px;}
+.chat-ide-link-menu .ide-link-pin span {display:grid;place-items:center;width:42px;height:48px;border:1px solid var(--border-strong);border-radius:6px;font-size:24px;font-weight:700;background:var(--bg-input);}
+.chat-ide-link-menu #ide-link-status {padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-input);overflow-wrap:anywhere;}
+.chat-ide-link-menu .ide-link-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.chat-ide-link-menu #ide-link-start,.chat-ide-link-menu #ide-link-stop,.chat-ide-link-menu #ide-link-copy {min-height:34px;padding:7px 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg-input);color:var(--fg);font:inherit;cursor:pointer;}
+.chat-ide-link-menu #ide-link-start:not(:disabled) {border-color:var(--accent);background:var(--accent);color:#fff;font-weight:600;}
+.chat-ide-link-menu #ide-link-start:not(:disabled):hover {background:var(--accent-hover);}
+.chat-ide-link-menu #ide-link-stop:not(:disabled):hover,.chat-ide-link-menu #ide-link-copy:hover {background:var(--bg-hover);color:var(--fg-strong);}
+.chat-ide-link-menu #ide-link-copy {margin-top:10px;}
+.chat-ide-link-menu button:disabled {opacity:.5;cursor:default;}
+.chat-ide-link-menu button:focus-visible,.chat-ide-link-menu input:focus-visible {outline:2px solid var(--link);outline-offset:2px;}
+
+/* Panneaux du projet : même hiérarchie et mêmes contrôles que le reste du workbench. */
+#sidebar :is(#search-view, #git-view, #wt-view) {min-width:0; color:var(--fg);}
+#sidebar :is(#search-view, #git-view, #wt-view) > .sidebar-header,
+#sidebar > .sidebar-header.explorer-only {min-height:48px; padding:0 14px; color:var(--fg-strong); font-size:12px; font-weight:650; letter-spacing:0; text-transform:none; border-bottom:1px solid var(--border);}
+#sidebar :is(#git-view, #wt-view) .sidebar-actions {display:flex; gap:3px;}
+#sidebar :is(#git-view, #wt-view) .sidebar-actions button {min-width:28px; min-height:28px; border-radius:6px;}
+#sidebar :is(#git-view, #wt-view) .sidebar-actions button:hover {background:var(--bg-hover); color:var(--fg-strong);}
+#sidebar :is(.search-form, .git-commit-box, .git-gh) {gap:10px;}
+#sidebar .search-form {padding:14px 12px 10px;}
+#sidebar :is(.search-form input[type="text"], .git-input) {box-sizing:border-box; min-width:0; min-height:34px; padding:7px 9px; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-input); color:var(--fg-strong); font:inherit;}
+#sidebar :is(.search-form input[type="text"], .git-input)::placeholder {color:var(--fg-faint); opacity:1;}
+#sidebar :is(.search-form input[type="text"], .git-input):focus-visible {outline:2px solid var(--link); outline-offset:1px;}
+#sidebar .search-replace-row {display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+#sidebar .search-replace-row input {flex:1 1 130px;}
+#sidebar :where(#btn-replace-all, .git-btn) {min-height:34px; padding:7px 10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-input); color:var(--fg); font:inherit; line-height:1.35; cursor:pointer;}
+#sidebar :where(#btn-replace-all, .git-btn):hover:not(:disabled) {background:var(--bg-hover); color:var(--fg-strong);}
+#sidebar .git-btn-primary {background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+#sidebar .git-btn-primary:hover:not(:disabled) {background:var(--accent-hover); border-color:var(--accent-hover); color:#fff;}
+#sidebar :is(button, input, textarea, summary):focus-visible {outline:2px solid var(--link); outline-offset:2px;}
+#sidebar :is(.search-options, .git-check, .wt-options) {display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+#sidebar .search-options label {display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:2px 8px; border:1px solid var(--border); border-radius:6px; color:var(--fg-dim); cursor:pointer;}
+#sidebar :is(.search-options, .git-check, .wt-options) input[type="checkbox"] {accent-color:var(--accent);}
+#sidebar :is(#git-view, #wt-view) .settings-note {line-height:1.55; overflow-wrap:anywhere;}
+#sidebar :is(#git-view, #wt-view) .ext-section-head {color:var(--fg-dim); font-size:11px; font-weight:650; letter-spacing:.025em;}
+#sidebar :is(#git-files, #git-log, #wt-list) .ext-empty {margin:6px 0; padding:12px; border:1px dashed var(--border-strong); border-radius:8px; color:var(--fg-dim); line-height:1.5;}
+#sidebar .wt-card {gap:10px; padding:12px; border-color:var(--border-strong); border-radius:10px; background:var(--bg-panel);}
+#sidebar .wt-head {align-items:center; flex-wrap:wrap;}
+#sidebar .wt-name {color:var(--fg-strong); overflow-wrap:anywhere;}
+#sidebar .wt-branch {color:var(--fg-dim); opacity:1;}
+#sidebar :is(.search-file, .search-match) {min-height:26px; line-height:26px;}
+#sidebar :is(.search-file, .search-match):hover {background:var(--bg-hover);}
+@media (prefers-reduced-motion:reduce) {#sidebar :is(button, input, textarea) {transition:none;}}

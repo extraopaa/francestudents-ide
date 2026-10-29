@@ -15,7 +15,7 @@ Clique sur la jauge dans la barre d’état ou sur l’onglet **Usage** pour ouv
 | Tokens | Les compteurs reçus du service, ou une estimation signalée comme telle |
 | Réinitialisation | L’échéance communiquée par le service, lorsqu’elle est disponible |
 
-Les compteurs de session ne constituent pas une facture complète ni une répartition fiable par modèle. Un quota indisponible ne signifie pas qu’il est illimité.
+Les compteurs de session ne constituent pas une facture complète ni une répartition fiable par modèle. Un quota indisponible ne signifie pas qu’il est illimité. Le quota FranceStudent est actualisé notamment toutes les cinq requêtes au modèle, sans ajouter de requête au modèle. Si tu utilises un fournisseur personnalisé, consulte aussi ses propres limites et tarifs : le quota FranceStudent ne représente pas nécessairement ses frais.
 
 ## Quand le quota est épuisé
 

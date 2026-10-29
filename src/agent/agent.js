@@ -11,7 +11,8 @@ const projectContext = require("../project/project-context");
 const { loadInstructions, INSTRUCTIONS_FILES } = require("../project/instructions");
 const { buildAgentPrompt, buildFollowUpPrompt, buildResumePrompt } = require("./prompt");
 const promptCache = require("./prompt-cache");
-const { validateProgress, applyProgress } = require("./plan-progress");
+const { applyProgress, normalizeProgress, fitProgress } = require("./plan-progress");
+const { normalizeActionShape, expandJsonCandidates, describeJsonFailure, proseFinalAction, looksLikeCapabilityRefusal, CAPABILITY_REFUSAL_REMINDER } = require("./json-repair");
 const { updatePlan } = require("../tools/update-plan");
 const {
     TOOLS,
@@ -211,23 +212,44 @@ function extractJsonObject(text) {
         }
     }
 
-    for (const candidate of candidates) {
+    // Candidats stricts d'abord, puis leurs variantes réparées (virgule finale,
+    // retours à la ligne bruts, guillemets typographiques, objet tronqué).
+    for (const candidate of expandJsonCandidates(candidates, raw)) {
+        let parsed;
         try {
-            const parsed = JSON.parse(candidate);
-
-            if (
-                parsed &&
-                typeof parsed === "object" &&
-                !Array.isArray(parsed) &&
-                (parsed.type === "tool" || parsed.type === "final" || parsed.type === "question")
-            ) {
-                return parsed;
-            }
+            parsed = JSON.parse(candidate.text);
         } catch {
-            // candidat suivant
+            continue; // candidat suivant
         }
+        const action = toAction(parsed);
+        if (!action) continue;
+        // Un outil reconstruit depuis un objet tronqué pourrait s'exécuter avec des
+        // arguments incomplets (contenu coupé) : seul un final/question est accepté.
+        if (candidate.truncated) {
+            if (action.type === "tool") continue;
+            action.truncated_response = true;
+        }
+        return action;
     }
 
+    return null;
+}
+
+const ACTION_TYPES = new Set(["tool", "final", "question"]);
+
+/** Ramène un JSON lu à une action du protocole, en tolérant un objet enveloppant ou un tableau à un élément. */
+function toAction(parsed) {
+    if (Array.isArray(parsed)) return parsed.length === 1 ? toAction(parsed[0]) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const direct = normalizeActionShape(parsed);
+    if (ACTION_TYPES.has(direct.type)) return direct;
+    for (const key of ["action", "response", "tool_call", "output", "data"]) {
+        const nested = parsed[key];
+        if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+            const inner = normalizeActionShape(nested);
+            if (ACTION_TYPES.has(inner.type)) return inner;
+        }
+    }
     return null;
 }
 
@@ -235,13 +257,19 @@ function parseAgentResponse(text) {
     let action = extractJsonObject(text);
 
     if (!action) {
-        throw new Error('Aucun objet JSON {"type":"tool"|"final"} trouvé.');
+        throw new Error(describeJsonFailure(text));
     }
     if (action.type === "question") {
         action = { type: "tool", name: "ask_user", reason: "Demander une précision à l’utilisateur", plan: action.plan, plan_progress: action.plan_progress, args: { question: action.question, options: action.options, multiple: action.multiple, placeholder: action.placeholder } };
     }
 
-    if (action.plan_progress !== undefined) validateProgress(action.plan_progress);
+    // Le suivi du plan est une aide, pas un garde-fou : une valeur illisible est
+    // ignorée (avec trace) au lieu de faire échouer toute la réponse.
+    if (action.plan_progress !== undefined) {
+        const progress = normalizeProgress(action.plan_progress);
+        if (progress === undefined) ui.debug(`plan_progress ignoré (illisible) : ${JSON.stringify(action.plan_progress).slice(0, 200)}`);
+        action.plan_progress = progress;
+    }
 
     if (action.type === "final") {
         if (typeof action.message !== "string") {
@@ -437,14 +465,27 @@ function protocolFallbackMessage(observations, changedCount) {
 
 function deniesWorkspaceAccess(message) {
     const text=String(message||"");
-    const denial=/(?:i\s*(?:do not|don't|cannot|can't)\s+(?:access|read|modify|change|run)|(?:je\s+)?n['’]ai\s+(?:pas|aucun|plus)\s+(?:d['’]?\s*)?acc[eè]s|je\s+ne\s+peux\s+pas\s+(?:lire|modifier|acc[eè]der|lancer))/i.test(text);
-    return denial&&/(?:files?|folders?|project|repository|code|commands?|terminal|fichiers?|dossiers?|projet|commandes?)/i.test(text);
+    const target = "(?:files?|folders?|project|repository|repo|code|commands?|terminal|tools?|github|fichiers?|dossiers?|projet|d[eé]p[oô]ts?|connecteur|commandes?|outils?)";
+    const denial = "(?:i\\s*(?:do not|don't|cannot|can't|am unable to)\\s+(?:access|read|modify|change|run|use)|i\\s*(?:do not|don't)\\s+have\\s+access|(?:je\\s+)?n['’]ai\\s+(?:(?:pas|aucun|plus|donc\\s+pas)\\s+)?(?:d['’]?\\s*)?acc[eè]s|je\\s+ne\\s+(?:peux\\s+(?:donc\\s+)?pas|suis\\s+pas\\s+en\\s+mesure\\s+de)\\s+(?:(?:moi-même|directement)\\s+)?(?:lire|modifier|acc[eé]der|lancer|d[eé]clencher|utiliser|effectuer|ex[eé]cuter|pousser|publier)|je\\s+ne\\s+dispose\\s+pas)";
+    if (new RegExp(`${denial}[^.!?\\n]{0,120}\\b${target}\\b`, "i").test(text)) return true;
+    // Cover task-oriented wording only when the same sentence identifies the
+    // project or its files. A limitation concerning an image or web access
+    // alone must not turn into an unsolicited project read.
+    const normalized = text.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/’/g, "'").toLowerCase();
+    if (/\bje\s+ne\s+(?:peux|puis)\s+(?:donc\s+)?pas\s+(?:executer|utiliser|lancer)\s+(?:les|ces|des)\s+outils?\s+locau(?:x|l)\b/.test(normalized) ||
+        /\boutils?\s+locau(?:x|l)(?:\s+necessaires?)?\s+ne\s+sont\s+(?:pas|plus)\s+accessibles?\b/.test(normalized)) return true;
+    const project = "(?:projet|code|fichiers?|dossiers?|depot|project|repository|files?|folders?)";
+    const inability = "(?:je\\s+ne\\s+(?:peux|puis)\\s+pas|je\\s+ne\\s+suis\\s+pas\\s+en\\s+mesure\\s+de|i\\s+(?:cannot|can't|am unable to))";
+    const work = "(?:poursuivre|continuer|intervenir|travailler|agir|examiner|inspecter|verifier|ouvrir|consulter|continue|work|inspect|open)";
+    return normalized.split(/[.!?\n]/).some(sentence =>
+        /\b(?:outils?|tools?)\b/.test(sentence) &&
+        new RegExp(`${inability}\\s+${work}[^.!?\\n]{0,120}\\b${project}\\b`, "i").test(sentence));
 }
 
 function hasExplicitWorkspaceBlock(observations) {
     return observations.some(item=>{
         const error=String(item.error||item.result?.error||item.result?.message||"");
-        return item.result?.denied===true||item.result?.cancelled===true||
+        return item.result?.denied===true||item.result?.cancelled===true||item.result?.interrupted===true||
             /ACTION_CANCELED|EACCES|EPERM|permission denied|access denied|refus[eé]e? par l'utilisateur|annul[eé]e? par l'utilisateur/i.test(error)||
             item.tool==="batch"&&hasExplicitWorkspaceBlock(item.result?.results||[]);
     });
@@ -469,8 +510,40 @@ async function runAgent(task, options = {}) {
     let recoveredWorkspaceAccess = false;
     const changesBefore = memory.sessionChanges();
 
-    // Point de reprise : /rewind peut annuler d'un coup tout ce que cette demande a modifié.
-    if (state.workspace && !state.motionDesign && !options.readOnly && require("../settings").load().checkpointBackupsEnabled === true) {
+    // Vérification réelle et interruptible avant tout accès au projet pour chaque tâche.
+    // En mode Motion, le projet code sélectionné ne doit jamais être consulté.
+    if (options.shouldStop?.()) {
+        await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
+        return { completed: false, message: "Tâche interrompue." };
+    }
+    if (state.workspace && !state.motionDesign) {
+        ui.tool("list_directory", ".");
+        try {
+            const result = await require("../tools/action-control").run("list_directory", ".", () => listDirectory({ path: "." }));
+            ui.result(summarizeResult("list_directory", result));
+            observations.push({ tool: "list_directory", args: { path: "." }, ok: true, result });
+        } catch (error) {
+            const detail = error.message || String(error);
+            ui.result(detail, { tone: "error" });
+            const message = `La vérification du dossier de projet n’a pas abouti : ${clip(detail, 240)}. La tâche n’a pas été lancée.`;
+            await finish(message);
+            return { completed: false, message };
+        }
+        if (options.shouldStop?.()) {
+            await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
+            return { completed: false, message: "Tâche interrompue." };
+        }
+    }
+
+    // Les versions portent uniquement sur les fichiers enregistrés et non exclus.
+    if (state.workspace && !state.motionDesign && !options.readOnly) {
+        try {
+            await require("../project/file-versions").save(state.workspace, task);
+        } catch (error) {
+            const message = `Impossible de créer la version avant cette demande : ${error.message}. La tâche n'a pas été lancée afin de protéger les fichiers. Libère de l'espace, supprime si nécessaire d'anciennes versions depuis Activité, ou corrige le problème puis réessaie.`;
+            await finish(message);
+            return { completed: false, message };
+        }
         try {
             require("../project/checkpoints").addCheckpoint({
                 task,
@@ -607,13 +680,17 @@ async function runAgent(task, options = {}) {
             await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
             return { completed: false, message: "Tâche interrompue." };
         }
-        const steering = [...deferredSteering, ...(options.drainSteering?.() || [])];
+        const userSteering = options.drainSteering?.() || [];
+        const steering = [...deferredSteering, ...userSteering];
+        const internalSteering = deferredSteering;
         deferredSteering = [];
-        if (steering.length) {
-            task += `\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR\n${steering.join("\n\n")}`;
+        if (userSteering.length) {
+            task += `\n\nCONSIGNES SUPPLÉMENTAIRES DE L’UTILISATEUR\n${userSteering.join("\n\n")}`;
             ui.info("Nouvelle consigne reçue : prise en compte à cette étape.");
         }
+        const currentTask = internalSteering.length ? `${task}\n\n${internalSteering.join("\n\n")}` : task;
         let action = null;
+        let workspaceProbe = false;
         let correction = null;
         let lastResponse;
         let protocolFailure=null;
@@ -627,7 +704,7 @@ async function runAgent(task, options = {}) {
                 const fullPrompt = withProject => fitPrompt({
                     workspace: state.motionDesign ? null : state.workspace,
                     env,
-                    task,
+                    task: currentTask,
                     history: state.history.slice(-6),
                     memorySummary: state.motionDesign ? "" : memory.summary(),
                     projectContext: withProject ? (state.ecoMode && projectText.length > 20000 ? projectText.slice(0, 20000) + "\n[Mode Éco : contexte projet réduit. Lire les fichiers nécessaires avec les outils.]" : projectText) : "",
@@ -647,10 +724,11 @@ async function runAgent(task, options = {}) {
                 });
 
                 // Une conversation agent existe côté serveur (identifiant reçu) : elle garde
-                // l'historique. Le contexte projet n'est donc envoyé qu'à son premier message,
-                // et les tours 2 et suivants n'envoient que le dernier résultat d'outil.
+                // l'historique. Le contexte projet n'est donc envoyé qu'à son premier message ;
+                // les suivis rappellent la demande, le plan et le dernier résultat d'outil.
                 // Sans conversation (aucun identifiant reçu), on renvoie tout, projet compris.
-                const hasConversation = Boolean(state.chatIds.agent);
+                // Un fournisseur personnalisé est sans état, même si son journal a un ID local.
+                const hasConversation = Boolean(state.chatIds.agent) && !String(state.model).startsWith("custom:");
                 const signature=promptCache.fingerprint({
                     workspace:state.motionDesign?null:state.workspace,model:state.model,motion:!!state.motionDesign,
                     env,instructions,preprompt,mcpCatalog,skillsCatalog,
@@ -661,9 +739,10 @@ async function runAgent(task, options = {}) {
                 let startedFreshConversation=false;
                 const deliveryScope={id:originalChat,model:state.model,workspace:state.workspace,motion:Boolean(state.motionDesign)};
                 const lastObservation=observations[observations.length-1];
-                const reuseInstructions=promptCache.has(originalChat,signature);
+                const reuseInstructions=hasConversation && promptCache.has(originalChat,signature);
                 const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
+                        task,
                         lastObservation: readDelivery.delivery(lastObservation,deliveryScope,CONFIG.maxObservationChars),
                         turn,
                         maxTurns,
@@ -673,7 +752,7 @@ async function runAgent(task, options = {}) {
                         requestNumber
                     })
                     : reuseInstructions
-                        ? buildResumePrompt({task,observations,activeFile:state.motionDesign?null:state.activeFile,
+                        ? buildResumePrompt({task:currentTask,observations,activeFile:state.motionDesign?null:state.activeFile,
                             editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction,mcpCatalog:state.motionDesign?"":mcpCatalog})
                         : fullPrompt(!hasConversation);
 
@@ -700,7 +779,11 @@ async function runAgent(task, options = {}) {
                 try {
                     action = parseAgentResponse(lastResponse);
                     if (action.plan_progress !== undefined && action.name !== "update_plan") {
-                        validateProgress(action.plan_progress, state.agentPlan.length ? state.agentPlan : action.plan || []);
+                        // Suivi du plan ajusté au plan courant (statuts manquants ou en trop) ; jamais bloquant.
+                        const currentPlan = state.agentPlan.length ? state.agentPlan : (action.plan || []).map(step => ({ step, status: "pending" }));
+                        const fitted = fitProgress(action.plan_progress, currentPlan);
+                        if (fitted === undefined && action.plan_progress !== undefined) ui.debug("plan_progress ignoré : aucun plan courant ou statuts illisibles.");
+                        action.plan_progress = fitted;
                     }
                     break;
                 } catch (error) {
@@ -711,7 +794,7 @@ async function runAgent(task, options = {}) {
                     );
 
                     correction = {
-                        error: error.message,
+                        error: looksLikeCapabilityRefusal(lastResponse) ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}` : error.message,
                         previousResponse: lastResponse.slice(0, 300)
                     };
                 }
@@ -723,6 +806,27 @@ async function runAgent(task, options = {}) {
         if (options.shouldStop?.()) {
             await finish("Tâche interrompue. Les tâches suivantes restent en attente.");
             return { completed: false, message: "Tâche interrompue." };
+        }
+        if (!action && !protocolFailure && typeof lastResponse === "string") {
+            // Dernier repli : après épuisement des relances, un texte libre sans
+            // aucune accolade est rendu comme compte rendu non vérifié plutôt que
+            // comme une erreur de protocole. Aucun outil n'est exécuté.
+            const prose = proseFinalAction(lastResponse);
+            if (prose && looksLikeCapabilityRefusal(lastResponse)) {
+                // Le modèle affirme à tort ne pas avoir d'outils locaux ni de connecteur
+                // GitHub : ce refus n'est pas un compte rendu, il est présenté comme tel.
+                ui.debug("Refus de capacité en texte libre malgré les relances : signalé comme erreur de protocole, sans exécution.");
+                action = {
+                    ...prose,
+                    message: "Le modèle a répondu qu’il n’avait pas accès au projet, au dépôt local ou au connecteur GitHub « depuis cette conversation ». " +
+                        "C’est inexact : ces outils sont exécutés localement par FranceStudent Code, mais le modèle n’a pas renvoyé l’objet JSON attendu malgré les relances. " +
+                        "Aucune action locale n’a été exécutée. Renvoie la demande (éventuellement en nommant l’outil, ex. « lance git status puis push ») ou choisis un autre modèle.\n\n" +
+                        `Réponse du modèle :\n${prose.message}`
+                };
+            } else if (prose) {
+                ui.debug("Réponse en texte libre après relances : présentée comme compte rendu non vérifié, sans exécution.");
+                action = { ...prose, message: `${prose.message}\n\n(Réponse reçue hors protocole d’outils : aucune action locale n’a été exécutée. Tu peux renvoyer la demande pour continuer.)` };
+            }
         }
         if (!action) {
             if(protocolFailure){
@@ -769,12 +873,17 @@ async function runAgent(task, options = {}) {
         if(action.type==="final"&&!recoveredWorkspaceAccess&&!state.motionDesign&&state.workspace&&
             deniesWorkspaceAccess(action.message)&&!hasExplicitWorkspaceBlock(observations)){
             recoveredWorkspaceAccess=true;
+            workspaceProbe=true;
             action={type:"tool",name:"list_directory",args:{path:"."},reason:"Vérifier l’accès local au dossier de projet sélectionné"};
             validateToolCall(action);
             ui.info("Je vérifie l’accès au dossier de projet sélectionné, puis l’agent reprend la demande.");
         }
 
         if (action.type === "final") {
+            if (recoveredWorkspaceAccess && deniesWorkspaceAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
+                action.message = "L’IDE a pu vérifier le dossier du projet, mais le modèle affirme encore ne pas pouvoir accéder aux outils ou aux fichiers. La demande reste incomplète ; tu peux réessayer ou choisir un autre modèle.";
+                action.completed = false;
+            }
             if (!recoveredUnsupportedTool && /Unsupported tool ignored by the backend/i.test(action.message) &&
                 !observations.some(o => ["write_file", "run_command"].includes(o.tool) && (!o.ok || o.result?.denied))) {
                 recoveredUnsupportedTool = true;
@@ -963,18 +1072,18 @@ async function runAgent(task, options = {}) {
                 ok: !result.denied&&!result.interrupted&&!result.is_error&&!(typeof result.exit_code==="number"&&result.exit_code!==0),
                 result
             });
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&(result.denied||result.interrupted||result.is_error||result.error)){
+            if(workspaceProbe&&(result.denied||result.interrupted||result.is_error||result.error)){
                 const detail=result.message||result.error||"l’accès a été refusé ou interrompu";
                 const message=`La vérification locale du dossier de projet n’a pas abouti : ${clip(detail,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
                 await finish(message);return {completed:false,message};
             }
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess&&!result.denied&&!result.interrupted&&!result.is_error){
-                deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Ne répète pas une affirmation générale d’absence d’accès ; si une action précise échoue, base-toi sur son erreur réelle.");
+            if(workspaceProbe&&!result.denied&&!result.interrupted&&!result.is_error){
+                deferredSteering.push("L’IDE vient de vérifier localement le dossier de projet sélectionné : le résultat list_directory ci-joint confirme l’accès à son contenu. Poursuis la demande avec les outils locaux adaptés. Si la demande concerne Git, et si le mode et les permissions le permettent, utilise run_command avec git status --short --branch pour vérifier le dépôt local ; pour le compte et le dépôt GitHub, utilise github avec action overview si nécessaire. Cette lecture du dossier ne prouve ni que Git fonctionne ni que GitHub est connecté. Ne confirme aucun push, build ou publication sans résultat correspondant ; respecte les refus, interruptions et erreurs réels. Ne répète pas une affirmation générale d’absence d’accès : si une action précise échoue, base-toi sur son erreur réelle.");
             }
         } catch (error) {
             ui.result(error.message, { tone: "error" });
 
-            if(action.name==="list_directory"&&recoveredWorkspaceAccess){
+            if(workspaceProbe){
                 const message=`La vérification locale du dossier de projet a échoué : ${clip(error.message,240)}. Je n’ai pas relancé l’agent et aucun refus n’a été contourné.`;
                 await finish(message);return {completed:false,message};
             }

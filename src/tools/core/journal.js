@@ -13,10 +13,15 @@ const {
     cleanCreatedDirs
 } = require("./fs-utils");
 
-async function finishMutation(entry, journal) {
+async function finishMutation(entry, journal, stats = null) {
     memory.noteAction(journal);
     await memory.pushUndo(entry);
     await memory.save();
+    // Notification facultative : les interfaces CLI et TUI n'ont pas besoin de ce récapitulatif.
+    const backend = require("../../ui-bridge").getUiBackend();
+    if (entry.kind !== "mkdir" && typeof backend.fileChanged === "function") {
+        backend.fileChanged({ path: entry.rel || entry.to, kind: entry.kind, ...(stats || {}) });
+    }
 }
 
 async function revert(entry) {

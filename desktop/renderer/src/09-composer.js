@@ -267,6 +267,9 @@ async function send(text) {
     const withFiles = text === undefined && pendingAttachments.length > 0;
     if (!value.trim() && !withFiles) return;
     if (!ui.status.booted && !value.trim().startsWith("/")) { openConnectionGuide(1); return; }
+    if (!value.trim().startsWith("/") && ui.workspace && ui.tabs.some(tab => tab.dirty)) {
+        if (!await confirmStudioAction("Certains fichiers ouverts ne sont pas enregistrés. La version automatique ne contiendra que leur état sur le disque. Envoie la demande quand même ?", { title: "Fichiers non enregistrés", confirmLabel: "Envoyer", danger: false })) return;
+    }
     const attachments = withFiles ? [...pendingAttachments] : [];
     if(withFiles&&!await confirmImageReadability(attachments))return;
     if (text === undefined) {

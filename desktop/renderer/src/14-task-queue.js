@@ -2,6 +2,10 @@
 let queueSnapshot = { tasks: [], enabled: false };
 let inlineEditingId = null;
 let pendingRenderSignature = null;
+let draggedPendingId = null;
+function clearPendingDropMarkers() {
+    document.querySelectorAll(".pending-drop-before, .pending-drop-after, .pending-dragging").forEach(row => row.classList.remove("pending-drop-before", "pending-drop-after", "pending-dragging"));
+}
 async function editQueuedPrompt(task,attach=false){
     try{
         const result=await api.taskQueue("attachments",{id:task.id});
@@ -48,6 +52,38 @@ function renderInlinePending(snapshot) {
     for (const task of waiting) {
         const row = document.createElement("div"); row.className = "pending-prompt";
         const icon = document.createElement("span"); icon.className = "pending-icon"; icon.textContent = "↳";
+        if (task.status === "pending") {
+            const handle = document.createElement("span"); handle.className = "pending-drag-handle";
+            handle.textContent = "⠿"; handle.draggable = true;
+            handle.title = "Glisser pour réorganiser ; utiliser le menu pour monter ou descendre au clavier";
+            handle.setAttribute("aria-hidden", "true");
+            handle.addEventListener("dragstart", event => {
+                draggedPendingId = task.id;
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", task.id);
+                row.classList.add("pending-dragging");
+            });
+            handle.addEventListener("dragend", () => { draggedPendingId = null; clearPendingDropMarkers(); });
+            row.addEventListener("dragover", event => {
+                if (!draggedPendingId || draggedPendingId === task.id) return;
+                event.preventDefault(); event.dataTransfer.dropEffect = "move";
+                host.querySelectorAll(".pending-drop-before, .pending-drop-after").forEach(item => item.classList.remove("pending-drop-before", "pending-drop-after"));
+                const before = event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+                row.classList.add(before ? "pending-drop-before" : "pending-drop-after");
+            });
+            row.addEventListener("dragleave", event => {
+                if (!row.contains(event.relatedTarget)) row.classList.remove("pending-drop-before", "pending-drop-after");
+            });
+            row.addEventListener("drop", event => {
+                if (!draggedPendingId || draggedPendingId === task.id) return;
+                event.preventDefault();
+                const id = draggedPendingId;
+                const position = event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "before" : "after";
+                draggedPendingId = null; clearPendingDropMarkers();
+                queueAction("move", { id, targetId: task.id, position });
+            });
+            row.appendChild(handle);
+        }
         const text = document.createElement("span"); text.className = "pending-text"; text.textContent = task.prompt; text.title = task.prompt;
         if(task.attachments?.length){const files=document.createElement("small");files.className="pending-attachments";files.textContent="📎 "+task.attachments.map(file=>file.name).join(", ");files.title=files.textContent;text.append(files);}
         const steer = document.createElement("button"); steer.type = "button"; steer.className = "pending-steer"; steer.textContent = task.status === "steering" ? "Transmise…" : "Orienter";
