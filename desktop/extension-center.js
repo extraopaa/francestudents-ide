@@ -5,6 +5,8 @@ const { randomUUID } = require("node:crypto");
 const skills = require("../src/skills");
 const settings = require("../src/settings");
 const { library } = require("../src/skills/library");
+const { robloxLibrary } = require("../src/skills/roblox-library");
+const integratedLibrary = [...library, ...robloxLibrary];
 const mcp = require("../src/mcp/manager");
 
 const keyOf = skill => `${skill.scope}:${path.basename(skill.dir)}`;
@@ -52,7 +54,7 @@ function createExtensionCenter({ workspace = () => null, busy = () => false } = 
         const saved = settings.load();
         return {
             skills: (await installedSkills()).map(s => ({ ...s, key: keyOf(s), favorite: (saved.skillFavorites || []).includes(keyOf(s)) })),
-            library, motionCommunity:require("./motion-marketplace").catalog, profiles: saved.skillProfiles || {}, workspace: workspace(),
+            library: integratedLibrary, motionCommunity:require("./motion-marketplace").catalog, profiles: saved.skillProfiles || {}, workspace: workspace(),
             userDir: skills.userSkillsDir(), projectDir: skills.projectSkillsDir(workspace())
         };
     }
@@ -90,7 +92,7 @@ function createExtensionCenter({ workspace = () => null, busy = () => false } = 
         }
         return mutate(async () => {
             if (type === "install") {
-                const entry = library.find(item => item.id === payload.id);
+                const entry = integratedLibrary.find(item => item.id === payload.id);
                 if (!entry) throw new Error("Skill absent de la bibliothèque.");
                 return install({ name: entry.id, content: entry.content, scope: payload.scope });
             }

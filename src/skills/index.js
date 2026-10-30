@@ -15,6 +15,8 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { CONFIG } = require("../config");
+const { library } = require("./library");
+const { robloxLibrary } = require("./roblox-library");
 
 const SKILL_FILE = "SKILL.md";
 const MAX_SKILL_CHARS = 60_000;
@@ -155,7 +157,12 @@ function catalogText(skills) {
 }
 
 async function catalog(workspace, application) {
-    return catalogText((await loadSkills(workspace)).filter(skill=>application==="effectcraft" ? skill.application==="effectcraft" : !application || !skill.application || skill.application===application));
+    const installed = await loadSkills(workspace);
+    const builtins = [...library, ...robloxLibrary].map(skill => ({ ...skill, name: skill.id, scope: "intégré", disabled: false, application: skill.application || null }));
+    // Les skills intégrés prioritaires restent visibles même si un grand catalogue
+    // utilisateur remplit déjà la limite de contexte.
+    const all = [...builtins.filter(item => !installed.some(s => normalizeName(s.name) === normalizeName(item.id))), ...installed];
+    return catalogText(all.filter(skill=>application==="effectcraft" ? skill.application==="effectcraft" : !application || !skill.application || skill.application===application || (application === "code" && skill.application === "roblox")));
 }
 
 async function listExtraFiles(dir) {
@@ -188,8 +195,11 @@ async function listExtraFiles(dir) {
 async function getSkill(name, workspace) {
     const skills = await loadSkills(workspace);
     const wanted = normalizeName(name);
+    const builtin = [...library, ...robloxLibrary].find(s => normalizeName(s.id) === wanted || normalizeName(s.title) === wanted);
     const skill = skills.find(s => normalizeName(s.name) === wanted) ||
         skills.find(s => normalizeName(path.basename(s.dir)) === wanted);
+
+    if (!skill && builtin) return { name: builtin.id, description: builtin.description, application: builtin.application || null, scope: "intégré", dir: "", instructions: builtin.content, truncated: false, files: [] };
 
     if (!skill || skill.disabled) {
         const names = skills.filter(s => !s.disabled).map(s => s.name);

@@ -71,6 +71,14 @@ const MODULES = [
     require("./browse"),
     require("./diagnostics"),
     require("./semantic-search"),
+    // Espace Roblox/Blender : outils locaux, sans accès au contexte Motion.
+    require("./roblox-check"),
+    require("./roblox-scene"),
+    require("./roblox-env"),
+    require("./rojo-serve"),
+    require("./roblox-playtest"),
+    require("./roblox-graph"),
+    require("./blender-tool"),
     require("./github"),
     require("./effectcraft")
 ];

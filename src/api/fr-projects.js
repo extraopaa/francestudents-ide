@@ -19,7 +19,7 @@ const MAX_NAME_CHARS = 255;
 
 async function requestJson(method, route, body, retried = false) {
     const token = await getAccessToken(retried);
-    const response = await fetch(`${CONFIG.apiUrl}${route}`, {
+    const response = await fetch(`${CONFIG.apiUrl.replace(/\/$/, "")}${route}`, {
         method,
         headers: {
             Accept: "application/json",
@@ -39,18 +39,24 @@ async function requestJson(method, route, body, retried = false) {
     if (response.status === 401 && !retried) return requestJson(method, route, body, true);
     if (!response.ok) {
         const text = await response.text().catch(() => "");
-        const error = new Error(`HTTP ${response.status} sur ${method} ${route}${text ? ` : ${text.slice(0, 300)}` : ""}`);
+        const detail = text.replace(/[\r\n\t]+/g, " ").slice(0, 300);
+        const error = new Error(`HTTP ${response.status} sur ${method} ${route}${detail ? ` : ${detail}` : ""}`);
         error.status = response.status;
         throw error;
     }
 
     const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`Réponse non JSON de l’API FranceStudent sur ${method} ${route}.`);
+    }
 }
 
 async function listProjects() {
     const data = await requestJson("GET", "/projects");
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data : Array.isArray(data?.projects) ? data.projects : [];
 }
 
 const createProject = name => requestJson("POST", "/projects", { name });
