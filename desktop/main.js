@@ -1175,6 +1175,26 @@ function registerIpc() {
     handle("skillsList", skillsList);
     handle("skillsOpenDir", (scope) => skillsOpenDir(String(scope || "")));
     handle("skillsCreate", (name, scope) => skillsCreate(name, String(scope || "")));
+    handle("frProjects", async (action = "list", payload = {}) => {
+        const projects = require("../src/api/fr-projects");
+        const selected = require("../src/state").state.frProject || null;
+        if (action === "list") return { selected, projects: await projects.listProjects() };
+        if (action === "select") {
+            const id = String(payload.id || "");
+            const data = await projects.listProjects();
+            const project = data.find(item => String(item?.id || "") === id);
+            if (!project) throw new Error("Projet FranceStudent introuvable ou non accessible.");
+            return { selected: await projects.saveSelected(project), projects: data };
+        }
+        if (action === "create") {
+            const name = String(payload.name || "").trim();
+            if (!name) throw new Error("Donne un nom au projet FranceStudent.");
+            const created = await projects.findOrCreateProject(name);
+            return { selected: await projects.saveSelected(created.project), projects: await projects.listProjects(), created: created.created };
+        }
+        if (action === "clear") return { selected: await projects.saveSelected(null), projects: await projects.listProjects() };
+        throw new Error("Action de projet FranceStudent inconnue.");
+    });
     handle("gitInit", (expectedWorkspace) => {
         const workspace = require("../src/state").state.workspace || null;
         if (!workspace || workspace !== expectedWorkspace) throw new Error("Le projet a changé. Actualisez le panneau Git avant de réessayer.");

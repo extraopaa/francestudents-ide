@@ -6473,6 +6473,26 @@ function updateAgentProjectLabel(workspace=ui.workspace){
     $("agent-project-name").textContent=motion?"Projet EffectCraft":workspace?workspace.replace(/[\\/]+$/, "").split(/[\\/]/).pop():"Aucun projet";
     $("agent-project-name").title=motion?"Projet motion indépendant du dossier ouvert dans l’espace code":workspace || "Ouvre un dossier pour travailler sur un projet";
 }
+async function chooseFranceStudentProject(){
+    const button=$("agent-fr-project"); if(!button)return;
+    button.disabled=true;
+    try{
+        const data=await api.frProjects("list");
+        const names=(data.projects||[]).map(p=>p.name).join(", ");
+        const answer=await inputDialog("Projet FranceStudent", `${data.selected?`Actuel : ${data.selected.name}. `:""}Entre le nom exact d’un projet existant, ou un nouveau nom pour le créer.${names?`\n\nProjets disponibles : ${names}`:""}`);
+        if(!answer)return;
+        const exact=(data.projects||[]).find(p=>String(p.name||"").toLocaleLowerCase("fr-FR")===answer.trim().toLocaleLowerCase("fr-FR"));
+        const result=exact?await api.frProjects("select",{id:exact.id}):await api.frProjects("create",{name:answer});
+        button.textContent=result.selected?`Projet : ${result.selected.name}`:"Projet FranceStudent";
+        button.title=result.selected?`Les nouvelles conversations seront classées dans « ${result.selected.name} »`:"Aucun projet FranceStudent sélectionné";
+        studioFeedback(result.created?"Projet FranceStudent créé et sélectionné.":`Conversations classées dans « ${result.selected.name} ».`);
+    }catch(error){studioFeedback(error.message)} finally{button.disabled=false}
+}
+$("agent-fr-project")?.addEventListener("click",chooseFranceStudentProject);
+api.frProjects("list").then(data=>{
+    const button=$("agent-fr-project");
+    if(button && data.selected){button.textContent=`Projet : ${data.selected.name}`;button.title=`Les nouvelles conversations seront classées dans « ${data.selected.name} »`}
+}).catch(()=>{});
 function recordStudioEntry(entry) {
     if (entry.type === "user" && /^\/new\b/.test(entry.text || "")) studioEntries.length = 0;
     if (["user", "assistant", "tool", "result", "error", "warn", "plan"].includes(entry.type)) {

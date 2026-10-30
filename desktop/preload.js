@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld("frst", {
     ptyAvailable: () => call("ptyAvailable"),
     terminalPreferences: (action = "get", payload = {}) => call("terminalPreferences", action, payload),
     projectEnvironment: (action = "get", payload = {}) => call("projectEnvironment", action, payload),
+    frProjects: (action = "list", payload = {}) => call("frProjects", String(action || "list"), payload || {}),
     localSkillImport: (action, payload = {}) => call("localSkillImport", action, payload),
     ptyCreate: (cwd, cols, rows) => call("ptyCreate", String(cwd ?? "."), Number(cols) || 80, Number(rows) || 24),
     ptyWrite: (id, data) => call("ptyWrite", Number(id), String(data ?? "")),
