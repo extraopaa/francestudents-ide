@@ -69,8 +69,26 @@ function renderExtensionCenter() {
     }
     $("skill-profile").value = selectedProfile;
     for (const select of [$("library-scope"), $("skill-editor-scope")]) select.querySelector('[value="projet"]').disabled = !centerData.workspace;
-    renderLibrary(); renderInstalledSkills(); renderMotionMarketplace();
+    renderLibrary(); renderRobloxLibrary(); renderInstalledSkills(); renderMotionMarketplace();
     for(const card of document.querySelectorAll("#marketplace-results .center-card"))if(card.marketplaceItem)renderMarketplaceSkillActions(card);
+}
+function renderRobloxLibrary() {
+    if (!centerData) return;
+    const query = $("roblox-search").value.toLocaleLowerCase("fr").trim();
+    const category = $("roblox-category").value;
+    const list = $("roblox-list"); list.replaceChildren();
+    const items = centerData.library.filter(item => (item.application === "roblox" || item.category === "Blender") && (!category || item.category === category) && `${item.title} ${item.description} ${item.id}`.toLocaleLowerCase("fr").includes(query));
+    for (const item of items) {
+        const card = centerNode("article", "center-card roblox-card");
+        card.append(centerNode("span", "ext-tag", item.category), centerNode("h3", "", item.title), centerNode("p", "", item.description), centerNode("p", "settings-help", "Inclus hors ligne · aucune clé supplémentaire"));
+        const actions = centerNode("div", "center-card-actions");
+        actions.append(centerButton("Voir les instructions", () => openSkillEditor({kind:"library", item})));
+        const scope = $("library-scope").value;
+        const installed = centerData.skills.find(skill => skill.key === libraryInstallKey(item, scope));
+        actions.append(installed ? uninstallSkillButton(installed) : centerButton("Installer", () => changeExtension("install", {id:item.id, scope}, `${item.title} installé.`), true));
+        card.append(actions); list.append(card);
+    }
+    if (!list.children.length) list.append(centerNode("p", "ext-empty", "Aucun skill Roblox ou Blender ne correspond à cette recherche."));
 }
 function renderLibrary() {
     if (!centerData) return;
@@ -121,6 +139,9 @@ function renderInstalledSkills() {
 $("library-search").oninput = renderLibrary;
 $("library-category").onchange = renderLibrary;
 $("library-scope").onchange = renderLibrary;
+$("roblox-search").oninput = renderRobloxLibrary;
+$("roblox-category").onchange = renderRobloxLibrary;
+$("roblox-open-project").onclick = () => { $("ext-close").click(); $("btn-open-project")?.click(); };
 $("skills-search").oninput = () => { installedVisibleCount = 60; renderInstalledSkills(); };
 $("skills-filter").onchange = () => { installedVisibleCount = 60; renderInstalledSkills(); };
 $("profile-save").onclick = async () => {
