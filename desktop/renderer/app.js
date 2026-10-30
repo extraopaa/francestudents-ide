@@ -6483,7 +6483,7 @@ async function chooseFranceStudentProject(){
         if(!answer)return;
         const exact=(data.projects||[]).find(p=>String(p.name||"").toLocaleLowerCase("fr-FR")===answer.trim().toLocaleLowerCase("fr-FR"));
         const result=exact?await api.frProjects("select",{id:exact.id}):await api.frProjects("create",{name:answer});
-        button.textContent=result.selected?`Projet : ${result.selected.name}`:"Projet FranceStudent";
+        button.textContent=result.selected?`Projet · ${result.selected.name}`:"Choisir un projet";
         button.title=result.selected?`Les nouvelles conversations seront classées dans « ${result.selected.name} »`:"Aucun projet FranceStudent sélectionné";
         studioFeedback(result.created?"Projet FranceStudent créé et sélectionné.":`Conversations classées dans « ${result.selected.name} ».`);
     }catch(error){studioFeedback(error.message)} finally{button.disabled=false}
@@ -6491,7 +6491,7 @@ async function chooseFranceStudentProject(){
 $("agent-fr-project")?.addEventListener("click",chooseFranceStudentProject);
 api.frProjects("list").then(data=>{
     const button=$("agent-fr-project");
-    if(button && data.selected){button.textContent=`Projet : ${data.selected.name}`;button.title=`Les nouvelles conversations seront classées dans « ${data.selected.name} »`}
+    if(button && data.selected){button.textContent=`Projet · ${data.selected.name}`;button.title=`Les nouvelles conversations seront classées dans « ${data.selected.name} »`}
 }).catch(()=>{});
 function recordStudioEntry(entry) {
     if (entry.type === "user" && /^\/new\b/.test(entry.text || "")) studioEntries.length = 0;

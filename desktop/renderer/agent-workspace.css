@@ -7,6 +7,11 @@
 .agent-tabs button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .agent-tabs button span { font-size: 9px; border-radius: 3px; padding: 1px 4px; background: var(--bg-active); margin-left: 3px; }
 #agent-focus { background: transparent; border: 0; font-size: 18px; color: var(--fg-dim); padding: 3px 5px; }
+.chat-project-button { display:inline-flex; align-items:center; gap:6px; max-width:220px; min-height:28px; padding:4px 10px; border:1px solid var(--border-strong); border-radius:7px; background:var(--bg-input); color:var(--fg-dim); font:500 11px/16px var(--sans); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+.chat-project-button::before { content:""; width:7px; height:7px; flex:0 0 7px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.chat-project-button:hover { color:var(--fg-strong); border-color:var(--accent); background:var(--bg-hover); }
+.chat-project-button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.chat-project-button:disabled { opacity:.55; cursor:wait; }
 .agent-context-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; gap: 10px; font-size: 10px; color: var(--fg-dim); flex-shrink: 0; }
 .action-controls { flex-shrink: 0; max-height: 130px; overflow: auto; margin: 6px 12px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--accent-soft); }
 .action-control-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; font-size: 11px; }
