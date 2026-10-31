@@ -3,6 +3,11 @@ on:
   workflow_call:
   workflow_dispatch:
     inputs:
+      skip_checks:
+        description: Build without audit, unit tests or e2e tests (one-off use)
+        required: false
+        default: false
+        type: boolean
       source_ref:
         description: Source tag or commit to build (empty uses the selected branch)
         required: false
@@ -35,8 +40,11 @@ jobs:
       - run: npm install
       - run: npm run prepare:electron
       - run: npm audit --audit-level=low
+        if: ${{ !inputs.skip_checks }}
       - run: npm test
+        if: ${{ !inputs.skip_checks }}
       - name: Prepare isolated test keychain
+        if: ${{ !inputs.skip_checks }}
         shell: bash
         run: |
           set -euo pipefail
@@ -49,6 +57,7 @@ jobs:
           security list-keychains -d user -s "$qa_keychain" "$HOME/Library/Keychains/login.keychain-db"
           security default-keychain -s "$qa_keychain"
       - name: Test update offers in the Mac interface
+        if: ${{ !inputs.skip_checks }}
         env:
           VALIDATION_REF: ${{ github.sha }}
         timeout-minutes: 8
@@ -64,6 +73,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Test packaged application and EffectCraft
+        if: ${{ !inputs.skip_checks }}
         run: node --test e2e/effectcraft.e2e.test.js
         env:
           FRST_PACKAGED_EXE: ${{ github.workspace }}/${{ matrix.app }}/Contents/MacOS/FranceStudent IDE

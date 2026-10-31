@@ -9,6 +9,11 @@ on:
         description: Tag de la release existante (ex. v1.1.2)
         required: true
         type: string
+      skip_checks:
+        description: Publier sans audit, lint ni tests (à utiliser ponctuellement)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -45,17 +50,23 @@ jobs:
           $required = @($installer, "$installer.blockmap", "latest.yml", "SHA256SUMS.txt")
           $missing = @($required | Where-Object { $_ -notin $names })
           "ready=$($missing.Count -eq 0)".ToLower() >> $env:GITHUB_OUTPUT
-      - name: Installer et vérifier
+      - name: Installer
         if: steps.release.outputs.ready != 'true'
         run: |
           npm install
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Vérifier (audit, lint, tests)
+        if: steps.release.outputs.ready != 'true' && !inputs.skip_checks
+        run: |
           npm audit --audit-level=low
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run lint
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Construire l'interface
+        if: steps.release.outputs.ready != 'true'
+        run: |
           npm run build:renderer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: ./.github/actions/build-effectcraft
