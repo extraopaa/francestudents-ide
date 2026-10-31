@@ -210,7 +210,7 @@
           ]
         }
       ],
-      "artifactName": "FranceStudentIDE-${version}-linux-${arch}.${ext}"
+      "artifactName": "FranceStudentIDE-${version}-linux-x64.${ext}"
     },
     "dmg": {
       "title": "FranceStudent IDE ${version}",
