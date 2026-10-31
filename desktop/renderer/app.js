@@ -1473,7 +1473,7 @@ function renderHistoryRow(item) {
         try{
             if(item.motionDesign && !isMotionOpen())await openMotionDesign();
             else if(!item.motionDesign && isMotionOpen())await closeMotionDesign();
-            await api.conversationsOpen(item.id);
+            afterConversationOpened(await api.conversationsOpen(item.id));
         }catch(error){renderEntry({type:"error",text:error.message});}
     };
 
@@ -6473,35 +6473,37 @@ function updateAgentProjectLabel(workspace=ui.workspace){
     $("agent-project-name").textContent=motion?"Projet EffectCraft":workspace?workspace.replace(/[\\/]+$/, "").split(/[\\/]/).pop():"Aucun projet";
     $("agent-project-name").title=motion?"Projet motion indépendant du dossier ouvert dans l’espace code":workspace || "Ouvre un dossier pour travailler sur un projet";
 }
-if(false){ // ancienne interaction texte, conservée uniquement pour la compatibilité du bundle historique
-async function chooseFranceStudentProject(){
-    const button=$("agent-fr-project"); if(!button)return;
-    button.disabled=true;
-    try{
-        const data=await api.frProjects("list");
-        const names=(data.projects||[]).map(p=>p.name).join(", ");
-        const answer=await inputDialog("Projet FranceStudent", `${data.selected?`Actuel : ${data.selected.name}. `:""}Entre le nom exact d’un projet existant, ou un nouveau nom pour le créer.${names?`\n\nProjets disponibles : ${names}`:""}`);
-        if(!answer)return;
-        const exact=(data.projects||[]).find(p=>String(p.name||"").toLocaleLowerCase("fr-FR")===answer.trim().toLocaleLowerCase("fr-FR"));
-        const result=exact?await api.frProjects("select",{id:exact.id}):await api.frProjects("create",{name:answer});
-        button.textContent=result.selected?`Projet · ${result.selected.name}`:"Choisir un projet";
-        button.title=result.selected?`Les nouvelles conversations seront classées dans « ${result.selected.name} »`:"Aucun projet FranceStudent sélectionné";
-        studioFeedback(result.created?"Projet FranceStudent créé et sélectionné.":`Conversations classées dans « ${result.selected.name} ».`);
-    }catch(error){studioFeedback(error.message)} finally{button.disabled=false}
-}
-$("agent-fr-project")?.addEventListener("click",chooseFranceStudentProject);
-api.frProjects("list").then(data=>{
-    const button=$("agent-fr-project");
-    if(button && data.selected){button.textContent=`Projet · ${data.selected.name}`;button.title=`Les nouvelles conversations seront classées dans « ${data.selected.name} »`}
-}).catch(()=>{});
-}
 let franceStudentProjects=[];
+// Phrase de confirmation sous les onglets (créée par 56-chat-layout.js) ; error=true la passe en rouge.
+function setFranceStudentProjectState(message,error=false){const state=$("agent-fr-project-state");if(!state)return;state.textContent=message;state.classList.toggle("error",Boolean(error));}
 function renderFranceStudentProjects(selected){
     const select=$("agent-fr-project");if(!select)return;
-    select.replaceChildren();select.append(new Option("Toutes les discussions",""));
+    select.replaceChildren();select.append(new Option("Aucun projet (historique général)",""));
     for(const project of franceStudentProjects){const option=new Option(project.name||"Projet sans nom",String(project.id));option.selected=String(project.id)===String(selected?.id||"");select.append(option)}
+    const chatsButton=$("agent-fr-project-chats");if(chatsButton){chatsButton.disabled=!select.value;chatsButton.title=select.value?"Ouvrir une discussion de ce projet":"Choisis un projet pour voir ses discussions";}
+    const current=franceStudentProjects.find(project=>String(project.id)===select.value);const name=current?.name||selected?.name||"";
+    select.title=select.value?`Nouvelles discussions dans « ${name} »`:"Choisis le projet FranceStudent des nouvelles discussions";
+    setFranceStudentProjectState(select.value?`Les nouvelles discussions sont classées dans « ${name} ».`:"Sans projet : les discussions restent dans l’historique général.");
 }
-async function refreshFranceStudentProjects(){const data=await api.frProjects("list");franceStudentProjects=Array.isArray(data.projects)?data.projects:[];renderFranceStudentProjects(data.selected);return data;}
+async function refreshFranceStudentProjects(){const data=await api.frProjects("list");franceStudentProjects=Array.isArray(data.projects)?data.projects:[];renderFranceStudentProjects(data.selected);
+    // Le projet mémorisé n'existe plus sur le site : on le dit au lieu de le garder en silence.
+    if(data.forgotten!==undefined)setFranceStudentProjectState(`Le projet « ${data.forgotten||"mémorisé"} » n’existe plus sur FranceStudent. Sans projet : les discussions restent dans l’historique général.`,true);
+    return data;}
+// ↻ : recharge la liste depuis le site (et revérifie le projet mémorisé).
+$("agent-fr-project-refresh")?.addEventListener("click",async event=>{
+    const button=event.currentTarget;button.disabled=true;setFranceStudentProjectState("Actualisation des projets…");
+    try{await refreshFranceStudentProjects();}
+    catch(error){setFranceStudentProjectState(`Impossible d’actualiser les projets : ${error.message}`,true);}
+    finally{button.disabled=false}
+});
+// Après la reprise d'une discussion : resélectionne son projet FranceStudent et signale un dossier associé introuvable.
+// Le changement de dossier lui-même arrive par le statut (onWorkspaceChanged dans 05-status-model.js).
+function afterConversationOpened(result){
+    if(!result)return;
+    if(result.frProject?.id && $("agent-fr-project")?.value!==String(result.frProject.id))renderFranceStudentProjects(result.frProject);
+    if(result.folderMissing)studioFeedback(`Le dossier associé à cette discussion est introuvable : ${result.folderMissing}. La discussion est ouverte dans le dossier actuel.`);
+    else if(result.workspaceChanged && result.workspace)studioFeedback(`Dossier du projet ouvert : ${result.workspace}`);
+}
 async function createFranceStudentProject(){
     const name=await inputDialog("Créer un projet FranceStudent","Donne un nom à ce groupe de conversations.");if(!name)return;
     const result=await api.frProjects("create",{name});franceStudentProjects=result.projects||franceStudentProjects;renderFranceStudentProjects(result.selected);studioFeedback(result.created?`Projet « ${result.selected.name} » créé. Les nouvelles discussions y seront classées.`:`Projet « ${result.selected.name} » sélectionné.`);
@@ -6512,7 +6514,60 @@ $("agent-fr-project")?.addEventListener("change",async event=>{
     catch(error){studioFeedback(error.message);await refreshFranceStudentProjects().catch(()=>{});}finally{select.disabled=false}
 });
 $("agent-fr-project-create")?.addEventListener("click",()=>createFranceStudentProject().catch(error=>studioFeedback(error.message)));
-refreshFranceStudentProjects().catch(()=>{});
+// Liste les discussions du projet FranceStudent choisi et reprend celle sélectionnée (chargement API si absente localement).
+async function openFranceStudentProjectChats(){
+    const projectId=$("agent-fr-project")?.value||"";if(!projectId){studioFeedback("Choisis d’abord un projet FranceStudent.");return;}
+    const project=franceStudentProjects.find(item=>String(item.id)===projectId);
+    const previous=document.activeElement,dialog=document.createElement("dialog");dialog.id="fr-project-chats-dialog";dialog.className="fs-dialog fs-project-chats-dialog";
+    studioSurfaceHeader(dialog,{title:"Discussions du projet",subtitle:`Reprends une conversation de « ${project?.name||"Projet sans nom"} ».`,icon:"chat"});
+    const status=centerNode("p","fs-section-description","Chargement des discussions…");status.setAttribute("role","status");
+    const list=centerNode("div","fs-project-chat-list");list.setAttribute("role","list");
+    const more=centerNode("button","","Charger plus");more.type="button";more.hidden=true;
+    dialog.append(studioSurfaceSection("Conversations","",[status,list,more]));document.body.append(dialog);
+    dialog.addEventListener("close",()=>{dialog.remove();requestAnimationFrame(()=>{if(previous?.isConnected)previous.focus();});},{once:true});
+    let cursor="";
+    const openChat=async id=>{
+ if(ui.status && ui.status.busy){studioFeedback("Une demande est en cours : attends sa fin avant de changer de conversation.");return;}
+        dialog.close();
+        try{if(isMotionOpen())await closeMotionDesign();const result=await api.conversationsOpen(id,{projectId,projectName:project?.name||""});setAgentTab("conversation");afterConversationOpened(result);}catch(error){studioFeedback(error.message);}
+    };
+    const load=async()=>{
+ more.disabled=true;
+ try{
+     const data=await api.frProjects("chats",{id:projectId,limit:30,cursorChatId:cursor});const chats=Array.isArray(data?.chats)?data.chats:[];
+     for(const chat of chats){
+         const id=String(chat?.id||chat?.chatId||"");if(!id)continue;
+  const item=centerNode("button","fs-project-chat-item");item.type="button";item.setAttribute("role","listitem");
+  const when=chat.updatedAt||chat.updated_at||chat.lastMessageAt||chat.createdAt||chat.created_at;
+         const date=when&&!Number.isNaN(new Date(when).getTime())?new Date(when).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"";
+         item.append(centerNode("strong","",chat.title||chat.name||chat.chatName||"Discussion sans titre"),centerNode("span","",[date,chat.model].filter(Boolean).join(" · ")||`ID ${id}`));
+         item.title=`Reprendre cette discussion (${id})`;item.onclick=()=>openChat(id);list.append(item);
+     }
+     const last=chats.at(-1);cursor=last?String(last.id||last.chatId||""):"";more.hidden=!data?.hasMore||!cursor;
+     status.textContent=list.children.length?"":"Aucune discussion dans ce projet pour l’instant.";
+        }catch(error){status.textContent=error.message;}finally{more.disabled=false;}
+    };
+    more.onclick=()=>load();dialog.showModal();await load();
+}
+$("agent-fr-project-chats")?.addEventListener("click",()=>openFranceStudentProjectChats().catch(error=>studioFeedback(error.message)));
+// Au démarrage, la session peut ne pas être encore restaurée : on réessaie seul avant d'afficher une erreur,
+// puis on recharge quand l'écran de chargement ou le guide de connexion disparaît.
+let franceStudentProjectsLoaded=false,franceStudentProjectsRetry=null,franceStudentProjectsLoading=false;
+async function loadFranceStudentProjectsAtStartup(attempt=0){
+    clearTimeout(franceStudentProjectsRetry);
+    if(franceStudentProjectsLoaded || franceStudentProjectsLoading)return;
+    franceStudentProjectsLoading=true;
+    try{await refreshFranceStudentProjects();franceStudentProjectsLoaded=true;}
+    catch(error){
+        if(attempt<5){setFranceStudentProjectState("Chargement des projets FranceStudent…");franceStudentProjectsRetry=setTimeout(()=>loadFranceStudentProjectsAtStartup(attempt+1),Math.min(1000*2**attempt,8000));}
+        else setFranceStudentProjectState(`Impossible de charger les projets FranceStudent : ${error.message} Utilise ↻ pour réessayer.`,true);
+    }finally{franceStudentProjectsLoading=false;}
+}
+loadFranceStudentProjectsAtStartup();
+for(const [id,attribute] of [["startup-loading","hidden"],["connection-guide","class"]]){
+    const node=$(id);if(!node)continue;
+    new MutationObserver(()=>{const ready=$("startup-loading")?.hidden!==false && $("connection-guide")?.classList.contains("hidden")!==false;if(ready && !franceStudentProjectsLoaded)loadFranceStudentProjectsAtStartup();}).observe(node,{attributes:true,attributeFilter:[attribute]});
+}
 function recordStudioEntry(entry) {
     if (entry.type === "user" && /^\/new\b/.test(entry.text || "")) studioEntries.length = 0;
     if (["user", "assistant", "tool", "result", "error", "warn", "plan"].includes(entry.type)) {
@@ -6680,7 +6735,36 @@ function setAgentFocus(active){
 $("agent-focus").onclick = () => setAgentFocus(!$("app").classList.contains("focus-agent"));
 setAgentFocus(false);
 $("activity-refresh").onclick = refreshStudioActivity;
-$("backups-refresh").onclick = refreshStudioActivity;
+// Interrupteur des sauvegardes automatiques (réglage checkpointBackupsEnabled).
+// Jamais choisi (undefined) = activé, comme côté agent (!== false).
+const backupsToggle = $("backups-enabled");
+function renderBackupsToggle(enabled) {
+    backupsToggle.checked = enabled;
+    $("backups-enabled-label").textContent = enabled ? "Activées" : "Désactivées";
+}
+async function loadBackupsToggle() {
+    try { renderBackupsToggle(await api.checkpointPreference("get") !== false); }
+    catch (error) { studioFeedback(error.message); }
+}
+backupsToggle.onchange = async () => {
+    const wanted = backupsToggle.checked;
+    if (wanted && !await confirmStudioAction("Les sauvegardes automatiques consomment énormément de stockage : l’IDE copie les fichiers du projet avant chaque demande modifiable de l’agent. Sur un projet moyen ou grand, ces copies peuvent occuper plusieurs gigaoctets. Activer quand même ?", { title: "Activer les sauvegardes automatiques ?", confirmLabel: "Activer quand même" })) {
+        renderBackupsToggle(false);
+        return;
+    }
+    backupsToggle.disabled = true;
+    try {
+        renderBackupsToggle(await api.checkpointPreference("set", wanted));
+        studioFeedback(wanted ? "Sauvegardes automatiques activées. Surveille l’espace disque." : "Sauvegardes automatiques désactivées : aucune nouvelle version ne sera créée avant les demandes.");
+    } catch (error) {
+        renderBackupsToggle(!wanted);
+        studioFeedback(error.message);
+    } finally {
+        backupsToggle.disabled = false;
+    }
+};
+loadBackupsToggle();
+$("backups-refresh").onclick = () => { loadBackupsToggle(); refreshStudioActivity(); };
 $("favorite-open").onclick = () => { renderFavoritePrompts(); $("agent-favorites").classList.toggle("hidden"); };
 $("favorite-close").onclick = () => $("agent-favorites").classList.add("hidden");
 $("draft-save-favorite").onclick = () => {
@@ -8725,8 +8809,40 @@ function openFileVersionsIntro(){
     ]){const row=centerNode("div","release-notes-item"),symbol=centerNode("span","release-notes-icon");symbol.innerHTML=apiNoticeIcon(icon==="clock"?"wait":icon);const body=centerNode("div");body.append(centerNode("strong","",title),centerNode("p","",text));row.append(symbol,body);list.append(row);}
     const footer=centerNode("div","release-notes-footer"),done=centerNode("button","primary","J’ai compris");done.type="button";done.onclick=()=>releaseDialog.close();footer.append(done);releaseDialog.append(list,footer);releaseDialog.showModal();done.focus();
 }
+let releaseAfterClose=null;
+function openRobloxIntro(){
+    releaseDialogStage="roblox";releaseAfterClose=null;releaseDialog.replaceChildren();
+    const top=centerNode("div","release-notes-top");top.append(centerNode("span","release-notes-badge","NOUVEAU · ROBLOX & BLENDER"));
+    const close=centerNode("button","release-notes-close","×");close.type="button";close.setAttribute("aria-label","Fermer la présentation");close.onclick=()=>releaseDialog.close();top.append(close);
+    const heading=centerNode("h2","",`Crée des modèles 3D pour Roblox avec Blender`);heading.id="release-highlights-title";
+    releaseDialog.append(top,centerNode("p","release-notes-brand","FranceStudent IDE"),heading,centerNode("p","release-notes-intro","Cette intégration provient du projet communautaire francestudents-code-Roblox. L’agent peut concevoir un objet 3D dans Blender, le vérifier puis le préparer pour Roblox Studio, sans quitter l’IDE."));
+    const list=centerNode("div","release-notes-list release-notes-list-scroll");
+    for(const [icon,title,text] of [
+ ["tools","Un sous-agent « Modélisation 3D (Blender → Roblox) »","Demande par exemple « crée un arbre low-poly pour mon jeu Roblox ». L’agent écrit un script Blender et l’exécute en arrière-plan. Il exporte ensuite un fichier GLB, contrôle le modèle et prépare son import dans Roblox Studio."],
+        ["spark","Un outil Blender complet pour l’agent","Il détecte ton installation de Blender, inspecte et valide un modèle (géométrie, échelle, matériaux), génère un aperçu et exécute des scripts. Il produit aussi un manifeste et gère l’import et l’export entre Blender et Roblox."],
+        ["tools","Des modèles de départ prêts à l’emploi","Caisse, palette, panneau, arbre, arme, sol en tuiles et rig R15, ainsi que des scripts d’aperçu, de validation et d’export pour Roblox. L’agent les adapte à ta demande."],
+        ["chat","Des skills Roblox et Blender hors ligne","Dans le centre d’extensions, onglet Roblox · Blender : construction Roblox, modélisation, scripts, optimisation, style low-poly et textures Blender. Ils s’installent et fonctionnent sans connexion."],
+        ["clock","À savoir avant de commencer","Blender doit être installé sur ton ordinateur pour générer, valider et rendre des modèles. Roblox Studio reste nécessaire pour tester et publier ton jeu. Ouvre ton projet Roblox dans l’IDE pour que l’agent y range les fichiers."]
+    ]){const row=centerNode("div","release-notes-item"),symbol=centerNode("span","release-notes-icon");symbol.innerHTML=apiNoticeIcon(icon==="clock"?"wait":icon);const body=centerNode("div");body.append(centerNode("strong","",title),centerNode("p","",text));row.append(symbol,body);list.append(row);}
+    const footer=centerNode("div","release-notes-footer release-notes-footer-wrap");
+    const source=centerNode("button","","Voir le projet d’origine sur GitHub");source.type="button";source.onclick=()=>api.openExternal(releaseHighlightsData?.robloxProjectUrl || "https://github.com/leo51500/francestudents-code-Roblox").catch(error=>studioFeedback(error.message));
+    const project=centerNode("button","","Ouvrir un projet");project.type="button";project.onclick=()=>{releaseAfterClose=()=>$("btn-open-project")?.click();releaseDialog.close();};
+    const skills=centerNode("button","","Ouvrir Roblox · Blender");skills.type="button";skills.onclick=()=>{releaseAfterClose=()=>{showSideView("extensions");setCenterTab("roblox");Promise.resolve(loadExtensionCenter()).catch(error=>studioFeedback(error.message));};releaseDialog.close();};
+    const done=centerNode("button","primary","J’ai compris");done.type="button";done.onclick=()=>releaseDialog.close();
+    footer.append(source,project,skills,done);releaseDialog.append(list,footer);releaseDialog.showModal();done.focus();
+}
 releaseDialog.addEventListener("close",()=>{
+    if(releaseDialogStage==="notes" && releaseAutomatic && releaseHighlightsData?.showRobloxIntro){openRobloxIntro();return;}
     if(releaseDialogStage==="notes" && releaseAutomatic && releaseHighlightsData?.showFileVersionsIntro){openFileVersionsIntro();return;}
+    if(releaseDialogStage==="roblox"){
+        const next=releaseAfterClose;releaseAfterClose=null;
+        if(releaseHighlightsData)releaseHighlightsData.showRobloxIntro=false;
+ api.releaseHighlights("seenRoblox").catch(error=>studioFeedback(error.message));
+ if(!next && releaseAutomatic && releaseHighlightsData?.showFileVersionsIntro){openFileVersionsIntro();return;}
+        if(releaseHighlightsData)api.releaseHighlights("seen",releaseHighlightsData.version).catch(error=>studioFeedback(error.message));
+        if(next)next();
+ return;
+    }
     if(releaseDialogStage==="fileVersions"){
         api.releaseHighlights("seenFileVersions").then(()=>{releaseHighlightsData.showFileVersionsIntro=false;return api.releaseHighlights("seen",releaseHighlightsData.version);}).catch(error=>studioFeedback(error.message));
     }else if(releaseHighlightsData)api.releaseHighlights("seen",releaseHighlightsData.version).catch(error=>studioFeedback(error.message));
@@ -9365,7 +9481,16 @@ const franceProjectScope = document.querySelector("#agent .chat-project-scope");
 const franceProjectCreate = $("agent-fr-project-create");
 if (franceProjectScope && franceProjectCreate) {
     const projectControls = document.createElement("div"); projectControls.className = "chat-project-controls";
-    projectControls.append(franceProjectScope, franceProjectCreate);
+    const franceProjectRefresh = $("agent-fr-project-refresh");
+    projectControls.append(franceProjectScope, ...(franceProjectRefresh ? [franceProjectRefresh] : []), franceProjectCreate);
+    // Phrase de confirmation sous les onglets : où vont les nouvelles discussions.
+    const franceProjectState = document.createElement("div");
+    franceProjectState.id = "agent-fr-project-state"; franceProjectState.className = "chat-project-state";
+    franceProjectState.setAttribute("role", "status"); franceProjectState.setAttribute("aria-live", "polite");
+    franceProjectState.textContent = "Chargement de vos projets…";
+    chatNavigation.after(franceProjectState);
+    const franceProjectChats = $("agent-fr-project-chats");
+    if (franceProjectChats) projectControls.append(franceProjectChats);
     chatNavigationActions.prepend(projectControls);
 }
 chatNavigation.append(chatNavigationActions);

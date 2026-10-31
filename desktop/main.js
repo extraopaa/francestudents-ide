@@ -827,7 +827,18 @@ async function logoutAccount() {
     }
 }
 
-async function openDesktopConversation(id,fromCommand=false){
+// Dossier de code d'une discussion : celui de son entrée d'historique, sinon celui associé à son projet FranceStudent.
+async function conversationFolder(target,projectId){
+        if(target?.workspace)return target.workspace;
+        return projectId?require("../src/api/fr-projects").getFolder(projectId):null;
+}
+function sameFolder(a,b){
+        if(!a || !b)return false;
+        const norm=p=>{const r=path.resolve(String(p));return process.platform==="win32"?r.toLowerCase():r;};
+        return norm(a)===norm(b);
+}
+
+async function openDesktopConversation(id,fromCommand=false,options={}){
         if((busy && !fromCommand) || loginBusy)throw new Error("Attends la fin de la tâche avant de reprendre une conversation.");
         const conversations=require("../src/project/conversations"),st=require("../src/state");
         const target=await conversations.find(String(id));
@@ -844,6 +855,24 @@ async function openDesktopConversation(id,fromCommand=false){
             for(const entry of entries)await transcriptStore.capture(latestId,entry);
             await transcriptStore.finish(latestId);
         }
+        // Discussion liée à un projet : on rouvre son dossier de code et on resélectionne son projet FranceStudent.
+        // Fait après le chargement du contenu, pour ne pas changer de dossier si la discussion est illisible.
+        const projectId=String(options?.projectId || target?.frProject?.id || "");
+        const projectName=String(options?.projectName || target?.frProject?.name || "");
+        let folderMissing=null,workspaceChanged=false,projectSelected=null;
+        if(!targetMotion){
+            const folder=await conversationFolder(target,projectId);
+            if(folder && !sameFolder(folder,st.state.workspace)){
+                if(require("node:fs").existsSync(folder)){
+                    await require("../src/tools/tools").setProject(folder);
+                    motionConversations.reset();
+                    workspaceChanged=true;
+                }else folderMissing=folder;
+            }
+            if(projectId && String(st.state.frProject?.id || "")!==projectId){
+                projectSelected=await require("../src/api/fr-projects").saveSelected({id:projectId,name:projectName});
+            }
+        }
         const mode=metadata.mode || target?.mode || "agent";
         if(targetMotion!==!!st.state.motionDesign)throw new Error("L’espace de travail a changé pendant le chargement. Ouvre la conversation depuis son espace code ou motion.");
         st.resetConversation(mode);st.setConversation(mode,latestId,metadata.settings || target?.settings || {model:metadata.model ?? target?.model ?? st.state.model});st.state.mode=mode;
@@ -851,7 +880,7 @@ async function openDesktopConversation(id,fromCommand=false){
         st.state.history=history.slice(-30);
         const api=require("../src/api/api");api.requestModel.compactor ||= new (require("../src/agent/auto-compact").AutoCompact)();api.requestModel.compactor.restore(mode,latestId,history);
         send("clear");send("conversationReplay",{entries,id:latestId});pushStatus();
-        return {id:latestId,entries:entries.length,source:saved?"local":"api"};
+        return {id:latestId,entries:entries.length,source:saved?"local":"api",workspace:st.state.workspace || null,workspaceChanged,folderMissing,frProject:projectSelected || st.state.frProject || null};
 
 }
 
@@ -872,6 +901,7 @@ function registerIpc() {
     handle("releaseHighlights",(action,version)=>{
         if(action==="seen")return releaseNotes.seen(version);
         if(action==="seenFileVersions")return releaseNotes.seenFileVersions();
+        if(action==="seenRoblox")return releaseNotes.seenRobloxIntro();
         if(!action || action==="get")return releaseNotes.get();
         throw new Error("Action de nouveautés inconnue.");
     });
@@ -1178,18 +1208,30 @@ function registerIpc() {
     handle("frProjects", async (action = "list", payload = {}) => {
         const projects = require("../src/api/fr-projects");
         const selected = require("../src/state").state.frProject || null;
-        if (action === "list") return { selected, projects: await projects.listAvailableProjects() };
+        if (action === "list") {
+            const saved = selected || await projects.loadSelected();
+            const list = await projects.listAvailableProjects();
+            // Un projet supprimé (ou plus accessible) sur le site ne doit pas rester sélectionné sans le dire.
+            const current = saved && list.some(item => String(item?.id || "") === String(saved.id)) ? saved : null;
+            if (saved && !current) await projects.saveSelected(null);
+            return { selected: current, projects: list, forgotten: saved && !current ? saved.name || "" : undefined };
+        }
         if (action === "select") {
             const id = String(payload.id || "");
             const data = await projects.listAvailableProjects();
             const project = data.find(item => String(item?.id || "") === id);
             if (!project) throw new Error("Projet FranceStudent introuvable ou non accessible.");
+            // Premier choix d'un projet avec un dossier de code ouvert : ce dossier devient le sien (sans écraser un lien existant).
+            const st = require("../src/state").state;
+            if (st.workspace && !st.motionDesign) await projects.setFolder(project.id, st.workspace, { onlyIfMissing: true });
             return { selected: await projects.saveSelected(project), projects: data };
         }
         if (action === "create") {
             const name = String(payload.name || "").trim();
             if (!name) throw new Error("Donne un nom au projet FranceStudent.");
             const created = await projects.findOrCreateProject(name);
+            const st = require("../src/state").state;
+            if (st.workspace && !st.motionDesign && created.project?.id) await projects.setFolder(created.project.id, st.workspace, { onlyIfMissing: true });
             return { selected: await projects.saveSelected(created.project), projects: await projects.listAvailableProjects(), created: created.created };
         }
         if (action === "clear") return { selected: await projects.saveSelected(null), projects: await projects.listAvailableProjects() };
@@ -1392,7 +1434,7 @@ function registerIpc() {
             messages: Array.isArray(entry.messages) ? entry.messages.length : Number(entry.messages) || 0
         })));
     });
-    handle("conversationsOpen",id=>openDesktopConversation(id));
+    handle("conversationsOpen",(id,options={})=>openDesktopConversation(id,false,{projectId:String(options?.projectId || ""),projectName:String(options?.projectName || "")}));
     handle("conversationsRename", async (id, title) => {
         const entry = await require("../src/project/conversations").rename(String(id || ""), String(title ?? ""));
         if (!entry) throw new Error("Conversation introuvable.");

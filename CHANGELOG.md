@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.4] — Roblox · Blender et projets FranceStudent
+
+- Intégration Roblox · Blender : sous-agent 3D, outil `blender`, templates de modèles (props, terrain, rig R15, rendu d’aperçu, validation), skills et onglet dédié dans l’IDE. Elle s’inspire du projet d’origine [leo51500/francestudents-code-Roblox](https://github.com/leo51500/francestudents-code-Roblox).
+- Après la mise à jour, un écran de présentation Roblox · Blender s’affiche une seule fois, à la suite des nouveautés.
+- Projets FranceStudent : sélecteur des projets cloud dans le chat et rechargement automatique de la liste au démarrage, avec plusieurs relances si la connexion n’est pas encore prête.
+- Les petits modèles reçoivent un accès guidé au dossier du projet pour utiliser les outils locaux.
+- Un interrupteur permet d’activer ou de désactiver les sauvegardes automatiques avant chaque demande.
+- Le raccourci « Projet actuel » cible plus précisément le dossier ouvert.
+
 ## [2.0.3] — Installeur Windows mieux identifié
 
 - Les prochains installeurs Windows déclarent clairement FranceStudent IDE comme éditeur.

@@ -70,8 +70,10 @@ function save() {
 }
 
 /** Enregistre un échange dans la conversation id (créée si inconnue). */
-async function touch({ id, firstMessage, model, workspace, mode = "chat", settings = null }) {
+async function touch({ id, firstMessage, model, workspace, mode = "chat", settings = null, frProject }) {
   await load();
+  // Projet FranceStudent courant (state.frProject) si l'appelant ne le précise pas.
+  if (frProject === undefined) frProject = require("../state").state.frProject || null;
 
   const now = new Date().toISOString();
   const index = entries.findIndex((e) => e.id === id);
@@ -96,6 +98,10 @@ async function touch({ id, firstMessage, model, workspace, mode = "chat", settin
   entry.mode = mode;
   entry.settings = settings || entry.settings || null;
   entry.messages = (entry.messages || 0) + 1;
+  // Une discussion garde son projet d'origine ; une ancienne entrée sans projet adopte le projet courant.
+  if (frProject?.id && !entry.frProject?.id) {
+    entry.frProject = { id: String(frProject.id), name: String(frProject.name || "") };
+  }
 
   entries.unshift(entry); // la plus récente en premier
 
@@ -104,6 +110,15 @@ async function touch({ id, firstMessage, model, workspace, mode = "chat", settin
   await save();
 
   if (workspace) await projects.setConversation(workspace, mode, id, entry.settings);
+
+  // Le dossier de code utilisé devient le dossier associé au projet FranceStudent de la discussion.
+  if (workspace && entry.frProject?.id && !entry.settings?.motionDesign) {
+    try {
+      await require("../api/fr-projects").setFolder(entry.frProject.id, workspace);
+    } catch (error) {
+      ui.debug(`Dossier du projet FranceStudent non mémorisé : ${error.message}`);
+    }
+  }
 
   return entry;
 }

@@ -158,7 +158,9 @@ function catalogText(skills) {
 
 async function catalog(workspace, application) {
     const installed = await loadSkills(workspace);
-    const builtins = [...library, ...robloxLibrary].map(skill => ({ ...skill, name: skill.id, scope: "intégré", disabled: false, application: skill.application || null }));
+    // Seuls les skills Roblox intégrés sont injectés d'office : les skills de la
+    // bibliothèque générale (dont EffectCraft) restent à installer explicitement.
+    const builtins = robloxLibrary.map(skill => ({ ...skill, name: skill.id, scope: "intégré", disabled: false, application: skill.application || null }));
     // Les skills intégrés prioritaires restent visibles même si un grand catalogue
     // utilisateur remplit déjà la limite de contexte.
     const all = [...builtins.filter(item => !installed.some(s => normalizeName(s.name) === normalizeName(item.id))), ...installed];

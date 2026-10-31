@@ -2767,6 +2767,9 @@ button.primary:active,
 .release-highlights h2 { font-size: 26px; letter-spacing: -.6px; line-height: 1.25; margin: 0; color: var(--fg-strong); }
 .release-notes-intro { margin: 12px 0 22px; font-size: 12px; color: var(--fg-dim); line-height: 1.7; }
 .release-notes-list { display: grid; gap: 10px; }
+.release-notes-list-scroll { max-height: min(46vh, 420px); overflow-y: auto; padding-right: 4px; }
+.release-notes-footer-wrap { justify-content: flex-end; }
+.release-notes-footer-wrap button:first-child { margin-right: auto; }
 .release-notes-item { display: flex; gap: 12px; border: 1px solid var(--border); background: var(--bg-side); border-radius: 11px; padding: 14px; }
 .release-notes-icon { color: var(--link); flex: 0 0 28px; }
 .release-notes-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }

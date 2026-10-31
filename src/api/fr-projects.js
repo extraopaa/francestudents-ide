@@ -153,7 +153,60 @@ async function ensureAttached(chatId) {
     }
 }
 
+/*
+ * Dossier local associé à chaque projet FranceStudent : dataDir/fr-project-folders.json
+ * { "<projectId>": { path, updatedAt } }. Mis à jour à chaque message envoyé dans un projet
+ * avec un dossier ouvert ; sert à rouvrir le bon dossier quand on reprend une discussion du projet.
+ */
+const FOLDERS_FILE = path.join(CONFIG.dataDir, "fr-project-folders.json");
+let folders = null;
+let foldersSaving = Promise.resolve();
+
+async function loadFolders() {
+    if (folders) return folders;
+    try {
+        const raw = JSON.parse(await fs.readFile(FOLDERS_FILE, "utf8"));
+        folders = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch {
+        folders = {}; // première utilisation ou fichier illisible
+    }
+    return folders;
+}
+
+/** Dossier local mémorisé pour ce projet FranceStudent (ou null). */
+async function getFolder(projectId) {
+    if (!projectId) return null;
+    const entry = (await loadFolders())[String(projectId)];
+    return entry && typeof entry.path === "string" && entry.path ? entry.path : null;
+}
+
+/** Associe un dossier local au projet. onlyIfMissing : ne remplace pas un dossier déjà associé. Ne lève jamais. */
+async function setFolder(projectId, workspace, { onlyIfMissing = false } = {}) {
+    if (!projectId || !workspace) return false;
+    await loadFolders();
+    const key = String(projectId);
+    if (onlyIfMissing && folders[key]?.path) return false;
+    if (folders[key]?.path === workspace) return true;
+    folders[key] = { path: workspace, updatedAt: new Date().toISOString() };
+    const data = JSON.stringify(folders, null, 2);
+    foldersSaving = foldersSaving.then(async () => {
+        try {
+            await fs.mkdir(CONFIG.dataDir, { recursive: true, mode: 0o700 });
+            const tmp = `${FOLDERS_FILE}.${process.pid}.tmp`;
+            await fs.writeFile(tmp, data, { mode: 0o600 });
+            await fs.rename(tmp, FOLDERS_FILE);
+        } catch {
+            // association perdue au prochain démarrage seulement
+        }
+    });
+    await foldersSaving;
+    return true;
+}
+
 module.exports = {
+    getFolder,
+    setFolder,
+    FOLDERS_FILE,
     listProjects,
     listAvailableProjects,
     listProjectChats,

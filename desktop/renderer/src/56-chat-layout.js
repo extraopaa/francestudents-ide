@@ -8,7 +8,16 @@ const franceProjectScope = document.querySelector("#agent .chat-project-scope");
 const franceProjectCreate = $("agent-fr-project-create");
 if (franceProjectScope && franceProjectCreate) {
     const projectControls = document.createElement("div"); projectControls.className = "chat-project-controls";
-    projectControls.append(franceProjectScope, franceProjectCreate);
+    const franceProjectRefresh = $("agent-fr-project-refresh");
+    projectControls.append(franceProjectScope, ...(franceProjectRefresh ? [franceProjectRefresh] : []), franceProjectCreate);
+    // Phrase de confirmation sous les onglets : où vont les nouvelles discussions.
+    const franceProjectState = document.createElement("div");
+    franceProjectState.id = "agent-fr-project-state"; franceProjectState.className = "chat-project-state";
+    franceProjectState.setAttribute("role", "status"); franceProjectState.setAttribute("aria-live", "polite");
+    franceProjectState.textContent = "Chargement de vos projets…";
+    chatNavigation.after(franceProjectState);
+    const franceProjectChats = $("agent-fr-project-chats");
+    if (franceProjectChats) projectControls.append(franceProjectChats);
     chatNavigationActions.prepend(projectControls);
 }
 chatNavigation.append(chatNavigationActions);

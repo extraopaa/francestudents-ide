@@ -1,6 +1,12 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.4":{headline:"Crée pour Roblox avec Blender, directement depuis l’IDE.",items:[
+        {icon:"spark",title:"Roblox · Blender intégré",text:"Un sous-agent de modélisation 3D, un outil Blender et des skills Roblox hors ligne arrivent dans le centre d’extensions."},
+        {icon:"tools",title:"Les petits modèles accèdent à ton dossier",text:"Les modèles plus légers lisent et modifient mieux le projet ouvert, avec les mêmes permissions."},
+        {icon:"clock",title:"Sauvegardes automatiques activables",text:"Un interrupteur permet d’activer ou de couper les sauvegardes automatiques avant les demandes à l’agent."},
+        {icon:"chat",title:"Raccourci « Projet actuel » plus précis",text:"Seules les vraies questions sur le projet ouvert déclenchent ce raccourci. Les autres demandes vont normalement à l’agent."}
+    ]},
     "2.0.3":{headline:"Une installation Windows plus claire et mieux reconnue.",items:[
         {icon:"tools",title:"Éditeur FranceStudent IDE identifié",text:"Les installateurs déclarent désormais clairement leur éditeur. Avec un certificat configuré, la signature Windows est appliquée automatiquement."},
         {icon:"chat",title:"Une publication plus fiable",text:"Les empreintes SHA-256 restent publiées avec chaque installateur pour vérifier le fichier téléchargé."}
@@ -113,9 +119,10 @@ const releases={
 };
 function createReleaseHighlights({version,enabled=true,load,save}){
     return {
-        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};const settings=load();return {version,...content,shouldShow:enabled && settings.releaseHighlightsSeen!==version,showFileVersionsIntro:enabled && settings.fileVersionsIntroSeen!==true,url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
+        get(){const content=releases[version] || {headline:"Ton IDE continue de s’améliorer.",items:[{icon:"spark",title:"Améliorations et correctifs",text:"Consulte les notes complètes de cette version pour découvrir tous les changements."}]};const settings=load();return {version,...content,shouldShow:enabled && settings.releaseHighlightsSeen!==version,showFileVersionsIntro:enabled && settings.fileVersionsIntroSeen!==true,showRobloxIntro:enabled && settings.robloxIntroSeen!==true,robloxProjectUrl:"https://github.com/leo51500/francestudents-code-Roblox",url:`https://github.com/extraopaa/francestudents-ide/releases/tag/v${encodeURIComponent(version)}`};},
         seen(value){if(value!==version)throw new Error("Version de notes invalide.");save({releaseHighlightsSeen:version});return true;},
-        seenFileVersions(){save({fileVersionsIntroSeen:true});return true;}
+        seenFileVersions(){save({fileVersionsIntroSeen:true});return true;},
+        seenRobloxIntro(){save({robloxIntroSeen:true});return true;}
     };
 }
 module.exports={createReleaseHighlights};

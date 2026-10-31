@@ -477,7 +477,7 @@ function renderHistoryRow(item) {
         try{
             if(item.motionDesign && !isMotionOpen())await openMotionDesign();
             else if(!item.motionDesign && isMotionOpen())await closeMotionDesign();
-            await api.conversationsOpen(item.id);
+            afterConversationOpened(await api.conversationsOpen(item.id));
         }catch(error){renderEntry({type:"error",text:error.message});}
     };
 

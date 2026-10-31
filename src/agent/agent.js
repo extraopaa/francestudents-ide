@@ -13,6 +13,7 @@ const { buildAgentPrompt, buildFollowUpPrompt, buildResumePrompt } = require("./
 const promptCache = require("./prompt-cache");
 const { applyProgress, normalizeProgress, fitProgress } = require("./plan-progress");
 const { normalizeActionShape, expandJsonCandidates, describeJsonFailure, proseFinalAction, looksLikeCapabilityRefusal, CAPABILITY_REFUSAL_REMINDER } = require("./json-repair");
+const smallModel = require("./small-model");
 const { updatePlan } = require("../tools/update-plan");
 const {
     TOOLS,
@@ -508,6 +509,9 @@ async function runAgent(task, options = {}) {
     const observations = [];
     let recoveredUnsupportedTool = false;
     let recoveredWorkspaceAccess = false;
+    let workspaceRecoveries = 0;
+    const smallAgent = smallModel.isSmallModel(state.model);
+    const deniesAccess = message => deniesWorkspaceAccess(message) || (smallAgent && smallModel.deniesAccessLoosely(message));
     const changesBefore = memory.sessionChanges();
 
     // Vérification réelle et interruptible avant tout accès au projet pour chaque tâche.
@@ -756,7 +760,8 @@ async function runAgent(task, options = {}) {
                             editorFiles:state.motionDesign?[]:state.openFiles,plan:state.agentPlan,requestNumber,correction,mcpCatalog:state.motionDesign?"":mcpCatalog})
                         : fullPrompt(!hasConversation);
 
-                try{lastResponse = await api.requestModel(prompt, {
+                const accessHint=smallAgent&&state.workspace&&!state.motionDesign?smallModel.smallModelAccessHint(state.workspace,turn>1):"";
+                try{lastResponse = await api.requestModel(accessHint?`${prompt}\n\n${accessHint}`:prompt, {
                     conversationMode: "agent",
                     // Si un 409 impose un nouveau fil, le serveur n'a plus son historique.
                     // On renvoie donc la tâche, les observations et l'historique récent, mais
@@ -794,7 +799,7 @@ async function runAgent(task, options = {}) {
                     );
 
                     correction = {
-                        error: looksLikeCapabilityRefusal(lastResponse) ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}` : error.message,
+                        error: looksLikeCapabilityRefusal(lastResponse) || (smallAgent && smallModel.deniesAccessLoosely(lastResponse)) ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}` : error.message,
                         previousResponse: lastResponse.slice(0, 300)
                     };
                 }
@@ -812,7 +817,7 @@ async function runAgent(task, options = {}) {
             // aucune accolade est rendu comme compte rendu non vérifié plutôt que
             // comme une erreur de protocole. Aucun outil n'est exécuté.
             const prose = proseFinalAction(lastResponse);
-            if (prose && looksLikeCapabilityRefusal(lastResponse)) {
+            if (prose && (looksLikeCapabilityRefusal(lastResponse) || (smallAgent && smallModel.deniesAccessLoosely(lastResponse)))) {
                 // Le modèle affirme à tort ne pas avoir d'outils locaux ni de connecteur
                 // GitHub : ce refus n'est pas un compte rendu, il est présenté comme tel.
                 ui.debug("Refus de capacité en texte libre malgré les relances : signalé comme erreur de protocole, sans exécution.");
@@ -870,8 +875,9 @@ async function runAgent(task, options = {}) {
             }
         }
 
-        if(action.type==="final"&&!recoveredWorkspaceAccess&&!state.motionDesign&&state.workspace&&
-            deniesWorkspaceAccess(action.message)&&!hasExplicitWorkspaceBlock(observations)){
+        if(action.type==="final"&&workspaceRecoveries<1&&!state.motionDesign&&state.workspace&&
+            deniesAccess(action.message)&&!hasExplicitWorkspaceBlock(observations)){
+            workspaceRecoveries++;
             recoveredWorkspaceAccess=true;
             workspaceProbe=true;
             action={type:"tool",name:"list_directory",args:{path:"."},reason:"Vérifier l’accès local au dossier de projet sélectionné"};
@@ -880,7 +886,7 @@ async function runAgent(task, options = {}) {
         }
 
         if (action.type === "final") {
-            if (recoveredWorkspaceAccess && deniesWorkspaceAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
+            if (recoveredWorkspaceAccess && deniesAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
                 action.message = "L’IDE a pu vérifier le dossier du projet, mais le modèle affirme encore ne pas pouvoir accéder aux outils ou aux fichiers. La demande reste incomplète ; tu peux réessayer ou choisir un autre modèle.";
                 action.completed = false;
             }

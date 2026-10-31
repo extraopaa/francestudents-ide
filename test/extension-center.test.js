@@ -16,7 +16,10 @@ test.before(async () => {
 test.after(async () => { await fs.rm(dir, {recursive:true, force:true}); });
 test("bibliothèque : installation projet, refus d’écrasement, désactivation appliquée à l’agent", async () => {
     let data = await center.action("install", {id:"web-quality", scope:"projet"});
-    assert.equal(data.library.length, 22);
+    // 22 skills généraux + les skills Roblox intégrés (fusionnés dans la bibliothèque depuis 2.0.4).
+    const { robloxLibrary } = require("../src/skills/roblox-library");
+    assert.equal(robloxLibrary.length, 18);
+    assert.equal(data.library.length, 22 + robloxLibrary.length);
     assert.ok(data.skills.some(s => s.key === "projet:web-quality"));
     await assert.rejects(center.action("install", {id:"web-quality", scope:"projet"}), /EEXIST/);
     await center.action("toggle", {key:"projet:web-quality", disabled:true});

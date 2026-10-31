@@ -39,6 +39,14 @@ dialog::backdrop { background: #080b12b3; backdrop-filter: blur(4px); }
 .fs-feature-card strong { font-size: 12px; color: var(--fg-strong); }
 .fs-feature-card p { font-size: 11px; line-height: 1.7; color: var(--fg-dim); margin: 7px 0 0; }
 .fs-project-summary { background: var(--bg-side); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere; }
+.fs-project-chats-dialog { width: min(560px,calc(100vw - 32px)); }
+.fs-project-chat-list { display: grid; gap: 6px; max-height: min(52vh,420px); overflow: auto; }
+.fs-project-chat-list:empty { display: none; }
+.fs-dialog button.fs-project-chat-item { display: grid; gap: 3px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--fg); cursor: pointer; }
+.fs-dialog button.fs-project-chat-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+.fs-project-chat-item strong { font-size: 12px; color: var(--fg-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-project-chat-item span { font-size: 11px; color: var(--fg-dim); }
+.fs-project-chat-list + button { margin-top: 10px; }
 #conversation-import-dialog .conversation-import-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 #conversation-import-result { padding: 13px; background: var(--bg-side); border: 1px solid var(--border); border-radius: 10px; }
 .fs-dialog details > summary { cursor: pointer; font-size: 12px; color: var(--fg-strong); padding: 5px 0; line-height: 1.5; }
