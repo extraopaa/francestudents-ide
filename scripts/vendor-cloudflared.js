@@ -10,7 +10,8 @@ const tar = require("tar-stream");
 const version = "2026.10.5";
 const targets = {
     win: { asset: "cloudflared-windows-amd64.exe", hash: "db4e4c413612a0916f3e1679d3caaf376f94911952d163028fb726fb2e0516a9", output: "cloudflared.exe" },
-    mac: { asset: "cloudflared-darwin-arm64.tgz", hash: "184c7d4f5f977348243a6d7ca8f6cf6073b9b2746cfe8c1fe15aa59e9a522bf0", output: "cloudflared" }
+    mac: { asset: "cloudflared-darwin-arm64.tgz", hash: "184c7d4f5f977348243a6d7ca8f6cf6073b9b2746cfe8c1fe15aa59e9a522bf0", output: "cloudflared" },
+    linux: { asset: "cloudflared-linux-amd64", hash: "e1bc0cf084fd9e590554fe769a86b1db46701c3f847a43d902f7b974a4e16298", output: "cloudflared" }
 };
 const root = path.resolve(__dirname, "..", "release", "vendor-cloudflared");
 const hash = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
@@ -45,9 +46,9 @@ function extractBinary(archive) {
 }
 async function main() {
     const requested = process.argv[2];
-    const platform = requested === "auto" ? (process.platform === "win32" && process.arch === "x64" ? "win" : process.platform === "darwin" && process.arch === "arm64" ? "mac" : "") : requested;
+    const platform = requested === "auto" ? (process.platform === "win32" && process.arch === "x64" ? "win" : process.platform === "darwin" && process.arch === "arm64" ? "mac" : process.platform === "linux" && process.arch === "x64" ? "linux" : "") : requested;
     const target = targets[platform];
-    if (!target) throw new Error("Cible non prise en charge : utilise win (Windows x64) ou mac (macOS arm64).");
+    if (!target) throw new Error("Cible non prise en charge : utilise win (Windows x64), mac (macOS arm64) ou linux (Linux x64).");
     const url = `https://github.com/cloudflare/cloudflared/releases/download/${version}/${target.asset}`;
     const archive = await download(url, 80 * 1024 * 1024);
     if (hash(archive) !== target.hash) throw new Error("Empreinte cloudflared incorrecte : distribution annulée.");

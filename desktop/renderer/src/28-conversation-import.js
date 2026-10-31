@@ -78,9 +78,18 @@ conversationImportButton.onclick = async () => {
         const data = await api.models();
         if (sequence !== conversationImportSequence) return;
         const select = $("conversation-import-model"); select.replaceChildren();
-        for (const model of data.agents || []) { const option = document.createElement("option"); option.value = model.id; option.textContent = model.name; select.appendChild(option); }
+        for (const model of data.agents || []) {
+            const option = document.createElement("option");
+            option.value = model.id;
+            option.disabled = isIncompatibleCodeModel(model);
+            option.textContent = option.disabled ? `${model.name} — non compatible avec le code pour le moment` : model.name;
+            select.appendChild(option);
+        }
         select.value = String(ui.currentModelId ?? data.current);
-        if (!select.value && select.options.length) select.selectedIndex = 0;
+        if (!select.value || select.selectedOptions[0]?.disabled) {
+            const available = Array.from(select.options).find(option => !option.disabled);
+            select.value = available ? available.value : "";
+        }
     } catch (error) { $("conversation-import-status").textContent = error.message; }
     finally { if (sequence === conversationImportSequence) conversationImportControls(false); }
 };

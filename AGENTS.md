@@ -21,7 +21,7 @@ Ce fichier s’adresse à toute personne ou tout assistant qui reprend le dépô
 - **Historique** : le journal visible est distinct du contexte envoyé au modèle. Ne pas afficher les prompts internes ni supprimer les anciens échanges lors d’une compaction ou d’un nouveau chat.
 - **Données** : préserver l’identité de mise à jour (`build.appId`) et le dossier historique de données malgré le renommage du produit. Ne pas déplacer ou réinitialiser ces données sans migration explicite.
 - **Stabilité** : maintenir le [répertoire des codes FST](docs/error-codes.md) avec le catalogue de `desktop/stability.js`. Ne pas inventer de cause quand seul un arrêt anormal est connu. Le diagnostic local reste limité aux métadonnées techniques, sans contenu de conversation, secret, trace complète ni envoi automatique.
-- **Plateformes** : pour les prochaines versions, Windows et Mac Apple Silicon ARM64 uniquement. Le support Mac Intel est arrêté après la 1.3.5 ; conserver ses anciennes releases, sans réintroduire de build Intel ni proposer un DMG ARM64 à un processus x64.
+- **Plateformes** : pour les prochaines versions, Windows, Mac Apple Silicon ARM64 et Linux x64 (AppImage et tar.gz, ajoutés à la demande du contributeur ; pas de mise à jour automatique, pas de build Linux ARM). Le support Mac Intel est arrêté après la 1.3.5 ; conserver ses anciennes releases, sans réintroduire de build Intel ni proposer un DMG ARM64 à un processus x64.
 - **Questions de l’agent** : `ask_user` déclenche le QCM ou le champ libre pendant une tâche ; ne pas détecter les questions à partir des points d’interrogation dans du texte arbitraire. Full accès n’auto-répond pas et Passer ne donne aucune autorisation. Conserver l’historique des questions et réponses.
 
 ## Vérifications courantes
@@ -49,7 +49,7 @@ node --test --test-concurrency=4 e2e/*.e2e.test.js
 - Avant un commit, vérifier le diff et les fichiers sélectionnés ; éviter un ajout global quand des fichiers étrangers sont présents.
 - Ne pousser, taguer ou publier que dans le cadre d’une demande explicite du contributeur. Une demande de test ou de modification n’est pas une demande de release.
 - Pour une version, mettre à jour `package.json`, `CHANGELOG.md` **et** le résumé de `desktop/release-highlights.js` ; consulter la procédure de [CONTRIBUTING.md](CONTRIBUTING.md).
-- Les noms d’assets viennent de `package.json`, pas d’un ancien exemple. GitHub Releases reçoit l’installeur, son `.blockmap`, `latest.yml` et `SHA256SUMS.txt`. Les portables restent locaux.
+- Les noms d’assets viennent de `package.json`, pas d’un ancien exemple. GitHub Releases reçoit l’installeur, son `.blockmap`, `latest.yml` et `SHA256SUMS.txt`, plus l’AppImage, le `tar.gz` Linux x64 et `SHA256SUMS-linux.txt` (workflow `release-linux.yml`). Les portables restent locaux.
 
 ## Maintenir ce contexte
 

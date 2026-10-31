@@ -1,6 +1,6 @@
 {
   "name": "project-frstcli",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "FranceStudent IDE : agent de programmation en ligne de commande",
   "main": "index.js",
   "bin": {
@@ -40,6 +40,8 @@
     "predist:mac": "npm run check:effectcraft && npm run build:renderer && node scripts/vendor-cloudflared.js mac",
     "dist:win": "electron-builder --win portable nsis --x64 --publish never",
     "dist:mac": "electron-builder --mac dmg zip --arm64 --publish never",
+    "predist:linux": "npm run check:effectcraft && npm run build:renderer && node scripts/vendor-cloudflared.js linux",
+    "dist:linux": "electron-builder --linux AppImage tar.gz --x64 --publish never --config.npmRebuild=false",
     "vendor:effectcraft:upstream": "node scripts/fetch-effectcraft.js",
     "check:effectcraft": "node scripts/build-effectcraft.js --check",
     "prepare:electron": "node -e \"require('electron')\""
@@ -187,6 +189,28 @@
       "gatekeeperAssess": false,
       "artifactName": "FranceStudentIDE-${version}-mac-${arch}.${ext}",
       "minimumSystemVersion": "13.0.0"
+    },
+    "linux": {
+      "extraResources": [{ "from": "release/vendor-cloudflared/linux", "to": "ide-link" }],
+      "icon": "desktop/icon.png",
+      "category": "Development",
+      "synopsis": "Agent de programmation FranceStudent",
+      "executableName": "francestudent-ide",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "FranceStudentIDE-${version}-linux-${arch}.${ext}"
     },
     "dmg": {
       "title": "FranceStudent IDE ${version}",

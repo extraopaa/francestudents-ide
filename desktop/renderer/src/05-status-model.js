@@ -188,6 +188,10 @@ function modelLogo(agent, className = "model-logo") {
     return img;
 }
 
+function isIncompatibleCodeModel(agent) {
+    return Boolean(agent && ([-2002, 51].includes(Number(agent.id)) || /\bhaiku\b/i.test([agent.name, agent.model].filter(Boolean).join(" "))));
+}
+
 function modelUseGroup(agent) {
     const model = String(agent.model || agent.name || "").toLowerCase().trim().replace(/\s+/g, "-");
     if (/^gpt-5\.6-luna(?:-|$)/.test(model) || /^gemini-3\.8-flash(?:-|$)/.test(model)) return "simple";
@@ -246,6 +250,7 @@ function renderModelMenu(data) {
         const row = document.createElement("button");
         row.type = "button";
         row.className = "model-item" + (agent.id === ui.currentModelId ? " active" : "");
+        row.disabled = isIncompatibleCodeModel(agent);
 
         const logo = modelLogo(agent);
         if (logo) row.appendChild(logo);
@@ -259,7 +264,7 @@ function renderModelMenu(data) {
         const details = [agent.provider, agent.model].filter(Boolean).join(" · ");
         const sub = document.createElement("span");
         sub.className = "model-item-sub";
-        sub.textContent = details || (agent.id === ui.currentModelId ? "modèle actuel" : "");
+        sub.textContent = row.disabled ? "Non compatible avec le code pour le moment" : details || (agent.id === ui.currentModelId ? "modèle actuel" : "");
         main.appendChild(sub);
         row.appendChild(main);
 

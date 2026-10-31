@@ -31,7 +31,7 @@ Ne versionne jamais de jeton, mot de passe, session ou fichier `.env`. Les dépe
 
 La construction de l’application vérifie aussi le paquet EffectCraft modifié. Avant un premier `build:desktop` ou `dist:win`, lance `npm run vendor:effectcraft` avec les [prérequis Rust et WASM](docs/avance.md#motion-design-avec-effectcraft--bêta). Les workflows reconstruisent et mettent en cache ce paquet depuis la révision et le correctif épinglés ; ils ne substituent pas l’interface officielle non adaptée.
 
-Pour les paquets Windows x64 et macOS arm64, les commandes de construction préparent aussi cloudflared pour IDE Link : téléchargement officiel épinglé, vérification SHA-256 et copie de sa licence dans les ressources de l’application. Cette préparation nécessite une connexion Internet ; les binaires restent dans `release/` et hors de Git. En développement sans application empaquetée, cloudflared doit être accessible dans le PATH. IDE Link utilise un service de tunnel Cloudflare et nécessite une connexion Internet à l’exécution.
+Pour les paquets Windows x64, macOS arm64 et Linux x64, les commandes de construction préparent aussi cloudflared pour IDE Link : téléchargement officiel épinglé, vérification SHA-256 et copie de sa licence dans les ressources de l’application. Cette préparation nécessite une connexion Internet ; les binaires restent dans `release/` et hors de Git. En développement sans application empaquetée, cloudflared doit être accessible dans le PATH. IDE Link utilise un service de tunnel Cloudflare et nécessite une connexion Internet à l’exécution.
 
 ## Proposer une amélioration
 
@@ -42,7 +42,7 @@ Ouvre une pull request dans ce fork. Décris le problème, le comportement obten
 1. Mettre à jour la version, le changelog et le résumé de nouveautés dans `desktop/release-highlights.js`.
 2. Vérifier le code, construire les exécutables et contrôler leur démarrage.
 3. Créer une release sur un tag correspondant aux sources construites.
-4. Joindre l’installateur Windows, `.blockmap`, `latest.yml`, les DMG/ZIP Mac ARM64 et les empreintes SHA-256. Ne plus construire ni joindre de paquet Mac Intel. Les portables Windows restent locaux.
+4. Joindre l’installateur Windows, `.blockmap`, `latest.yml`, les DMG/ZIP Mac ARM64, l’AppImage et le `tar.gz` Linux x64 et les empreintes SHA-256 (`SHA256SUMS.txt` pour Windows et Mac, `SHA256SUMS-linux.txt` pour Linux). Ne plus construire ni joindre de paquet Mac Intel. Les portables Windows restent locaux.
 
 Les exécutables vont dans GitHub Releases, jamais dans Git. Les notes de version rappellent que le projet est de EsteG7 et que ce dépôt est un fork d’amélioration.
 
@@ -66,6 +66,8 @@ Le tag doit correspondre à la version exacte du paquet. Après publication expl
 
 Pour une publication manuelle avec `gh`, préciser `-R extraopaa/francestudents-ide`, calculer `SHA256SUMS.txt`, puis joindre uniquement les quatre assets prévus. Ne jamais déplacer un tag déjà public pour y ajouter des modifications. Une demande de contribution ou de test ne demande pas implicitement un push ou une release.
 
+Le workflow **Publier les paquets Linux** (`release-linux.yml`) fonctionne de la même façon sur `ubuntu-latest` : il se déclenche à la publication d’une release, vérifie que le tag vaut `v` suivi de la version de `package.json`, reconstruit EffectCraft, prépare cloudflared Linux x64 (téléchargement épinglé et SHA-256 vérifié), puis construit l’AppImage et le `tar.gz` avec `electron-builder`. Il joint ces deux fichiers et `SHA256SUMS-linux.txt` (fichier distinct, pour ne jamais écraser `SHA256SUMS.txt` de Windows). Il peut être relancé manuellement avec `tag`, `source_ref` et `skip_checks`, comme celui de Windows. Construction locale sous Linux x64 : `npm run predist:linux`, puis `npm run dist:linux`. Les paquets Linux sont x64 uniquement ; il n’y a pas de mise à jour automatique, l’installation d’une nouvelle version est manuelle.
+
 Les versions portables restent exclusivement locales et ne doivent jamais accompagner une nouvelle release GitHub.
 
 ## Validation Mac et Windows
@@ -74,4 +76,4 @@ Le workflow `security-validation.yml` peut être lancé manuellement lors de la 
 
 Depuis Electron 45, macOS 13 est requis. `build.mac.identity` vaut `-` pour une signature ad hoc : `null` supprimerait cette signature. Sans compte Apple Developer, le paquet n’est pas notarisé et Gatekeeper peut le bloquer après téléchargement. Ne pas présenter la réussite de `codesign --verify` comme une notarisation ou une garantie d’ouverture sur un M5 physique.
 
-Une release commune contient désormais six fichiers : l’installateur Windows, son `.blockmap`, `latest.yml`, le DMG ARM64, le ZIP ARM64 et `SHA256SUMS.txt`. `latest.yml` concerne la mise à jour automatique Windows ; sur Mac Apple Silicon, l’application propose le téléchargement de l’installateur. Conserver les anciennes releases Intel (la dernière est la 1.3.5), sans ajouter de nouveaux paquets Intel. Calculer les empreintes de tous les fichiers distribués et vérifier les tailles et SHA-256 après téléversement avant de publier le brouillon.
+Une release commune contient désormais neuf fichiers : l’installateur Windows, son `.blockmap`, `latest.yml`, le DMG ARM64, le ZIP ARM64, `SHA256SUMS.txt`, l’AppImage Linux x64, le `tar.gz` Linux x64 et `SHA256SUMS-linux.txt`. `latest.yml` concerne la mise à jour automatique Windows ; sur Mac Apple Silicon, l’application propose le téléchargement de l’installateur. Conserver les anciennes releases Intel (la dernière est la 1.3.5), sans ajouter de nouveaux paquets Intel. Calculer les empreintes de tous les fichiers distribués et vérifier les tailles et SHA-256 après téléversement avant de publier le brouillon.

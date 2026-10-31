@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.5] — Paquets Linux et accès au projet mieux vérifié
+
+- Linux x64 : ajout des paquets AppImage et `tar.gz` (scripts `predist:linux` et `dist:linux`, workflow `release-linux.yml`, empreintes dans `SHA256SUMS-linux.txt`). Pas de mise à jour automatique sous Linux ; ces paquets n’ont pas encore été testés sur toutes les distributions.
+- IDE Link : cloudflared Linux x64 est préparé avec le même téléchargement épinglé et la même vérification SHA-256 que sur les autres plateformes.
+- L’agent reconnaît davantage de formulations (françaises et anglaises) par lesquelles un modèle affirme à tort ne pas pouvoir accéder au dossier ou au projet, et vérifie alors réellement ses outils. Les refus réels (fichier introuvable, accès refusé) restent respectés.
+- Quand une réponse du modèle reste inexploitable, le message de repli indique le début de la réponse reçue pour faciliter le diagnostic.
+- Les modèles non compatibles avec le code pour le moment (dont les modèles Haiku) sont grisés avec une explication dans le sélecteur de modèle, les préférences et l’import de conversation.
+
 ## [2.0.4] — Roblox · Blender et projets FranceStudent
 
 - Intégration Roblox · Blender : sous-agent 3D, outil `blender`, templates de modèles (props, terrain, rig R15, rendu d’aperçu, validation), skills et onglet dédié dans l’IDE. Elle s’inspire du projet d’origine [leo51500/francestudents-code-Roblox](https://github.com/leo51500/francestudents-code-Roblox).

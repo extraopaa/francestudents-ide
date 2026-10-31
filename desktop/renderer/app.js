@@ -1184,6 +1184,10 @@ function modelLogo(agent, className = "model-logo") {
     return img;
 }
 
+function isIncompatibleCodeModel(agent) {
+    return Boolean(agent && ([-2002, 51].includes(Number(agent.id)) || /\bhaiku\b/i.test([agent.name, agent.model].filter(Boolean).join(" "))));
+}
+
 function modelUseGroup(agent) {
     const model = String(agent.model || agent.name || "").toLowerCase().trim().replace(/\s+/g, "-");
     if (/^gpt-5\.6-luna(?:-|$)/.test(model) || /^gemini-3\.8-flash(?:-|$)/.test(model)) return "simple";
@@ -1242,6 +1246,7 @@ function renderModelMenu(data) {
         const row = document.createElement("button");
         row.type = "button";
         row.className = "model-item" + (agent.id === ui.currentModelId ? " active" : "");
+        row.disabled = isIncompatibleCodeModel(agent);
 
         const logo = modelLogo(agent);
         if (logo) row.appendChild(logo);
@@ -1255,7 +1260,7 @@ function renderModelMenu(data) {
         const details = [agent.provider, agent.model].filter(Boolean).join(" · ");
         const sub = document.createElement("span");
         sub.className = "model-item-sub";
-        sub.textContent = details || (agent.id === ui.currentModelId ? "modèle actuel" : "");
+        sub.textContent = row.disabled ? "Non compatible avec le code pour le moment" : details || (agent.id === ui.currentModelId ? "modèle actuel" : "");
         main.appendChild(sub);
         row.appendChild(main);
 
@@ -7191,9 +7196,17 @@ async function loadPreferences() {
         const models = await api.models();
         const select = $("settings-default-model"); select.replaceChildren();
         const defaultOption = centerNode("option", "", "Modèle par défaut de l’application"); defaultOption.value = ""; select.append(defaultOption);
-        for (const model of models.agents || []) { const option = centerNode("option", "", model.name); option.value = String(model.id); select.append(option); }
+        for (const model of models.agents || []) {
+            const unavailable = isIncompatibleCodeModel(model);
+            const option = centerNode("option", "", unavailable ? `${model.name} — non compatible avec le code pour le moment` : model.name);
+            option.value = String(model.id);
+            option.disabled = unavailable;
+            select.append(option);
+        }
         if (data.defaultModel !== null && ![...select.options].some(option => option.value === String(data.defaultModel))) {
-            const option = centerNode("option", "", `Modèle enregistré (${data.defaultModel})`); option.value = String(data.defaultModel); select.append(option);
+            const unavailable = isIncompatibleCodeModel({ id: data.defaultModel });
+            const label = unavailable ? `Modèle enregistré (${data.defaultModel}) — non compatible avec le code pour le moment` : `Modèle enregistré (${data.defaultModel})`;
+            const option = centerNode("option", "", label); option.value = String(data.defaultModel); option.disabled = unavailable; select.append(option);
         }
         showPreferences(data);
     } catch (error) { $("settings-message").textContent = error.message; }
@@ -7965,9 +7978,18 @@ conversationImportButton.onclick = async () => {
         const data = await api.models();
         if (sequence !== conversationImportSequence) return;
         const select = $("conversation-import-model"); select.replaceChildren();
-        for (const model of data.agents || []) { const option = document.createElement("option"); option.value = model.id; option.textContent = model.name; select.appendChild(option); }
+        for (const model of data.agents || []) {
+            const option = document.createElement("option");
+            option.value = model.id;
+            option.disabled = isIncompatibleCodeModel(model);
+            option.textContent = option.disabled ? `${model.name} — non compatible avec le code pour le moment` : model.name;
+            select.appendChild(option);
+        }
         select.value = String(ui.currentModelId ?? data.current);
-        if (!select.value && select.options.length) select.selectedIndex = 0;
+        if (!select.value || select.selectedOptions[0]?.disabled) {
+            const available = Array.from(select.options).find(option => !option.disabled);
+            select.value = available ? available.value : "";
+        }
     } catch (error) { $("conversation-import-status").textContent = error.message; }
     finally { if (sequence === conversationImportSequence) conversationImportControls(false); }
 };

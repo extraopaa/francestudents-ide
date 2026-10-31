@@ -2041,8 +2041,16 @@ body.resizing-y .xterm {
     cursor: pointer;
 }
 
-.model-item:hover {
+.model-item:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.06);
+}
+
+.model-menu[data-kind="model"] .model-item:disabled {
+    cursor: not-allowed;
+}
+
+.model-menu[data-kind="model"] .model-item:disabled .model-item-sub {
+    white-space: normal;
 }
 
 .model-item.active {

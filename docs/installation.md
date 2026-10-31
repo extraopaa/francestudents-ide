@@ -8,6 +8,7 @@
 | --- | --- |
 | Windows 64 bits | [Release stable](https://github.com/extraopaa/francestudents-ide/releases/latest) : `setup.exe` |
 | Mac M1 et suivants | [Dernière release](https://github.com/extraopaa/francestudents-ide/releases/latest) : `mac-arm64.dmg` lorsqu’il est disponible |
+| Linux 64 bits (x64) | [Dernière release](https://github.com/extraopaa/francestudents-ide/releases/latest) : `linux-x64.AppImage` ou `linux-x64.tar.gz` lorsqu’ils sont disponibles |
 
 Les prochaines versions Mac nécessitent une puce **Apple Silicon (M1 et suivants)**. Le support Intel s’arrête à la [version archivée 1.3.5](https://github.com/extraopaa/francestudents-ide/releases/tag/v1.3.5) ; ses fichiers existants sont conservés.
 
@@ -27,6 +28,15 @@ Ouvre le DMG et déplace **FranceStudent IDE** dans **Applications**. Lance l’
 
 La version n’est pas notariée par Apple. Si macOS bloque l’ouverture, vérifie la provenance du fichier et consulte **Réglages système → Confidentialité et sécurité**. Les protections peuvent varier selon ton ordinateur. [Détails Mac](macos.md).
 
+## Linux · Bêta
+
+Les paquets Linux sont proposés pour les PC **x64** (64 bits Intel/AMD), pas pour ARM. Deux formats sont joints aux releases :
+
+- `FranceStudentIDE-<version>-linux-x64.AppImage` : rends le fichier exécutable (`chmod +x`), puis lance-le. Selon la distribution, FUSE 2 peut être nécessaire.
+- `FranceStudentIDE-<version>-linux-x64.tar.gz` : archive à extraire dans un dossier de ton choix, puis à lancer depuis ce dossier avec `francestudent-ide`.
+
+Vérifie l’intégrité du téléchargement avec `sha256sum -c SHA256SUMS-linux.txt` dans le dossier des fichiers téléchargés. Ces paquets ne sont pas signés ; leur provenance est celle des releases de ce dépôt. Ils sont construits automatiquement mais n’ont pas encore été testés sur toutes les distributions : signale tout problème avec ta distribution et ta version.
+
 ## Première ouverture
 
 ![Guide de connexion au premier lancement](images/connexion-compte.png)
@@ -39,6 +49,7 @@ Tu n’as besoin ni de Node.js ni de npm pour utiliser l’installateur. Ces out
 | --- | --- |
 | Windows installée | Proposition au démarrage ; téléchargement et installation selon les réglages |
 | Mac, à partir de la bêta 2 | Détection et bouton vers le bon DMG ; installation manuelle |
+| Linux (AppImage ou tar.gz) | Pas de mise à jour automatique ; télécharge la nouvelle release et remplace le fichier ou le dossier |
 | Développement ou portable Windows | Installation manuelle |
 
 Sur Mac, le bouton ouvre le téléchargement dans le navigateur. Ferme l’application avant de remplacer sa copie dans Applications. La première bêta doit être remplacée une fois manuellement pour obtenir la détection des versions suivantes.

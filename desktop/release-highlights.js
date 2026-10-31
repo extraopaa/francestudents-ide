@@ -1,6 +1,11 @@
 "use strict";
 // Maintain this short summary with each release. Unknown versions get a safe fallback.
 const releases={
+    "2.0.5":{headline:"FranceStudent IDE arrive sur Linux et vérifie mieux l’accès à ton projet.",items:[
+        {icon:"spark",title:"Paquets Linux x64",text:"Une AppImage et une archive tar.gz sont désormais jointes aux releases, avec leurs empreintes SHA-256. Les mises à jour y restent manuelles."},
+        {icon:"tools",title:"Accès au projet mieux vérifié",text:"Quand un modèle affirme à tort ne pas pouvoir lire ton dossier, l’agent vérifie réellement ses outils avant de renoncer."},
+        {icon:"chat",title:"Modèles non compatibles signalés",text:"Les modèles qui ne fonctionnent pas encore avec le code sont grisés avec une explication dans les sélecteurs."}
+    ]},
     "2.0.4":{headline:"Crée pour Roblox avec Blender, directement depuis l’IDE.",items:[
         {icon:"spark",title:"Roblox · Blender intégré",text:"Un sous-agent de modélisation 3D, un outil Blender et des skills Roblox hors ligne arrivent dans le centre d’extensions."},
         {icon:"tools",title:"Les petits modèles accèdent à ton dossier",text:"Les modèles plus légers lisent et modifient mieux le projet ouvert, avec les mêmes permissions."},

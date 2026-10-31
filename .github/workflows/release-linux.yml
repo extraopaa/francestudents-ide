@@ -1,0 +1,98 @@
+name: Publier les paquets Linux
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag de la release existante (ex. v2.0.5)
+        required: true
+        type: string
+      skip_checks:
+        description: Publier sans audit, lint ni tests (à utiliser ponctuellement)
+        required: false
+        default: false
+        type: boolean
+      source_ref:
+        description: Tag ou commit à construire (vide utilise le tag de la release)
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.release.tag_name, '-mac.')
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      SOURCE_REF: ${{ inputs.source_ref || github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Vérifier le tag et les fichiers déjà publiés
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          if [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "Le tag doit correspondre à package.json : v$version" >&2
+            exit 1
+          fi
+          names="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          ready=true
+          for required in \
+            "FranceStudentIDE-$version-linux-x64.AppImage" \
+            "FranceStudentIDE-$version-linux-x64.tar.gz" \
+            "SHA256SUMS-linux.txt"; do
+            if ! printf '%s\n' "$names" | grep -Fxq "$required"; then ready=false; fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+      - name: Installer
+        if: steps.release.outputs.ready != 'true'
+        run: npm install
+      - name: Vérifier (audit, lint, tests)
+        if: steps.release.outputs.ready != 'true' && !inputs.skip_checks
+        run: |
+          npm audit --audit-level=low
+          npm run lint
+          npm test
+      - name: Construire l'interface
+        if: steps.release.outputs.ready != 'true'
+        run: npm run build:renderer
+      - uses: ./.github/actions/build-effectcraft
+        if: steps.release.outputs.ready != 'true'
+      - name: Préparer le tunnel IDE Link vérifié
+        if: steps.release.outputs.ready != 'true'
+        run: node scripts/vendor-cloudflared.js linux
+      - name: Construire sans publier de fichiers intermédiaires
+        if: steps.release.outputs.ready != 'true'
+        run: npx electron-builder --linux AppImage tar.gz --x64 --publish never --config.npmRebuild=false
+      - name: Empreintes et publication des paquets Linux
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          # Fichier distinct de SHA256SUMS.txt (Windows) pour ne jamais l'écraser.
+          sha256sum FranceStudentIDE-*-linux-x64.AppImage FranceStudentIDE-*-linux-x64.tar.gz > SHA256SUMS-linux.txt
+          cat SHA256SUMS-linux.txt
+          # Liste explicite : aucun autre fichier du dossier release n'est publié.
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            FranceStudentIDE-*-linux-x64.AppImage \
+            FranceStudentIDE-*-linux-x64.tar.gz \
+            SHA256SUMS-linux.txt \
+            --clobber

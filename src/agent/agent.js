@@ -453,15 +453,15 @@ async function preloadContext(task, observations) {
 
 /* ---------- Repli : réponse finale locale, sans requête supplémentaire ---------- */
 
-function protocolFallbackMessage(observations, changedCount) {
-    const lastError = observations.findLast?.(item => item.error)?.error || "réponse incompatible avec le protocole d’outils";
+function protocolFallbackMessage(observations, changedCount, detail = "") {
+    const lastError = detail || observations.findLast?.(item => item.error)?.error || "réponse incompatible avec le protocole d’outils";
     const evidence = observations.length
         ? `\n\nL’agent avait déjà reçu ${observations.length} résultat(s) d’outil.`
         : "";
     const changes = changedCount > 0
         ? ` Les modifications réalisées pendant cette demande (${changedCount}) sont conservées.`
         : " Aucune modification locale n’a été exécutée après cette erreur.";
-    return `Je n’ai pas pu poursuivre cette demande car le modèle a renvoyé une réponse que l’IDE ne peut pas interpréter (${clip(lastError, 240)}).${evidence}${changes} Tu peux réessayer dans cette conversation ou choisir un autre modèle.`;
+    return `Je n’ai pas pu poursuivre cette demande car le modèle a renvoyé une réponse que l’IDE ne peut pas interpréter (${clip(lastError, 420)}).${evidence}${changes} Tu peux réessayer dans cette conversation ou choisir un autre modèle.`;
 }
 
 function deniesWorkspaceAccess(message) {
@@ -510,6 +510,11 @@ async function runAgent(task, options = {}) {
     let recoveredUnsupportedTool = false;
     let recoveredWorkspaceAccess = false;
     let workspaceRecoveries = 0;
+    // Petits modèles : après un refus, la relance renvoie les instructions complètes
+    // (et non le court prompt de suivi) ; un refus explicite du format agent après
+    // cet envoi complet arrête les relances au lieu de les épuiser.
+    let rebootstrapAgent = false;
+    let formatRefused = false;
     const smallAgent = smallModel.isSmallModel(state.model);
     const deniesAccess = message => deniesWorkspaceAccess(message) || (smallAgent && smallModel.deniesAccessLoosely(message));
     const changesBefore = memory.sessionChanges();
@@ -698,6 +703,7 @@ async function runAgent(task, options = {}) {
         let correction = null;
         let lastResponse;
         let protocolFailure=null;
+        let instructionsResent=false;
 
         const spin = ui.spinner(turn === 1 ? "Réflexion" : `Réflexion (tour ${turn})`);
 
@@ -743,7 +749,13 @@ async function runAgent(task, options = {}) {
                 let startedFreshConversation=false;
                 const deliveryScope={id:originalChat,model:state.model,workspace:state.workspace,motion:Boolean(state.motionDesign)};
                 const lastObservation=observations[observations.length-1];
-                const reuseInstructions=hasConversation && promptCache.has(originalChat,signature);
+                // Petit modèle qui vient de refuser : les instructions complètes (FORMAT,
+                // catalogue d'outils) sont renvoyées une fois, sans l'index projet, au lieu
+                // du court prompt de suivi qui ne rappelle pas le protocole.
+                const rebootstrap=smallAgent&&rebootstrapAgent;
+                rebootstrapAgent=false;
+                const reuseInstructions=hasConversation && promptCache.has(originalChat,signature) && !rebootstrap;
+                if(rebootstrap){instructionsResent=true;ui.debug("Petit modèle : renvoi des instructions complètes après un refus.");}
                 const prompt = turn > 1 && hasConversation && reuseInstructions
                     ? buildFollowUpPrompt({
                         task,
@@ -774,6 +786,9 @@ async function runAgent(task, options = {}) {
                     ui.debug("Réponse d’outil invalide : correction bornée au protocole, sans exécution ni relance réseau automatique.");
                     continue;
                 }
+                // Seule la dernière tentative compte : une erreur de transport d'une tentative
+                // précédente ne doit pas masquer le repli dédié au refus en texte libre.
+                protocolFailure=null;
                 // Only cache a known full bootstrap; a compacted/replaced conversation must bootstrap again.
                 const knownBootstrap=!originalChat||originalChat===state.chatIds.agent||startedFreshConversation;
                 if(knownBootstrap)readDelivery.remember(lastObservation,{...deliveryScope,id:state.chatIds.agent},CONFIG.maxObservationChars);
@@ -798,8 +813,54 @@ async function runAgent(task, options = {}) {
                         `${error.message}\n${lastResponse.slice(0, 400)}`
                     );
 
+                    // Petits modèles : le refus est détecté même s'il cite un exemple JSON
+                    // ou un bloc de code.
+                    const refusalText = smallAgent ? smallModel.stripCodeAndJson(lastResponse) : lastResponse;
+                    const refused = looksLikeCapabilityRefusal(refusalText) || (smallAgent && smallModel.deniesAccessLoosely(refusalText));
+
+                    // Petit modèle qui refuse l'accès au dossier sans aucun objet JSON : une
+                    // relance textuelle ne le convainc pas. Comme pour un « final » de refus,
+                    // l'IDE exécute lui-même une sonde list_directory (au plus deux fois) dont le
+                    // résultat réel est renvoyé au modèle au tour suivant. Aucun refus ou échec
+                    // réel d'un outil déjà observé n'est contourné.
+                    const refusedFormat = refused && smallAgent && smallModel.refusesAgentFormat(refusalText);
+                    if (refused && smallAgent && state.workspace && !state.motionDesign && !hasExplicitWorkspaceBlock(observations)) {
+                        if (!recoveredWorkspaceAccess && workspaceRecoveries < 2) {
+                            workspaceRecoveries++;
+                            recoveredWorkspaceAccess = true;
+                            workspaceProbe = true;
+                            action = { type: "tool", name: "list_directory", args: { path: "." }, reason: "Vérifier l’accès local au dossier de projet sélectionné" };
+                            validateToolCall(action);
+                            ui.info("Le modèle a répondu sans objet JSON qu’il ne pouvait pas accéder au dossier : je vérifie l’accès localement, puis l’agent reprend la demande.");
+                            break;
+                        }
+                        // La sonde a déjà confirmé l'accès : le refus vient du court prompt de
+                        // suivi, qui ne rappelle pas le protocole. La relance suivante renvoie
+                        // les instructions complètes une fois, dans le même fil.
+                        if (!instructionsResent && attempt < CONFIG.maxProtocolAttempts) {
+                            rebootstrapAgent = true;
+                            correction = {
+                                error: `${error.message} ${CAPABILITY_REFUSAL_REMINDER} Les instructions complètes et le catalogue d’outils sont renvoyés ci-dessus : réponds UNIQUEMENT par un objet JSON, par exemple {"type":"tool","name":"list_directory","args":{"path":"."},"reason":"Voir le dossier"}`,
+                                previousResponse: lastResponse.slice(0, 300)
+                            };
+                            continue;
+                        }
+                        // Instructions complètes déjà renvoyées, ou refus explicite du format
+                        // agent : relancer encore n'apporte rien. Arrêt avec un message clair.
+                        if (instructionsResent || refusedFormat) {
+                            formatRefused = true;
+                            ui.debug("Petit modèle : refus maintenu après renvoi des instructions complètes ; arrêt des relances.");
+                            break;
+                        }
+                    }
+
+                    // La correction donne un exemple concret court aux petits modèles,
+                    // mieux suivi qu'une longue consigne.
+                    const example = refused && smallAgent
+                        ? ' Réponds UNIQUEMENT par un objet JSON, par exemple : {"type":"tool","name":"list_directory","args":{"path":"."},"reason":"Voir le dossier"}'
+                        : "";
                     correction = {
-                        error: looksLikeCapabilityRefusal(lastResponse) || (smallAgent && smallModel.deniesAccessLoosely(lastResponse)) ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}` : error.message,
+                        error: refused ? `${error.message} ${CAPABILITY_REFUSAL_REMINDER}${example}` : error.message,
                         previousResponse: lastResponse.slice(0, 300)
                     };
                 }
@@ -816,8 +877,24 @@ async function runAgent(task, options = {}) {
             // Dernier repli : après épuisement des relances, un texte libre sans
             // aucune accolade est rendu comme compte rendu non vérifié plutôt que
             // comme une erreur de protocole. Aucun outil n'est exécuté.
-            const prose = proseFinalAction(lastResponse);
-            if (prose && (looksLikeCapabilityRefusal(lastResponse) || (smallAgent && smallModel.deniesAccessLoosely(lastResponse)))) {
+            // Petits modèles : un refus qui cite un exemple JSON ou un bloc ``` reste
+            // un refus en texte libre ; il est évalué sans ces fragments pour ne pas
+            // retomber sur le message générique de protocole.
+            const refusalText = smallAgent ? smallModel.stripCodeAndJson(lastResponse) : lastResponse;
+            const refusesAccess = looksLikeCapabilityRefusal(refusalText) || (smallAgent && smallModel.deniesAccessLoosely(refusalText));
+            const prose = proseFinalAction(lastResponse) || (smallAgent && refusesAccess ? proseFinalAction(refusalText) : null);
+            if (formatRefused) {
+                // Petit modèle : la sonde locale a confirmé l'accès au dossier et les
+                // instructions complètes ont été renvoyées, mais le modèle maintient qu'il
+                // ne répond pas au format agent. Message clair, sans relance inutile.
+                action = {
+                    type: "final",
+                    completed: false,
+                    message: "Ce modèle refuse le format d’agent : l’IDE a vérifié localement le dossier du projet (list_directory a réussi) et lui a renvoyé les instructions complètes, mais il continue de se présenter comme un simple assistant conversationnel etne renvoie aucun objet JSON. " +
+                        "Aucune action locale n’a été exécutée. Pour le mode agent, choisis un modèle plus grand ; ce modèle reste utilisable en mode chat.\n\n" +
+                        `Réponse du modèle :\n${clip(refusalText, 400)}`
+                };
+            } else if (prose && refusesAccess) {
                 // Le modèle affirme à tort ne pas avoir d'outils locaux ni de connecteur
                 // GitHub : ce refus n'est pas un compte rendu, il est présenté comme tel.
                 ui.debug("Refus de capacité en texte libre malgré les relances : signalé comme erreur de protocole, sans exécution.");
@@ -839,17 +916,17 @@ async function runAgent(task, options = {}) {
                 // model response itself is still usable. Do not present this
                 // transport detail as a hard suspension: keep the results
                 // already received and offer a concise local retry message.
-                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
+                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore, [correction?.error, typeof lastResponse === "string" && lastResponse.trim() ? `début de la réponse reçue : ${lastResponse.trim().slice(0, 160)}` : ""].filter(Boolean).join(" — "));
                 await finish(message);
                 return { completed: false, message };
             }
             if (state.ecoMode) {
-                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
+                const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore, [correction?.error, typeof lastResponse === "string" && lastResponse.trim() ? `début de la réponse reçue : ${lastResponse.trim().slice(0, 160)}` : ""].filter(Boolean).join(" — "));
                 await finish(message);
                 return { completed: false, message };
             }
             record("user", task);
-            const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore);
+            const message = protocolFallbackMessage(observations, memory.sessionChanges() - changesBefore, [correction?.error, typeof lastResponse === "string" && lastResponse.trim() ? `début de la réponse reçue : ${lastResponse.trim().slice(0, 160)}` : ""].filter(Boolean).join(" — "));
             ui.assistant(message);
             record("assistant", message);
             await saveConversation();
@@ -886,7 +963,7 @@ async function runAgent(task, options = {}) {
         }
 
         if (action.type === "final") {
-            if (recoveredWorkspaceAccess && deniesAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
+            if (!formatRefused && recoveredWorkspaceAccess && deniesAccess(action.message) && !hasExplicitWorkspaceBlock(observations)) {
                 action.message = "L’IDE a pu vérifier le dossier du projet, mais le modèle affirme encore ne pas pouvoir accéder aux outils ou aux fichiers. La demande reste incomplète ; tu peux réessayer ou choisir un autre modèle.";
                 action.completed = false;
             }

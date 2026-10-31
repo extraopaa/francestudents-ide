@@ -271,9 +271,17 @@ async function loadPreferences() {
         const models = await api.models();
         const select = $("settings-default-model"); select.replaceChildren();
         const defaultOption = centerNode("option", "", "Modèle par défaut de l’application"); defaultOption.value = ""; select.append(defaultOption);
-        for (const model of models.agents || []) { const option = centerNode("option", "", model.name); option.value = String(model.id); select.append(option); }
+        for (const model of models.agents || []) {
+            const unavailable = isIncompatibleCodeModel(model);
+            const option = centerNode("option", "", unavailable ? `${model.name} — non compatible avec le code pour le moment` : model.name);
+            option.value = String(model.id);
+            option.disabled = unavailable;
+            select.append(option);
+        }
         if (data.defaultModel !== null && ![...select.options].some(option => option.value === String(data.defaultModel))) {
-            const option = centerNode("option", "", `Modèle enregistré (${data.defaultModel})`); option.value = String(data.defaultModel); select.append(option);
+            const unavailable = isIncompatibleCodeModel({ id: data.defaultModel });
+            const label = unavailable ? `Modèle enregistré (${data.defaultModel}) — non compatible avec le code pour le moment` : `Modèle enregistré (${data.defaultModel})`;
+            const option = centerNode("option", "", label); option.value = String(data.defaultModel); option.disabled = unavailable; select.append(option);
         }
         showPreferences(data);
     } catch (error) { $("settings-message").textContent = error.message; }
