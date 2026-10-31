@@ -59,6 +59,27 @@ async function listProjects() {
     return Array.isArray(data) ? data : Array.isArray(data?.projects) ? data.projects : [];
 }
 
+/** Projets personnels et partagés. Une route shared absente ne masque jamais les projets personnels. */
+async function listAvailableProjects() {
+    const owned = await listProjects();
+    let shared = [];
+    try {
+        const data = await requestJson("GET", "/projects/shared");
+        shared = Array.isArray(data) ? data : Array.isArray(data?.projects) ? data.projects : [];
+    } catch (error) {
+        if (![400, 403, 404, 405].includes(error.status)) throw error;
+    }
+    return [...new Map([...owned, ...shared].filter(project => project?.id).map(project => [String(project.id), project])).values()];
+}
+
+/** Chats actifs d’un projet FranceStudent, prêts à être repris par l’IDE. */
+async function listProjectChats(projectId, { limit = 50, cursorChatId = "" } = {}) {
+    const query = new URLSearchParams({ limit: String(Math.min(100, Math.max(1, Number(limit) || 50))) });
+    if (cursorChatId) query.set("cursor_chat_id", String(cursorChatId));
+    const data = await requestJson("GET", `/projects/${encodeURIComponent(projectId)}/chats?${query}`);
+    return { chats: Array.isArray(data?.chats) ? data.chats : Array.isArray(data) ? data : [], hasMore: Boolean(data?.hasMore) };
+}
+
 const createProject = name => requestJson("POST", "/projects", { name });
 
 const normalizeName = name => String(name || "").trim().toLocaleLowerCase("fr-FR");
@@ -134,6 +155,8 @@ async function ensureAttached(chatId) {
 
 module.exports = {
     listProjects,
+    listAvailableProjects,
+    listProjectChats,
     createProject,
     attachChat,
     ensureAttached,

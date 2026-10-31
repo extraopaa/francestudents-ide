@@ -6473,6 +6473,7 @@ function updateAgentProjectLabel(workspace=ui.workspace){
     $("agent-project-name").textContent=motion?"Projet EffectCraft":workspace?workspace.replace(/[\\/]+$/, "").split(/[\\/]/).pop():"Aucun projet";
     $("agent-project-name").title=motion?"Projet motion indépendant du dossier ouvert dans l’espace code":workspace || "Ouvre un dossier pour travailler sur un projet";
 }
+if(false){ // ancienne interaction texte, conservée uniquement pour la compatibilité du bundle historique
 async function chooseFranceStudentProject(){
     const button=$("agent-fr-project"); if(!button)return;
     button.disabled=true;
@@ -6493,6 +6494,25 @@ api.frProjects("list").then(data=>{
     const button=$("agent-fr-project");
     if(button && data.selected){button.textContent=`Projet · ${data.selected.name}`;button.title=`Les nouvelles conversations seront classées dans « ${data.selected.name} »`}
 }).catch(()=>{});
+}
+let franceStudentProjects=[];
+function renderFranceStudentProjects(selected){
+    const select=$("agent-fr-project");if(!select)return;
+    select.replaceChildren();select.append(new Option("Toutes les discussions",""));
+    for(const project of franceStudentProjects){const option=new Option(project.name||"Projet sans nom",String(project.id));option.selected=String(project.id)===String(selected?.id||"");select.append(option)}
+}
+async function refreshFranceStudentProjects(){const data=await api.frProjects("list");franceStudentProjects=Array.isArray(data.projects)?data.projects:[];renderFranceStudentProjects(data.selected);return data;}
+async function createFranceStudentProject(){
+    const name=await inputDialog("Créer un projet FranceStudent","Donne un nom à ce groupe de conversations.");if(!name)return;
+    const result=await api.frProjects("create",{name});franceStudentProjects=result.projects||franceStudentProjects;renderFranceStudentProjects(result.selected);studioFeedback(result.created?`Projet « ${result.selected.name} » créé. Les nouvelles discussions y seront classées.`:`Projet « ${result.selected.name} » sélectionné.`);
+}
+$("agent-fr-project")?.addEventListener("change",async event=>{
+    const select=event.currentTarget;select.disabled=true;
+    try{const result=await api.frProjects(select.value?"select":"clear",select.value?{id:select.value}:{});franceStudentProjects=result.projects||franceStudentProjects;renderFranceStudentProjects(result.selected);studioFeedback(result.selected?`Les nouvelles discussions seront classées dans « ${result.selected.name} ».`:"Les nouvelles discussions ne seront rattachées à aucun projet FranceStudent.");}
+    catch(error){studioFeedback(error.message);await refreshFranceStudentProjects().catch(()=>{});}finally{select.disabled=false}
+});
+$("agent-fr-project-create")?.addEventListener("click",()=>createFranceStudentProject().catch(error=>studioFeedback(error.message)));
+refreshFranceStudentProjects().catch(()=>{});
 function recordStudioEntry(entry) {
     if (entry.type === "user" && /^\/new\b/.test(entry.text || "")) studioEntries.length = 0;
     if (["user", "assistant", "tool", "result", "error", "warn", "plan"].includes(entry.type)) {
@@ -9340,12 +9360,13 @@ const chatNavigationActions = document.createElement("div");
 chatNavigationActions.className = "chat-navigation-actions";
 const chatNavigation = $("agent").querySelector(".agent-navigation");
 chatNavigationActions.append(...document.querySelector("#agent .agent-actions").children, $("agent-focus"));
-// Le choix du projet FranceStudent reste visible même lorsque la barre de contexte
-// est réduite pour le chat compact.
-const franceProjectButton = $("agent-fr-project");
-if (franceProjectButton) {
-    franceProjectButton.classList.add("chat-project-button");
-    chatNavigationActions.prepend(franceProjectButton);
+// Le sélecteur de projet reste visible même lorsque la barre de contexte est réduite.
+const franceProjectScope = document.querySelector("#agent .chat-project-scope");
+const franceProjectCreate = $("agent-fr-project-create");
+if (franceProjectScope && franceProjectCreate) {
+    const projectControls = document.createElement("div"); projectControls.className = "chat-project-controls";
+    projectControls.append(franceProjectScope, franceProjectCreate);
+    chatNavigationActions.prepend(projectControls);
 }
 chatNavigation.append(chatNavigationActions);
 document.querySelector("#agent .agent-header").hidden = true;

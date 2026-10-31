@@ -1178,10 +1178,10 @@ function registerIpc() {
     handle("frProjects", async (action = "list", payload = {}) => {
         const projects = require("../src/api/fr-projects");
         const selected = require("../src/state").state.frProject || null;
-        if (action === "list") return { selected, projects: await projects.listProjects() };
+        if (action === "list") return { selected, projects: await projects.listAvailableProjects() };
         if (action === "select") {
             const id = String(payload.id || "");
-            const data = await projects.listProjects();
+            const data = await projects.listAvailableProjects();
             const project = data.find(item => String(item?.id || "") === id);
             if (!project) throw new Error("Projet FranceStudent introuvable ou non accessible.");
             return { selected: await projects.saveSelected(project), projects: data };
@@ -1190,9 +1190,14 @@ function registerIpc() {
             const name = String(payload.name || "").trim();
             if (!name) throw new Error("Donne un nom au projet FranceStudent.");
             const created = await projects.findOrCreateProject(name);
-            return { selected: await projects.saveSelected(created.project), projects: await projects.listProjects(), created: created.created };
+            return { selected: await projects.saveSelected(created.project), projects: await projects.listAvailableProjects(), created: created.created };
         }
-        if (action === "clear") return { selected: await projects.saveSelected(null), projects: await projects.listProjects() };
+        if (action === "clear") return { selected: await projects.saveSelected(null), projects: await projects.listAvailableProjects() };
+        if (action === "chats") {
+            const id = String(payload.id || selected?.id || "");
+            if (!id) throw new Error("Choisis d’abord un projet FranceStudent.");
+            return projects.listProjectChats(id, { limit: payload.limit, cursorChatId: payload.cursorChatId });
+        }
         throw new Error("Action de projet FranceStudent inconnue.");
     });
     handle("gitInit", (expectedWorkspace) => {

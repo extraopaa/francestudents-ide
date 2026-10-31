@@ -3,12 +3,13 @@ const chatNavigationActions = document.createElement("div");
 chatNavigationActions.className = "chat-navigation-actions";
 const chatNavigation = $("agent").querySelector(".agent-navigation");
 chatNavigationActions.append(...document.querySelector("#agent .agent-actions").children, $("agent-focus"));
-// Le choix du projet FranceStudent reste visible même lorsque la barre de contexte
-// est réduite pour le chat compact.
-const franceProjectButton = $("agent-fr-project");
-if (franceProjectButton) {
-    franceProjectButton.classList.add("chat-project-button");
-    chatNavigationActions.prepend(franceProjectButton);
+// Le sélecteur de projet reste visible même lorsque la barre de contexte est réduite.
+const franceProjectScope = document.querySelector("#agent .chat-project-scope");
+const franceProjectCreate = $("agent-fr-project-create");
+if (franceProjectScope && franceProjectCreate) {
+    const projectControls = document.createElement("div"); projectControls.className = "chat-project-controls";
+    projectControls.append(franceProjectScope, franceProjectCreate);
+    chatNavigationActions.prepend(projectControls);
 }
 chatNavigation.append(chatNavigationActions);
 document.querySelector("#agent .agent-header").hidden = true;
