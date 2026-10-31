@@ -14,6 +14,11 @@ on:
         required: false
         default: false
         type: boolean
+      source_ref:
+        description: Tag ou commit à construire (vide utilise le tag de la release)
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -28,11 +33,12 @@ jobs:
     runs-on: windows-latest
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      SOURCE_REF: ${{ inputs.source_ref || github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ env.SOURCE_REF }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
